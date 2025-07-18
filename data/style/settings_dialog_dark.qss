@@ -1,54 +1,23 @@
-/* Окно настроек (темная тема) */
+/* Приветственное окно (темная тема) */
 QDialog {
-    background-color: #323232; /* Темный фон */
-    color: white; /* Белый текст */
+    background-color: #1b1b1b;
+    color: white;
 }
 
-/* Все QLabel */
 QLabel {
-    color: #e0e0e0; /* Светло-серый текст */
+    color: #e0e0e0;
+    font-size: 16px;
+    margin-bottom: 10px;
 }
 
-/* Специальный QLabel с objectName="versionLabel" */
-QLabel#versionLabel {
-    color: #aaa; /* Серый текст */
-    font-size: 12px; /* Меньший размер шрифта */
-}
-
-/* Кнопки */
 QPushButton {
-    background-color: #64b5f6; /* Голубой фон */
-    color: black; /* Черный текст */
-    border-radius: 20px; /* Закругление углов */
-    font-size: 14px; /* Размер шрифта */
-    font-weight: bold; /* Жирный шрифт */
-    padding: 5px 15px; /* Внутренние отступы */
+    background-color: #64b5f6;
+    color: black;
+    border-radius: 25px;
+    font-size: 16px;
+    font-weight: bold;
 }
 
-/* Кнопка при наведении */
 QPushButton:hover {
-    background-color: #5aa5e6; /* Темно-голубой фон */
-}
-
-/* Чекбокс */
-QCheckBox {
-    spacing: 10px; /* Расстояние между индикатором и текстом */
-}
-
-/* Индикатор чекбокса */
-QCheckBox::indicator {
-    width: 60px; /* Ширина */
-    height: 30px; /* Высота */
-    border-radius: 15px; /* Закругление (овал) */
-}
-
-/* Невыбранный чекбокс */
-QCheckBox::indicator:unchecked {
-    background-color: #555; /* Темно-серый фон */
-}
-
-/* Выбранный чекбокс */
-QCheckBox::indicator:checked {
-    background-color: #64b5f6; /* Голубой фон */
-    image: url(); /* Убираем стандартное изображение */
+    background-color: #5aa5e6;
 }
