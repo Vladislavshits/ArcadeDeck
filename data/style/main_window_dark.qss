@@ -1,60 +1,63 @@
-/* Главное окно приложения (темная тема) */
+/* Главное окно (темная тема) */
 QMainWindow {
-    background-color: #323232; /* Основной фон */
+    background-color: #1b1b1b;
 }
 
-/* Все QLabel */
 QLabel {
-    color: #e0e0e0; /* Цвет текста */
+    color: #e0e0e0;
 }
 
-/* Специальный QLabel с objectName="title" */
 QLabel#title {
-    color: #64b5f6; /* Голубой цвет заголовка */
-    font-weight: bold; /* Жирный шрифт */
-    font-size: 28px; /* Размер шрифта */
+    color: #64b5f6;
+    font-weight: bold;
+    font-size: 28px;
 }
 
-/* Поле поиска */
 QLineEdit {
-    background-color: #424242; /* Фон поля */
-    color: white; /* Цвет текста */
-    padding: 10px 30px; /* Внутренние отступы */
-    font-size: 18px; /* Размер шрифта */
-    border: 2px solid #64b5f6; /* Голубая рамка */
-    border-radius: 35px; /* Закругление углов */
-    min-height: 60px; /* Минимальная высота */
-    min-width: 700px; /* Минимальная ширина */
+    background-color: #252525;
+    color: white;
+    padding: 10px 30px;
+    font-size: 18px;
+    border: 2px solid #64b5f6;
+    border-radius: 35px;
+    min-height: 60px;
+    min-width: 700px;
 }
 
-/* Список результатов */
 QListWidget {
-    background-color: #424242; /* Фон списка */
-    color: white; /* Цвет текста */
-    border: 1px solid #555; /* Граница */
-    border-radius: 10px; /* Закругление углов */
-    padding: 5px; /* Внутренние отступы */
-    font-size: 16px; /* Размер шрифта */
-    min-width: 700px; /* Минимальная ширина */
+    background-color: #252525;
+    color: white;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 5px;
+    font-size: 16px;
+    min-width: 700px;
 }
 
-/* Элементы списка */
 QListWidget::item {
-    background-color: #424242; /* Фон элемента */
-    color: white; /* Цвет текста */
-    padding: 15px; /* Внутренние отступы */
-    border-bottom: 1px solid #555; /* Разделитель между элементами */
-    border-radius: 5px; /* Закругление углов */
+    background-color: #252525;
+    color: white;
+    padding: 15px;
+    border-bottom: 1px solid #333;
+    border-radius: 5px;
 }
 
-/* Выбранный элемент списка */
 QListWidget::item:selected {
-    background-color: #64b5f6; /* Голубой фон при выборе */
-    color: black; /* Цвет текста при выборе */
-    border-radius: 5px; /* Закругление углов */
+    background-color: #64b5f6;
+    color: black;
+    border-radius: 5px;
 }
 
-/* Элемент списка при наведении */
 QListWidget::item:hover {
-    background-color: #555; /* Темно-серый фон при наведении */
+    background-color: #333;
+}
+
+QToolButton {
+    background-color: #64b5f6;
+    border-radius: 20px;
+    border: none;
+}
+
+QToolButton:hover {
+    background-color: #5aa5e6;
 }
