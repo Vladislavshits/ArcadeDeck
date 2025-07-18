@@ -1,0 +1,62 @@
+[
+  {
+    "title": "EmuDeck: Полное руководство по установке",
+    "url": "https://example.com/emudeck"
+  },
+  {
+    "title": "Настройка эмулятора Yuzu",
+    "url": "https://example.com/yuzu"
+  },
+  {
+    "title": "RPCS3 на Steam Deck",
+    "url": "https://example.com/rpcs3"
+  },
+  {
+    "title": "Оптимизация CEMU",
+    "url": "https://example.com/cemu"
+  },
+  {
+    "title": "Настройка эмулятора Dolphin",
+    "url": "https://example.com/dolphin"
+  },
+  {
+    "title": "Эмуляция PS2 с PCSX2",
+    "url": "https://example.com/pcsx2"
+  },
+  {
+    "title": "Vita3K для игр с PlayStation Vita",
+    "url": "https://example.com/vita3k"
+  },
+  {
+    "title": "Игры Switch на Steam Deck",
+    "url": "https://example.com/switch"
+  },
+  {
+    "title": "Эмуляция Xbox: руководство по Xemu",
+    "url": "https://example.com/xemu"
+  },
+  {
+    "title": "Настройка ядер RetroArch",
+    "url": "https://example.com/retroarch"
+  },
+  {
+    "title": "Настройка контроллера GameCube",
+    "url": "https://example.com/gc_controller"
+  },
+  {
+    "title": "Конфигурация Steam ROM Manager",
+    "url": "https://example.com/srm"
+  },
+  {
+    "title": "Оптимизация производительности",
+    "url": "https://example.com/performance"
+  },
+  {
+    "title": "Облачные сохранения для эмуляторов",
+    "url": "https://example.com/cloud_saves"
+  },
+  {
+    "title": "Сравнение эмуляторов Windows",
+    "url": "https://example.com/windows_emu"
+  }
+]
