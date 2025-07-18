@@ -1,26 +1,23 @@
-/* Диалоговое окно приветствия (светлая тема) */
+/* Приветственное окно (светлая тема) */
 QDialog {
-    background-color: #f5f7fa; /* Светло-голубой фон */
-    color: #333; /* Темный текст */
+    background-color: #f3f3f3;
+    color: #333;
 }
 
-/* Все QLabel */
 QLabel {
-    color: #333; /* Темный текст */
-    font-size: 16px; /* Размер шрифта */
-    margin-bottom: 10px; /* Отступ снизу */
+    color: #333333;
+    font-size: 16px;
+    margin-bottom: 10px;
 }
 
-/* Кнопки */
 QPushButton {
-    background-color: #4285f4; /* Синий фон */
-    color: white; /* Белый текст */
-    border-radius: 25px; /* Закругление углов */
-    font-size: 16px; /* Размер шрифта */
-    font-weight: bold; /* Жирный шрифт */
+    background-color: #4285f4;
+    color: white;
+    border-radius: 25px;
+    font-size: 16px;
+    font-weight: bold;
 }
 
-/* Кнопка при наведении */
 QPushButton:hover {
-    background-color: #3a75d4; /* Темно-синий фон */
+    background-color: #3a75d4;
 }
