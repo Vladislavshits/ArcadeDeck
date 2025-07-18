@@ -93,7 +93,7 @@ chmod 600 "$LOG_FILE"
 
 # Прогресс установки с задержками
 (
-    # Шаг 1/8: Создание директории
+    # Шаг 1/11: Создание директории
     echo "10"
     echo "# Создание директории приложения..."
     log "Создание директории $INSTALL_DIR"
@@ -101,40 +101,86 @@ chmod 600 "$LOG_FILE"
     check_success "Создание директории $INSTALL_DIR"
     sleep 0.5
 
-    # Шаг 2/8: Загрузка основного файла программы
+    # Шаг 2/11: Загрузка основного файла программы
     echo "20"
     echo "# Загрузка программы с GitHub..."
     download_from_github "PixelDeck.py" "$INSTALL_DIR/PixelDeck.py"
     check_success "Загрузка PixelDeck.py"
     sleep 0.5
 
-    # Шаг 3/8: Загрузка файла guides.json
+    # Шаг 3/11: Загрузка файла guides.json
     echo "30"
     echo "# Загрузка списка гайдов с GitHub..."
     download_from_github "guides.json" "$INSTALL_DIR/guides.json"
     check_success "Загрузка guides.json"
     sleep 0.5
 
-    # Шаг 4/8: Загрузка иконки
+    # Шаг 4/11: Создание папки стилей
     echo "40"
+    echo "# Создание папки стилей..."
+    STYLES_DIR="$INSTALL_DIR/data/style"
+    mkdir -p "$STYLES_DIR"
+    check_success "Создание папки стилей"
+    log "Папка стилей создана: $STYLES_DIR"
+    sleep 0.5
+
+    # Шаг 5/11: Загрузка файлов стилей
+    STYLE_FILES=(
+        "main_window_dark.qss"
+        "main_window_light.qss"
+        "welcome_dialog_dark.qss"
+        "welcome_dialog_light.qss"
+        "settings_dialog_dark.qss"
+        "settings_dialog_light.qss"
+    )
+
+    total_files=${#STYLE_FILES[@]}
+    current_file=0
+
+    for style_file in "${STYLE_FILES[@]}"; do
+        current_file=$((current_file + 1))
+        progress=$((40 + current_file * 5))
+
+        echo "$progress"
+        echo "# Загрузка стиля ($current_file/$total_files): $style_file..."
+        log "Начало загрузки стиля: $style_file"
+
+        download_from_github "data/style/$style_file" "$STYLES_DIR/$style_file"
+
+        # Проверяем результат загрузки
+        if [ $? -ne 0 ]; then
+            log "Ошибка: не удалось загрузить файл стиля $style_file"
+            zenity --warning --text="Не удалось загрузить файл стиля $style_file" --width=300
+        else
+            log "Файл стиля $style_file успешно загружен"
+        fi
+
+        sleep 0.2
+    done
+
+    # Шаг 6/11: Загрузка иконки
+    echo "70"
     echo "# Загрузка иконки приложения..."
+    log "Начало загрузки иконки"
     download_from_github "icon.png" "$INSTALL_DIR/icon.png"
     # Не критичная ошибка, если иконка не загрузится
     if [ $? -ne 0 ]; then
         log "Предупреждение: не удалось загрузить иконку"
+    else
+        log "Иконка успешно загружена"
     fi
     sleep 0.5
 
-    # Шаг 5/8: Установка прав
-    echo "50"
+    # Шаг 7/11: Установка прав
+    echo "75"
     echo "# Установка прав доступа..."
     log "Установка прав на исполнение для PixelDeck.py"
     chmod +x "$INSTALL_DIR/PixelDeck.py"
     check_success "Установка прав на исполнение"
     sleep 0.5
 
-    # Шаг 6/8: Проверка зависимостей
-    echo "60"
+    # Шаг 8/11: Проверка зависимостей
+    echo "80"
     echo "# Проверка зависимостей..."
 
     # Проверка Python
@@ -143,38 +189,42 @@ chmod 600 "$LOG_FILE"
         sudo apt update
         sudo apt install -y python3
         check_success "Установка Python3"
+        log "Python3 успешно установлен"
     else
         log "Python3 уже установлен"
     fi
     sleep 0.5
 
     # Проверка pip
-    echo "70"
+    echo "85"
     echo "# Установка pip3..."
     if ! command -v pip3 &> /dev/null; then
         log "pip3 не установлен, начинаем установку"
         sudo apt install -y python3-pip
         check_success "Установка pip3"
+        log "pip3 успешно установлен"
     else
         log "pip3 уже установлен"
     fi
     sleep 0.5
 
     # Проверка PyQt5
-    echo "80"
+    echo "90"
     echo "# Установка PyQt5..."
     if ! python3 -c "import PyQt5" &> /dev/null; then
         log "PyQt5 не установлен, начинаем установку"
         pip3 install PyQt5
         check_success "Установка PyQt5"
+        log "PyQt5 успешно установлен"
     else
         log "PyQt5 уже установлен"
     fi
     sleep 0.5
 
-    # Шаг 7/8: Создание ярлыков
-    echo "90"
+    # Шаг 9/11: Создание ярлыков
+    echo "95"
     echo "# Создание ярлыков приложения..."
+    log "Создание ярлыков..."
 
     # Проверяем, есть ли иконка
     ICON_PATH="applications-games"
@@ -199,6 +249,7 @@ Categories=Game;Utility;
 Keywords=emulator;steam;deck;guide;
 EOF
     check_success "Создание .desktop файла (меню)"
+    log "Ярлык для меню приложений создан"
 
     # Ярлык на рабочем столе
     cat > "$DESKTOP_SHORTCUT" <<EOF
@@ -214,14 +265,21 @@ Keywords=emulator;steam;deck;guide;
 EOF
     chmod +x "$DESKTOP_SHORTCUT"  # Делаем ярлык на рабочем столе запускаемым
     check_success "Создание .desktop файла (рабочий стол)"
+    log "Ярлык на рабочем столе создан"
     sleep 0.5
 
-    # Шаг 8/8: Обновление меню
-    echo "100"
+    # Шаг 10/11: Обновление меню
+    echo "98"
     echo "# Обновление меню приложений..."
     log "Обновление меню приложений"
     update-desktop-database "$USER_HOME/.local/share/applications"
     check_success "Обновление меню приложений"
+    sleep 0.5
+
+    # Шаг 11/11: Завершение установки
+    echo "100"
+    echo "# Завершение установки..."
+    log "Установка успешно завершена"
     sleep 0.5
 
 ) | zenity --progress \
@@ -229,7 +287,8 @@ EOF
   --text="Подготовка к установке..." \
   --percentage=0 \
   --auto-close \
-  --width=400
+  --width=400 \
+  --height=120  # Увеличенная высота окна
 
 # Проверка статуса завершения установки
 if [ "$?" = -1 ]; then
@@ -258,6 +317,7 @@ else
 fi
 EOF
 chmod +x "$UNINSTALLER"
+log "Скрипт удаления создан: $UNINSTALLER"
 
 # Удаляем crash.txt если он пустой или не создавался
 if [ -f "$CRASH_FILE" ] && [ ! -s "$CRASH_FILE" ]; then
