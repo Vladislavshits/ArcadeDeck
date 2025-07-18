@@ -1,0 +1,60 @@
+/* Главное окно приложения (темная тема) */
+QMainWindow {
+    background-color: #323232; /* Основной фон */
+}
+
+/* Все QLabel */
+QLabel {
+    color: #e0e0e0; /* Цвет текста */
+}
+
+/* Специальный QLabel с objectName="title" */
+QLabel#title {
+    color: #64b5f6; /* Голубой цвет заголовка */
+    font-weight: bold; /* Жирный шрифт */
+    font-size: 28px; /* Размер шрифта */
+}
+
+/* Поле поиска */
+QLineEdit {
+    background-color: #424242; /* Фон поля */
+    color: white; /* Цвет текста */
+    padding: 10px 30px; /* Внутренние отступы */
+    font-size: 18px; /* Размер шрифта */
+    border: 2px solid #64b5f6; /* Голубая рамка */
+    border-radius: 35px; /* Закругление углов */
+    min-height: 60px; /* Минимальная высота */
+    min-width: 700px; /* Минимальная ширина */
+}
+
+/* Список результатов */
+QListWidget {
+    background-color: #424242; /* Фон списка */
+    color: white; /* Цвет текста */
+    border: 1px solid #555; /* Граница */
+    border-radius: 10px; /* Закругление углов */
+    padding: 5px; /* Внутренние отступы */
+    font-size: 16px; /* Размер шрифта */
+    min-width: 700px; /* Минимальная ширина */
+}
+
+/* Элементы списка */
+QListWidget::item {
+    background-color: #424242; /* Фон элемента */
+    color: white; /* Цвет текста */
+    padding: 15px; /* Внутренние отступы */
+    border-bottom: 1px solid #555; /* Разделитель между элементами */
+    border-radius: 5px; /* Закругление углов */
+}
+
+/* Выбранный элемент списка */
+QListWidget::item:selected {
+    background-color: #64b5f6; /* Голубой фон при выборе */
+    color: black; /* Цвет текста при выборе */
+    border-radius: 5px; /* Закругление углов */
+}
+
+/* Элемент списка при наведении */
+QListWidget::item:hover {
+    background-color: #555; /* Темно-серый фон при наведении */
+}

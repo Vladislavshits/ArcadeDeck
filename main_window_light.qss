@@ -1,0 +1,60 @@
+/* Главное окно приложения (светлая тема) */
+QMainWindow {
+    background-color: #f5f7fa; /* Светло-голубой фон */
+}
+
+/* Все QLabel */
+QLabel {
+    color: #333; /* Темно-серый цвет текста */
+}
+
+/* Специальный QLabel с objectName="title" */
+QLabel#title {
+    color: #4285f4; /* Синий цвет заголовка */
+    font-weight: bold; /* Жирный шрифт */
+    font-size: 28px; /* Размер шрифта */
+}
+
+/* Поле поиска */
+QLineEdit {
+    background-color: white; /* Белый фон */
+    color: #333; /* Цвет текста */
+    padding: 10px 30px; /* Внутренние отступы */
+    font-size: 18px; /* Размер шрифта */
+    border: 2px solid #4285f4; /* Синяя рамка */
+    border-radius: 35px; /* Закругление углов */
+    min-height: 60px; /* Минимальная высота */
+    min-width: 700px; /* Минимальная ширина */
+}
+
+/* Список результатов */
+QListWidget {
+    background-color: white; /* Белый фон */
+    color: #333; /* Цвет текста */
+    border: 1px solid #ddd; /* Светло-серая граница */
+    border-radius: 10px; /* Закругление углов */
+    padding: 5px; /* Внутренние отступы */
+    font-size: 16px; /* Размер шрифта */
+    min-width: 700px; /* Минимальная ширина */
+}
+
+/* Элементы списка */
+QListWidget::item {
+    background-color: white; /* Белый фон */
+    color: #333; /* Цвет текста */
+    padding: 15px; /* Внутренние отступы */
+    border-bottom: 1px solid #eee; /* Светлый разделитель */
+    border-radius: 5px; /* Закругление углов */
+}
+
+/* Выбранный элемент списка */
+QListWidget::item:selected {
+    background-color: #4285f4; /* Синий фон при выборе */
+    color: white; /* Белый текст при выборе */
+    border-radius: 5px; /* Закругление углов */
+}
+
+/* Элемент списка при наведении */
+QListWidget::item:hover {
+    background-color: #f0f0f0; /* Светло-серый фон при наведении */
+}
