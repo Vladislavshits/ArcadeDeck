@@ -17,10 +17,11 @@ from PyQt5.QtGui import QIcon, QFont, QColor, QPalette
 APP_VERSION = "0.1.5"
 
 # --- ПУТИ К ФАЙЛАМ ---
-# Базовый путь к директории скрипта
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Путь к JSON-файлу с гайдами
-GUIDES_JSON_PATH = os.path.join(BASE_DIR, "guides.json")
+# Базовый путь к директории контента (установка в ~/PixelDeck/Content)
+CONTENT_DIR = os.path.join(os.path.expanduser("~"), "PixelDeck", "Content")
+# Пути к JSON-файлам с гайдами
+GUIDES_JSON_PATH = os.path.join(CONTENT_DIR, "guides.json")
+GAME_LIST_GUIDE_JSON_PATH = os.path.join(CONTENT_DIR, "game-list-guides.json")
 # Директория со стилями (в домашней директории пользователя: ~/PixelDeck/data/style)
 STYLES_DIR = os.path.join(os.path.expanduser("~"), "PixelDeck", "data", "style")
 
@@ -32,42 +33,71 @@ WELCOME_DIALOG_LIGHT_STYLE = os.path.join(STYLES_DIR, "welcome_dialog_light.qss"
 SETTINGS_DIALOG_DARK_STYLE = os.path.join(STYLES_DIR, "settings_dialog_dark.qss")
 SETTINGS_DIALOG_LIGHT_STYLE = os.path.join(STYLES_DIR, "settings_dialog_light.qss")
 
-def load_guides():
+# Создаем необходимые директории, если они не существуют
+os.makedirs(CONTENT_DIR, exist_ok=True)
+os.makedirs(STYLES_DIR, exist_ok=True)
+
+def load_content():
     """
-    Загружает гайды из JSON-файла.
-    Если файл не найден или произошла ошибка, возвращает список по умолчанию.
+    Загружает контент из JSON-файлов (guides.json и game-list-guides.json).
+    Возвращает два списка: гайды и игры.
     """
+    guides = []
+    games = []
+
+    # Проверяем существование папки Content
+    if not os.path.exists(CONTENT_DIR):
+        print(f"Папка контента не найдена: {CONTENT_DIR}")
+        return guides, games
+
+    # Загрузка гайдов
     try:
-        # Проверяем существование файла с гайдами
         if os.path.exists(GUIDES_JSON_PATH):
-            # Открываем и читаем JSON-файл
+            print(f"Загрузка файла гайдов: {GUIDES_JSON_PATH}")
             with open(GUIDES_JSON_PATH, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                content = f.read()
+                if content:
+                    guides_data = json.loads(content)
+                    if isinstance(guides_data, list):
+                        guides = guides_data
+                        print(f"Загружено гайдов: {len(guides)}")
+                    else:
+                        print(f"Ошибка: файл гайдов не содержит список")
+                else:
+                    print(f"Файл гайдов пуст: {GUIDES_JSON_PATH}")
+        else:
+            print(f"Файл гайдов не найден: {GUIDES_JSON_PATH}")
+    except json.JSONDecodeError as e:
+        print(f"Ошибка декодирования JSON в файле гайдов: {e}")
     except Exception as e:
-        # В случае ошибки выводим сообщение в консоль
-        print(f"Ошибка загрузки guides.json: {e}")
+        print(f"Ошибка загрузки гайдов: {e}")
 
-    # Возвращаем список по умолчанию, если файл не найден или произошла ошибка
-    return [
-        {"title": "EmuDeck: Полное руководство по установке", "url": "https://example.com/emudeck"},
-        {"title": "Настройка эмулятора Yuzu", "url": "https://example.com/yuzu"},
-        {"title": "RPCS3 на Steam Deck", "url": "https://example.com/rpcs3"},
-        {"title": "Оптимизация CEMU", "url": "https://example.com/cemu"},
-        {"title": "Настройка эмулятора Dolphin", "url": "https://example.com/dolphin"},
-        {"title": "Эмуляция PS2 с PCSX2", "url": "https://example.com/pcsx2"},
-        {"title": "Vita3K для игр с PlayStation Vita", "url": "https://example.com/vita3k"},
-        {"title": "Игры Switch на Steam Deck", "url": "https://example.com/switch"},
-        {"title": "Эмуляция Xbox: руководство по Xemu", "url": "https://example.com/xemu"},
-        {"title": "Настройка ядер RetroArch", "url": "https://example.com/retroarch"},
-        {"title": "Настройка контроллера GameCube", "url": "https://example.com/gc_controller"},
-        {"title": "Конфигурация Steam ROM Manager", "url": "https://example.com/srm"},
-        {"title": "Оптимизация производительности", "url": "https://example.com/performance"},
-        {"title": "Облачные сохранения для эмуляторов", "url": "https://example.com/cloud_saves"},
-        {"title": "Сравнение эмуляторов Windows", "url": "https://example.com/windows_emu"},
-    ]
+    # Загрузка списка игр
+    try:
+        if os.path.exists(GAME_LIST_GUIDE_JSON_PATH):
+            print(f"Загрузка файла игр: {GAME_LIST_GUIDE_JSON_PATH}")
+            with open(GAME_LIST_GUIDE_JSON_PATH, 'r', encoding='utf-8') as f:
+                content = f.read()
+                if content:
+                    games_data = json.loads(content)
+                    if isinstance(games_data, list):
+                        games = games_data
+                        print(f"Загружено игр: {len(games)}")
+                    else:
+                        print(f"Ошибка: файл игр не содержит список")
+                else:
+                    print(f"Файл игр пуст: {GAME_LIST_GUIDE_JSON_PATH}")
+        else:
+            print(f"Файл игр не найден: {GAME_LIST_GUIDE_JSON_PATH}")
+    except json.JSONDecodeError as e:
+        print(f"Ошибка декодирования JSON в файле игр: {e}")
+    except Exception as e:
+        print(f"Ошибка загрузки игр: {e}")
 
-# Загружаем список гайдов
-GUIDES = load_guides()
+    return guides, games
+
+# Загружаем контент
+GUIDES, GAMES = load_content()
 
 def load_stylesheet(filename):
     """
@@ -363,10 +393,10 @@ class PixelDeckApp(QMainWindow):
 
         # Поле поиска
         self.search_field = QLineEdit()
-        self.search_field.setPlaceholderText("Поиск гайдов...")
+        self.search_field.setPlaceholderText("Поиск гайдов и игр...")
         self.search_field.setClearButtonEnabled(True)  # Кнопка очистки
         # Подключаем обработчик изменения текста
-        self.search_field.textChanged.connect(self.search_guides)
+        self.search_field.textChanged.connect(self.search_content)
         self.search_field.setMinimumHeight(60)
         self.main_layout.addWidget(self.search_field, alignment=Qt.AlignCenter)
 
@@ -375,7 +405,7 @@ class PixelDeckApp(QMainWindow):
         # Список результатов поиска
         self.results_list = QListWidget()
         # Подключаем обработчик двойного клика по элементу
-        self.results_list.itemDoubleClicked.connect(self.open_guide)
+        self.results_list.itemDoubleClicked.connect(self.open_item)
         self.results_list.hide()  # Скрываем список до начала поиска
         self.main_layout.addWidget(self.results_list, 1, alignment=Qt.AlignCenter)
 
@@ -400,31 +430,56 @@ class PixelDeckApp(QMainWindow):
         settings_dialog.setModal(True)  # Модальный режим
         settings_dialog.exec_()  # Показываем диалог
 
-    def display_guides(self, guides):
+    def display_results(self, results):
         """
-        Отображает список гайдов в виджете результатов.
+        Отображает результаты поиска в виджете списка.
 
-        :param guides: Список гайдов для отображения
+        :param results: Список результатов (каждый элемент - словарь с ключами 'type', 'title', 'url')
         """
         self.results_list.clear()  # Очищаем предыдущие результаты
-        # Если гайдов нет, скрываем виджет
-        if not guides:
+        # Если результатов нет, скрываем виджет
+        if not results:
             self.results_list.hide()
             return
 
-        # Добавляем каждый гайд в список
-        for guide in guides:
-            item = QListWidgetItem(guide["title"])
+        # Добавляем каждый результат в список
+        for item in results:
+            list_item = QListWidgetItem()
+
+            # Создаем виджет для отображения результата
+            item_widget = QWidget()
+            item_layout = QVBoxLayout(item_widget)
+
+            # Заголовок
+            title_label = QLabel(item['title'])
+            title_font = QFont("Arial", 14)
+            title_font.setBold(True)
+            title_label.setFont(title_font)
+
+            # Тип (гайд или игра)
+            type_label = QLabel(f"Тип: {item['type']}")
+            type_label.setFont(QFont("Arial", 10))
+            if item['type'] == "Гайд":
+                type_label.setStyleSheet("color: #4CAF50;")
+            else:
+                type_label.setStyleSheet("color: #2196F3;")
+
+            item_layout.addWidget(title_label)
+            item_layout.addWidget(type_label)
+
+            # Устанавливаем виджет в элемент списка
+            list_item.setSizeHint(item_widget.sizeHint())
+            self.results_list.addItem(list_item)
+            self.results_list.setItemWidget(list_item, item_widget)
+
             # Сохраняем URL в пользовательских данных элемента
-            item.setData(Qt.UserRole, guide["url"])
-            item.setFont(QFont("Arial", 14))  # Устанавливаем шрифт
-            self.results_list.addItem(item)
+            list_item.setData(Qt.UserRole, item['url'])
 
         # Показываем виджет с результатами
         self.results_list.show()
         self.results_list.updateGeometry()  # Обновляем геометрию виджета
 
-    def search_guides(self, text):
+    def search_content(self, text):
         """
         Обработчик изменения текста в поле поиска.
         Использует таймер для отложенного поиска.
@@ -436,7 +491,7 @@ class PixelDeckApp(QMainWindow):
 
     def perform_search(self, text):
         """
-        Выполняет поиск гайдов по введенному тексту.
+        Выполняет поиск по гайдам и играм.
 
         :param text: Текст для поиска
         """
@@ -447,14 +502,32 @@ class PixelDeckApp(QMainWindow):
 
         # Приводим запрос к нижнему регистру для регистронезависимого поиска
         query = text.lower()
-        # Фильтруем гайды по вхождению запроса в заголовок
-        results = [guide for guide in GUIDES if query in guide["title"].lower()]
-        # Отображаем результаты
-        self.display_guides(results)
+        results = []
 
-    def open_guide(self, item):
+        # Поиск в гайдах
+        for guide in GUIDES:
+            if query in guide["title"].lower():
+                results.append({
+                    'type': 'Гайд',
+                    'title': guide["title"],
+                    'url': guide["url"]
+                })
+
+        # Поиск в играх
+        for game in GAMES:
+            if query in game["title"].lower():
+                results.append({
+                    'type': 'Игра',
+                    'title': game["title"],
+                    'url': game["url"]
+                })
+
+        # Отображаем результаты
+        self.display_results(results)
+
+    def open_item(self, item):
         """
-        Открывает выбранный гайд в браузере по умолчанию.
+        Открывает выбранный элемент в браузере по умолчанию.
 
         :param item: Элемент списка, по которому кликнули
         """
@@ -470,17 +543,6 @@ if __name__ == "__main__":
     app.setStyle("Fusion")  # Устанавливаем стиль Fusion
 
     # --- ПРОВЕРКА НАЛИЧИЯ ФАЙЛОВ СТИЛЕЙ ---
-    # Проверяем существование директории со стилями
-    if not os.path.exists(STYLES_DIR):
-        # Если директория не существует, считаем все стили отсутствующими
-        missing_styles = [
-            "main_window_dark.qss", "main_window_light.qss",
-            "welcome_dialog_dark.qss", "welcome_dialog_light.qss",
-            "settings_dialog_dark.qss", "settings_dialog_light.qss"
-        ]
-        show_style_error(missing_styles)
-        sys.exit(1)  # Выходим с ошибкой
-
     # Список обязательных файлов стилей
     required_styles = [
         MAIN_WINDOW_DARK_STYLE,
@@ -493,6 +555,10 @@ if __name__ == "__main__":
 
     # Проверяем наличие каждого файла стиля
     missing_styles = [style for style in required_styles if not os.path.exists(style)]
+
+    # Если директория со стилями не существует, считаем все стили отсутствующими
+    if not os.path.exists(STYLES_DIR):
+        missing_styles = required_styles
 
     # Если какие-то файлы отсутствуют
     if missing_styles:
