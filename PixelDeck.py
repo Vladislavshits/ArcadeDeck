@@ -14,7 +14,7 @@ from PyQt5.QtCore import Qt, QSize, QTimer, QSettings, QFile, QTextStream
 from PyQt5.QtGui import QIcon, QFont, QColor, QPalette
 
 # Версия приложения
-APP_VERSION = "0.1.5"
+APP_VERSION = "0.1.6 BETA"
 
 # --- ПУТИ К ФАЙЛАМ ---
 # Базовый путь к директории контента (установка в ~/PixelDeck/Content)
@@ -286,7 +286,7 @@ class SettingsDialog(QDialog):
         main_layout.addStretch(1)  # Гибкий промежуток
 
         # Метка с версией приложения
-        version_label = QLabel(f"PixelDeck Версия {APP_VERSION}")
+        version_label = QLabel(f"Версия {APP_VERSION}")
         version_label.setAlignment(Qt.AlignCenter)
         version_label.setObjectName("versionLabel")  # Имя объекта для стилизации
         main_layout.addWidget(version_label)
