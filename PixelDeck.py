@@ -8,13 +8,13 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLineEdit, QListWidget, QListWidgetItem, QLabel, QPushButton, QDialog,
     QSizePolicy, QSpacerItem, QDesktopWidget, QToolButton, QFrame,
-    QCheckBox, QMessageBox
+    QCheckBox, QMessageBox, QStackedWidget, QButtonGroup, QGridLayout
 )
 from PyQt5.QtCore import Qt, QSize, QTimer, QSettings, QFile, QTextStream
 from PyQt5.QtGui import QIcon, QFont, QColor, QPalette
 
 # Версия приложения
-APP_VERSION = "0.1.6 BETA"
+APP_VERSION = "0.1.6.2 BETA"
 
 # --- ПУТИ К ФАЙЛАМ ---
 # Базовый путь к директории контента (установка в ~/PixelDeck/Content)
@@ -26,12 +26,8 @@ GAME_LIST_GUIDE_JSON_PATH = os.path.join(CONTENT_DIR, "game-list-guides.json")
 STYLES_DIR = os.path.join(os.path.expanduser("~"), "PixelDeck", "data", "style")
 
 # Пути к файлам стилей для разных окон и тем
-MAIN_WINDOW_DARK_STYLE = os.path.join(STYLES_DIR, "main_window_dark.qss")
-MAIN_WINDOW_LIGHT_STYLE = os.path.join(STYLES_DIR, "main_window_light.qss")
-WELCOME_DIALOG_DARK_STYLE = os.path.join(STYLES_DIR, "welcome_dialog_dark.qss")
-WELCOME_DIALOG_LIGHT_STYLE = os.path.join(STYLES_DIR, "welcome_dialog_light.qss")
-SETTINGS_DIALOG_DARK_STYLE = os.path.join(STYLES_DIR, "settings_dialog_dark.qss")
-SETTINGS_DIALOG_LIGHT_STYLE = os.path.join(STYLES_DIR, "settings_dialog_light.qss")
+DARK_STYLE = os.path.join(STYLES_DIR, "Dark-style.qss")
+LIGHT_STYLE = os.path.join(STYLES_DIR, "Light-style.qss")
 
 # Создаем необходимые директории, если они не существуют
 os.makedirs(CONTENT_DIR, exist_ok=True)
@@ -150,105 +146,52 @@ def show_style_error(missing_styles):
 
     return False
 
-class WelcomeDialog(QDialog):
-    """Диалоговое окно приветствия, показываемое при первом запуске приложения."""
+class WelcomeScreen(QWidget):
+    """Экран приветствия, показываемый при запуске приложения."""
 
-    def __init__(self, parent=None, dark_theme=True):
+    def __init__(self, parent=None):
         """
-        Инициализация диалога приветствия.
+        Инициализация экрана приветствия.
 
         :param parent: Родительское окно
-        :param dark_theme: Использовать темную тему (по умолчанию True)
         """
-        super().__init__(parent, Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
-        # Настройка окна
-        self.setWindowTitle("Добро пожаловать в PixelDeck")
-        self.setFixedSize(720, 450)
-        self.dark_theme = dark_theme
+        super().__init__(parent)
+        self.setup_ui()
 
-        # Основной вертикальный лэйаут
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(30, 30, 30, 30)
-        main_layout.setSpacing(20)
-
-        # Заголовок
-        title = QLabel("Добро пожаловать в PixelDeck!")
-        title_font = QFont()
-        title_font.setBold(True)
-        title_font.setPointSize(22)
-        title.setFont(title_font)
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # Заголовок во весь экран
+        title = QLabel("PixelDeck")
         title.setAlignment(Qt.AlignCenter)
-        main_layout.addWidget(title)
+        title.setStyleSheet("""
+            font-size: 80px;
+            font-weight: bold;
+            color: #2a9fd6;
+            background-color: #1a1a1a;
+            padding: 30px;
+        """)
+        layout.addWidget(title, 1)  # Растягиваем на все доступное пространство
 
-        main_layout.addStretch(1)  # Гибкий промежуток
 
-        # Текст с инструкцией
-        text = QLabel(
-            "Привет! Чтобы использовать эту программу без проблем, установи в настройках Steam Deck свой браузер по умолчанию.\n\n"
-            "Как это сделать?\n"
-            "1. Открыть \"Настройки\"\n"
-            "2. В левой колонке долистать до пункта \"Приложения по умолчанию\"\n"
-            "3. Установить браузер по умолчанию и применить изменения."
-        )
-        text.setWordWrap(True)  # Перенос текста
-        text.setAlignment(Qt.AlignCenter)
-        main_layout.addWidget(text)
-
-        main_layout.addStretch(1)  # Гибкий промежуток
-
-        # Контейнер для кнопки
-        button_container = QWidget()
-        button_layout = QHBoxLayout(button_container)
-        button_layout.addStretch(1)
-
-        # Кнопка "Продолжить"
-        self.continue_button = QPushButton("Продолжить")
-        self.continue_button.setFixedSize(200, 50)
-        self.continue_button.clicked.connect(self.accept)  # Закрывает диалог с кодом Accepted
-        button_layout.addWidget(self.continue_button)
-        button_layout.addStretch(1)
-
-        main_layout.addWidget(button_container)
-        # Применяем выбранную тему
-        self.apply_theme()
-
-    def apply_theme(self):
-        """Применяет выбранную тему (темную или светлую) к диалогу."""
-        if self.dark_theme:
-            style = load_stylesheet(WELCOME_DIALOG_DARK_STYLE)
-        else:
-            style = load_stylesheet(WELCOME_DIALOG_LIGHT_STYLE)
-
-        if style:
-            self.setStyleSheet(style)
-
-    def center_on_screen(self):
-        """Центрирует окно на экране."""
-        screen = QDesktopWidget().screenGeometry()
-        window = self.geometry()
-        self.move(
-            (screen.width() - window.width()) // 2,
-            (screen.height() - window.height()) // 2
-        )
-
-class SettingsDialog(QDialog):
-    """Диалоговое окно настроек приложения."""
+class SettingsScreen(QWidget):
+    """Экран настроек приложения."""
 
     def __init__(self, parent=None, dark_theme=True):
         """
-        Инициализация диалога настроек.
+        Инициализация экрана настроек.
 
         :param parent: Родительское окно
         :param dark_theme: Использовать темную тему (по умолчанию True)
         """
-        super().__init__(parent, Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
-        # Настройка окна
-        self.setWindowTitle("Настройки PixelDeck")
-        self.setFixedSize(400, 250)
+        super().__init__(parent)
         self.dark_theme = dark_theme
-        self.parent = parent  # Ссылка на родительское окно
+        self.parent = parent
+        self.setup_ui()
 
-        # Основной вертикальный лэйаут
+    def setup_ui(self):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(30, 30, 30, 30)
         main_layout.setSpacing(20)
@@ -257,7 +200,7 @@ class SettingsDialog(QDialog):
         title = QLabel("Настройки")
         title_font = QFont()
         title_font.setBold(True)
-        title_font.setPointSize(28)
+        title_font.setPointSize(32)
         title.setFont(title_font)
         title.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(title)
@@ -275,7 +218,7 @@ class SettingsDialog(QDialog):
 
         # Переключатель темы (чекбокс)
         self.theme_toggle = QCheckBox()
-        self.theme_toggle.setChecked(dark_theme)
+        self.theme_toggle.setChecked(self.dark_theme)
         self.theme_toggle.setFixedSize(60, 30)
         # Подключаем обработчик изменения состояния
         self.theme_toggle.toggled.connect(self.toggle_theme)
@@ -287,25 +230,10 @@ class SettingsDialog(QDialog):
 
         # Метка с версией приложения
         version_label = QLabel(f"Версия {APP_VERSION}")
+        version_label.setFont(QFont("Arial", 14))
         version_label.setAlignment(Qt.AlignCenter)
         version_label.setObjectName("versionLabel")  # Имя объекта для стилизации
         main_layout.addWidget(version_label)
-
-        # Лэйаут для кнопки
-        button_layout = QHBoxLayout()
-        button_layout.addStretch(1)
-
-        # Кнопка "Закрыть"
-        close_button = QPushButton("Закрыть")
-        close_button.setFixedSize(120, 40)
-        close_button.clicked.connect(self.accept)  # Закрывает диалог с кодом Accepted
-        button_layout.addWidget(close_button)
-
-        button_layout.addStretch(1)
-        main_layout.addLayout(button_layout)
-
-        # Применяем выбранную тему
-        self.apply_theme()
 
     def toggle_theme(self, checked):
         """
@@ -314,7 +242,7 @@ class SettingsDialog(QDialog):
         :param checked: Новое состояние переключателя (включена темная тема)
         """
         self.dark_theme = checked
-        # Обновляем тему текущего диалога
+        # Обновляем тему текущего экрана
         self.apply_theme()
 
         if self.parent:
@@ -329,67 +257,53 @@ class SettingsDialog(QDialog):
             settings.setValue("dark_theme", checked)
 
     def apply_theme(self):
-        """Применяет выбранную тему (темную или светлую) к диалогу настроек."""
+        """Применяет выбранную тему (темную или светлую) к экрану настроек."""
         if self.dark_theme:
-            style = load_stylesheet(SETTINGS_DIALOG_DARK_STYLE)
+            style = load_stylesheet(DARK_STYLE)
         else:
-            style = load_stylesheet(SETTINGS_DIALOG_LIGHT_STYLE)
+            style = load_stylesheet(LIGHT_STYLE)
 
         if style:
             self.setStyleSheet(style)
 
-class PixelDeckApp(QMainWindow):
-    """Главное окно приложения PixelDeck."""
 
-    def __init__(self, dark_theme=True):
+class DummyScreen(QWidget):
+    """Заглушка для дополнительного экрана."""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setup_ui()
+    
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+        label = QLabel("Этот экран пока не реализован")
+        label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(label)
+
+
+class SearchScreen(QWidget):
+    """Экран поиска гайдов и игр."""
+
+    def __init__(self, parent=None, dark_theme=True):
         """
-        Инициализация главного окна приложения.
+        Инициализация экрана поиска.
 
+        :param parent: Родительское окно
         :param dark_theme: Использовать темную тему (по умолчанию True)
         """
-        super().__init__()
-        # Настройка окна
-        self.setWindowTitle("PixelDeck")
-        self.setGeometry(400, 300, 800, 600)
-        self.setMinimumSize(QSize(600, 400))
+        super().__init__(parent)
         self.dark_theme = dark_theme
+        self.setup_ui()
 
-        # Устанавливаем иконку приложения
-        self.setWindowIcon(QIcon.fromTheme("system-search"))
-
-        # Создаем центральный виджет и основной лэйаут
-        main_widget = QWidget()
-        self.setCentralWidget(main_widget)
-        self.main_layout = QVBoxLayout(main_widget)
+    def setup_ui(self):
+        # Основной вертикальный лэйаут
+        self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(20, 20, 20, 10)
-
-        # Верхняя панель с кнопкой настроек
+        self.main_layout.setSpacing(10)
         top_bar = QHBoxLayout()
         top_bar.setContentsMargins(0, 0, 0, 0)
-
-        # Кнопка настроек
-        self.settings_button = QToolButton()
-        self.settings_button.setFixedSize(40, 40)
-        self.settings_button.setIcon(QIcon.fromTheme("preferences-system"))
-        self.settings_button.setIconSize(QSize(24, 24))
-        self.settings_button.clicked.connect(self.open_settings)
-        top_bar.addWidget(self.settings_button)
         top_bar.addStretch(1)  # Гибкий промежуток
-
         self.main_layout.addLayout(top_bar)
-        self.main_layout.addStretch(1)  # Гибкий промежуток
-
-        # Заголовок приложения
-        title = QLabel("PixelDeck")
-        title.setObjectName("title")  # Имя объекта для стилизации
-        title_font = QFont()
-        title_font.setBold(True)
-        title_font.setPointSize(28)
-        title.setFont(title_font)
-        title.setAlignment(Qt.AlignCenter)
-        self.main_layout.addWidget(title, alignment=Qt.AlignCenter)
-
-        self.main_layout.addSpacing(30)  # Фиксированный промежуток
 
         # Поле поиска
         self.search_field = QLineEdit()
@@ -398,37 +312,29 @@ class PixelDeckApp(QMainWindow):
         # Подключаем обработчик изменения текста
         self.search_field.textChanged.connect(self.search_content)
         self.search_field.setMinimumHeight(60)
-        self.main_layout.addWidget(self.search_field, alignment=Qt.AlignCenter)
-
-        self.main_layout.addSpacing(20)  # Фиксированный промежуток
+        self.search_field.setObjectName("searchField")
+        self.main_layout.addWidget(self.search_field)
 
         # Список результатов поиска
         self.results_list = QListWidget()
         # Подключаем обработчик двойного клика по элементу
         self.results_list.itemDoubleClicked.connect(self.open_item)
         self.results_list.hide()  # Скрываем список до начала поиска
-        self.main_layout.addWidget(self.results_list, 1, alignment=Qt.AlignCenter)
-
-        self.main_layout.addStretch(1)  # Гибкий промежуток
+        self.results_list.setObjectName("resultsList")
+        self.main_layout.addWidget(self.results_list, 1)  # Растягиваем на оставшееся пространство
 
         # Применяем выбранную тему
         self.apply_theme()
 
     def apply_theme(self):
-        """Применяет выбранную тему (темную или светлую) к главному окну."""
+        """Применяет выбранную тему (темную или светлую) к экрану поиска."""
         if self.dark_theme:
-            style = load_stylesheet(MAIN_WINDOW_DARK_STYLE)
+            style = load_stylesheet(DARK_STYLE)
         else:
-            style = load_stylesheet(MAIN_WINDOW_LIGHT_STYLE)
+            style = load_stylesheet(LIGHT_STYLE)
 
         if style:
             self.setStyleSheet(style)
-
-    def open_settings(self):
-        """Открывает диалоговое окно настроек."""
-        settings_dialog = SettingsDialog(self, self.dark_theme)
-        settings_dialog.setModal(True)  # Модальный режим
-        settings_dialog.exec_()  # Показываем диалог
 
     def display_results(self, results):
         """
@@ -536,6 +442,155 @@ class PixelDeckApp(QMainWindow):
         # Открываем URL в браузере по умолчанию
         webbrowser.open(url)
 
+
+class NavigationBar(QWidget):
+    """Нижняя панель навигации для переключения между экранами."""
+    
+    def __init__(self, stacked_widget, parent=None):
+        super().__init__(parent)
+        self.stacked_widget = stacked_widget
+        self.setup_ui()
+    
+    def setup_ui(self):
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(20, 10, 20, 10)
+        layout.setSpacing(20)
+        
+        # Кнопки навигации
+        self.home_button = self.create_nav_button("Домой", "go-home")
+        self.search_button = self.create_nav_button("Поиск", "system-search")
+        self.settings_button = self.create_nav_button("Настройки", "preferences-system")
+        self.dummy_button = self.create_nav_button("Дополнительно", "applications-other")
+        
+        # Группируем кнопки для управления состоянием
+        self.button_group = QButtonGroup(self)
+        self.button_group.setExclusive(True)
+        self.button_group.addButton(self.home_button, 0)
+        self.button_group.addButton(self.search_button, 1)
+        self.button_group.addButton(self.settings_button, 2)
+        self.button_group.addButton(self.dummy_button, 3)
+        
+        # Добавляем кнопки в лэйаут
+        layout.addWidget(self.home_button)
+        layout.addWidget(self.search_button)
+        layout.addWidget(self.settings_button)
+        layout.addWidget(self.dummy_button)
+        
+        # По умолчанию активна кнопка поиска
+        self.search_button.setChecked(True)
+        
+        # Подключаем обработчики
+        self.home_button.clicked.connect(lambda: self.switch_screen(0))
+        self.search_button.clicked.connect(lambda: self.switch_screen(1))
+        self.settings_button.clicked.connect(lambda: self.switch_screen(2))
+        self.dummy_button.clicked.connect(lambda: self.switch_screen(3))
+    
+    def create_nav_button(self, text, icon_name):
+        """Создает кнопку навигации с иконкой."""
+        button = QToolButton()
+        button.setText(text)
+        button.setIcon(QIcon.fromTheme(icon_name))
+        button.setIconSize(QSize(24, 24))
+        button.setCheckable(True)
+        button.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        button.setStyleSheet("""
+            QToolButton {
+                padding: 10px;
+                font-size: 12px;
+            }
+            QToolButton:checked {
+                background-color: #2a9fd6;
+                color: white;
+            }
+        """)
+        return button
+    
+    def switch_screen(self, index):
+        """Переключает экран в стеке виджетов."""
+        self.stacked_widget.setCurrentIndex(index)
+
+
+class MainWindow(QMainWindow):
+    """Главное окно приложения с системой многоконного интерфейса."""
+
+    def __init__(self, dark_theme=True):
+        """
+        Инициализация главного окна приложения.
+
+        :param dark_theme: Использовать темную тему (по умолчанию True)
+        """
+        super().__init__()
+        # Настройка окна
+        self.setWindowTitle("PixelDeck")
+        self.setGeometry(400, 300, 1280, 800)
+        self.setMinimumSize(QSize(800, 600))
+        self.dark_theme = dark_theme
+
+        # Устанавливаем иконку приложения
+        self.setWindowIcon(QIcon.fromTheme("system-search"))
+
+        # Создаем центральный виджет
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        
+        # Основной вертикальный лэйаут
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        # Создаем стек виджетов для управления экранами
+        self.stacked_widget = QStackedWidget()
+        main_layout.addWidget(self.stacked_widget, 1)  # Растягиваем на все пространство
+        
+        # Создаем экраны
+        self.welcome_screen = WelcomeScreen()
+        self.search_screen = SearchScreen(self, dark_theme)
+        self.settings_screen = SettingsScreen(self, dark_theme)
+        self.dummy_screen = DummyScreen()
+        
+        # Добавляем экраны в стек
+        self.stacked_widget.addWidget(self.welcome_screen)
+        self.stacked_widget.addWidget(self.search_screen)
+        self.stacked_widget.addWidget(self.settings_screen)
+        self.stacked_widget.addWidget(self.dummy_screen)
+        
+        # По умолчанию показываем экран приветствия
+        self.stacked_widget.setCurrentIndex(0)
+        
+        # Создаем панель навигации
+        self.nav_bar = NavigationBar(self.stacked_widget)
+        main_layout.addWidget(self.nav_bar)
+        
+        # Применяем выбранную тему
+        self.apply_theme()
+
+
+    def switch_to_search(self):
+        """Переключает на экран поиска."""
+        self.stacked_widget.setCurrentIndex(1)
+        self.nav_bar.search_button.setChecked(True)
+
+    def switch_to_settings(self):
+        """Переключает на экран настроек."""
+        self.stacked_widget.setCurrentIndex(2)
+        self.nav_bar.settings_button.setChecked(True)
+
+    def apply_theme(self):
+        """Применяет выбранную тему (темную или светлую) ко всем экранам."""
+        if self.dark_theme:
+            style = load_stylesheet(DARK_STYLE)
+        else:
+            style = load_stylesheet(LIGHT_STYLE)
+
+        if style:
+            self.setStyleSheet(style)
+            # Применяем тему ко всем экранам
+            self.welcome_screen.setStyleSheet(style)
+            self.search_screen.apply_theme()
+            self.settings_screen.apply_theme()
+            self.dummy_screen.setStyleSheet(style)
+
+
 # Точка входа в приложение
 if __name__ == "__main__":
     # Создаем экземпляр приложения
@@ -545,12 +600,8 @@ if __name__ == "__main__":
     # --- ПРОВЕРКА НАЛИЧИЯ ФАЙЛОВ СТИЛЕЙ ---
     # Список обязательных файлов стилей
     required_styles = [
-        MAIN_WINDOW_DARK_STYLE,
-        MAIN_WINDOW_LIGHT_STYLE,
-        WELCOME_DIALOG_DARK_STYLE,
-        WELCOME_DIALOG_LIGHT_STYLE,
-        SETTINGS_DIALOG_DARK_STYLE,
-        SETTINGS_DIALOG_LIGHT_STYLE
+        DARK_STYLE,
+        LIGHT_STYLE
     ]
 
     # Проверяем наличие каждого файла стиля
@@ -582,16 +633,11 @@ if __name__ == "__main__":
 
     # Если приветственное окно еще не показывалось
     if not welcome_shown:
-        # Создаем и показываем приветственное окно
-        welcome = WelcomeDialog(dark_theme=dark_theme)
-        welcome.center_on_screen()  # Центрируем на экране
-        # Если пользователь нажал "Продолжить"
-        if welcome.exec_() == QDialog.Accepted:
-            # Сохраняем флаг, что окно было показано
-            settings.setValue("welcome_shown", True)
+        # Сохраняем флаг, что окно было показано
+        settings.setValue("welcome_shown", True)
 
     # Создаем и показываем главное окно приложения
-    window = PixelDeckApp(dark_theme=dark_theme)
+    window = MainWindow(dark_theme=dark_theme)
     window.showMaximized()  # Показываем в полноэкранном режиме
 
     # Запускаем главный цикл обработки событий
