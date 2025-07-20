@@ -71,10 +71,17 @@ SettingsScreen QLabel#versionLabel {
 }
 
 /* Настройки для экрана приветствия */
+WelcomeScreen {
+    background-color: #f0f0f0;
+}
 WelcomeScreen QLabel {
-    font-size: 72px;
+    font-size: 80px;
     font-weight: bold;
     color: #4285f4;
-    background-color: #f0f0f0;
     padding: 30px;
+}
+
+/* Стиль для экрана поиска */
+QListWidget::item {
+    padding: 20px; /* Увеличили отступы */
 }
