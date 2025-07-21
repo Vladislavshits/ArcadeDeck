@@ -5,6 +5,7 @@ import webbrowser
 import os
 import json
 import requests
+import subprocess
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLineEdit, QListWidget, QListWidgetItem, QLabel, QPushButton, QDialog,
@@ -14,7 +15,11 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QSize, QTimer, QSettings, QFile, QTextStream
 from PyQt5.QtGui import QIcon, QFont, QColor, QPalette
 from common import APP_VERSION, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet
-import subprocess
+from common import USER_HOME
+
+CONTENT_DIR = os.path.join(USER_HOME, "PixelDeck", "data", "content")
+GUIDES_JSON_PATH = os.path.join(CONTENT_DIR, "guides.json")
+GAME_LIST_GUIDE_JSON_PATH = os.path.join(CONTENT_DIR, "game-list-guides.json")
 
 # Определяем недостающие константы
 USER_HOME = os.path.expanduser("~")
