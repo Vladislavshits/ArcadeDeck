@@ -16,7 +16,42 @@ from PyQt5.QtGui import QFont
 from common import APP_VERSION, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet
 
 class UpdateDialog(QDialog):
-    # ... (реализация из PixelDeck.py) ...
+    def __init__(self, current_version, new_version, changelog, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Доступно обновление!")
+        self.setMinimumSize(500, 400)
+        
+        layout = QVBoxLayout(self)
+        
+        title = QLabel(f"Доступна новая версия: {new_version}")
+        title.setFont(QFont("Arial", 16, QFont.Bold))
+        layout.addWidget(title)
+        
+        current_label = QLabel(f"Текущая версия: {current_version}")
+        current_label.setFont(QFont("Arial", 12))
+        layout.addWidget(current_label)
+        
+        layout.addSpacing(20)
+        
+        changelog_label = QLabel("Изменения в новой версии:")
+        changelog_label.setFont(QFont("Arial", 12, QFont.Bold))
+        layout.addWidget(changelog_label)
+        
+        self.changelog_area = QTextEdit()
+        self.changelog_area.setReadOnly(True)
+        self.changelog_area.setPlainText(changelog)
+        layout.addWidget(self.changelog_area, 1)
+        
+        button_layout = QHBoxLayout()
+        self.later_button = QPushButton("Напомнить позже")
+        self.install_button = QPushButton("Установить обновление")
+        button_layout.addWidget(self.later_button)
+        button_layout.addWidget(self.install_button)
+        
+        layout.addLayout(button_layout)
+        
+        self.later_button.clicked.connect(self.reject)
+        self.install_button.clicked.connect(self.accept)
 
 def check_for_updates():
     """Проверяет наличие обновлений на GitHub"""
