@@ -18,8 +18,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QSize, QTimer, QSettings, QFile, QTextStream
 from PyQt5.QtGui import QIcon, QFont, QColor, QPalette
-from common import APP_VERSION, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet
-from common import USER_HOME
+from common import APP_VERSION, USER_HOME, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet
 
 CONTENT_DIR = os.path.join(USER_HOME, "PixelDeck", "data", "content")
 GUIDES_JSON_PATH = os.path.join(CONTENT_DIR, "guides.json")
