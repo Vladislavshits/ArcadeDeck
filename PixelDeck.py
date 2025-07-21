@@ -20,10 +20,6 @@ from PyQt5.QtCore import Qt, QSize, QTimer, QSettings, QFile, QTextStream
 from PyQt5.QtGui import QIcon, QFont, QColor, QPalette
 from common import APP_VERSION, USER_HOME, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet
 
-CONTENT_DIR = os.path.join(USER_HOME, "PixelDeck", "data", "content")
-GUIDES_JSON_PATH = os.path.join(CONTENT_DIR, "guides.json")
-GAME_LIST_GUIDE_JSON_PATH = os.path.join(CONTENT_DIR, "game-list-guides.json")
-
 # Определяем недостающие константы
 USER_HOME = os.path.expanduser("~")
 CONTENT_DIR = os.path.join(USER_HOME, "PixelDeck", "data", "content")
