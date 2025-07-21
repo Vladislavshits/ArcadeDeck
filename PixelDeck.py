@@ -13,26 +13,14 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QSize, QTimer, QSettings, QFile, QTextStream
 from PyQt5.QtGui import QIcon, QFont, QColor, QPalette
+from common import APP_VERSION, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet
+import subprocess
 
-# Версия приложения
-APP_VERSION = "0.1.6.2 BETA"
-
-# --- ПУТИ К ФАЙЛАМ ---
-# Базовый путь к директории контента (установка в ~/PixelDeck/Content)
-CONTENT_DIR = os.path.join(os.path.expanduser("~"), "PixelDeck", "Content")
-# Пути к JSON-файлам с гайдами
+# Определяем недостающие константы
+USER_HOME = os.path.expanduser("~")
+CONTENT_DIR = os.path.join(USER_HOME, "PixelDeck", "data", "content")
 GUIDES_JSON_PATH = os.path.join(CONTENT_DIR, "guides.json")
 GAME_LIST_GUIDE_JSON_PATH = os.path.join(CONTENT_DIR, "game-list-guides.json")
-# Директория со стилями (в домашней директории пользователя: ~/PixelDeck/data/style)
-STYLES_DIR = os.path.join(os.path.expanduser("~"), "PixelDeck", "data", "style")
-
-# Пути к файлам стилей для разных окон и тем
-DARK_STYLE = os.path.join(STYLES_DIR, "Dark-style.qss")
-LIGHT_STYLE = os.path.join(STYLES_DIR, "Light-style.qss")
-
-# Создаем необходимые директории, если они не существуют
-os.makedirs(CONTENT_DIR, exist_ok=True)
-os.makedirs(STYLES_DIR, exist_ok=True)
 
 def load_content():
     """
@@ -95,25 +83,6 @@ def load_content():
 
 # Загружаем контент
 GUIDES, GAMES = load_content()
-
-def load_stylesheet(filename):
-    """
-    Загружает файл стилей (QSS) и возвращает его содержимое в виде строки.
-    Если файл не найден или не может быть открыт, возвращает пустую строку.
-    """
-    file = QFile(filename)
-    # Проверяем существование файла
-    if not file.exists():
-        print(f"Файл стиля не найден: {filename}")
-        return ""
-
-    # Пытаемся открыть файл для чтения
-    if file.open(QFile.ReadOnly | QFile.Text):
-        stream = QTextStream(file)
-        stylesheet = stream.readAll()
-        file.close()
-        return stylesheet
-    return ""
 
 def show_style_error(missing_styles):
     """
@@ -622,112 +591,6 @@ class NavigationBar(QWidget):
         """Переключает экран в стеке виджетов."""
         self.stacked_widget.setCurrentIndex(index)
 
-class UpdateDialog(QDialog):
-    """Диалоговое окно для отображения обновлений"""
-    
-    def __init__(self, current_version, new_version, changelog, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Доступно обновление")
-        self.setMinimumSize(600, 400)
-        self.setup_ui(current_version, new_version, changelog)
-        
-    def setup_ui(self, current_version, new_version, changelog):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        
-        # Заголовок
-        title = QLabel("Доступно обновление!")
-        title.setAlignment(Qt.AlignCenter)
-        title_font = QFont()
-        title_font.setBold(True)
-        title_font.setPointSize(18)
-        title.setFont(title_font)
-        layout.addWidget(title)
-        
-        # Версии
-        versions = QLabel(f"Текущая версия: {current_version}\nНовая версия: {new_version}")
-        versions.setAlignment(Qt.AlignCenter)
-        versions_font = QFont()
-        versions_font.setPointSize(16)
-        versions.setFont(versions_font)
-        layout.addWidget(versions)
-        
-        # Ченжлог
-        changelog_label = QLabel("Изменения в новой версии:")
-        changelog_label.setFont(QFont("Arial", 14))
-        layout.addWidget(changelog_label)
-        
-        # Поле с ченжлогом
-        self.changelog_text = QTextEdit()
-        self.changelog_text.setReadOnly(True)
-        self.changelog_text.setPlainText(changelog)
-        self.changelog_text.setFont(QFont("Arial", 12))
-        layout.addWidget(self.changelog_text, 1)
-        
-        # Кнопки
-        button_layout = QHBoxLayout()
-        
-        download_button = QPushButton("Скачать обновление")
-        download_button.setFixedHeight(40)
-        download_button.setStyleSheet("""
-            QPushButton {
-                background-color: #2a9fd6;
-                color: white;
-                border-radius: 5px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #3ab0e6;
-            }
-        """)
-        download_button.clicked.connect(lambda: webbrowser.open("https://github.com/Vladislavshits/PixelDeck/releases"))
-        button_layout.addWidget(download_button)
-        
-        close_button = QPushButton("Закрыть")
-        close_button.setFixedHeight(40)
-        close_button.setStyleSheet("""
-            QPushButton {
-                background-color: #777;
-                color: white;
-                border-radius: 5px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #888;
-            }
-        """)
-        close_button.clicked.connect(self.close)
-        button_layout.addWidget(close_button)
-        
-        layout.addLayout(button_layout)
-
-def check_for_updates():
-    """Проверяет наличие обновлений на GitHub"""
-    try:
-        # URL для получения последнего релиза
-        api_url = "https://api.github.com/repos/Vladislavshits/PixelDeck/releases/latest"
-        
-        # Выполняем запрос
-        response = requests.get(api_url)
-        response.raise_for_status()
-        
-        # Парсим JSON
-        release_data = response.json()
-        latest_version = release_data.get("tag_name", "")
-        
-        # Если получена версия и она отличается от текущей
-        if latest_version and latest_version != APP_VERSION:
-            # Получаем ченжлог
-            changelog = release_data.get("body", "Нет информации об изменениях")
-            return latest_version, changelog
-        
-    except Exception as e:
-        print(f"Ошибка при проверке обновлений: {e}")
-    
-    return None, None
-
 class MainWindow(QMainWindow):
     """Главное окно приложения с системой многоконного интерфейса."""
 
@@ -809,6 +672,10 @@ class MainWindow(QMainWindow):
 
 # Точка входа в приложение
 if __name__ == "__main__":
+    # Создаем необходимые директории
+    os.makedirs(STYLES_DIR, exist_ok=True)
+    os.makedirs(CONTENT_DIR, exist_ok=True)
+    
     # Создаем экземпляр приложения
     app = QApplication(sys.argv)
     app.setStyle("Fusion")  # Устанавливаем стиль Fusion
@@ -860,16 +727,29 @@ if __name__ == "__main__":
     window = MainWindow(dark_theme=dark_theme)
     window.showMaximized()  # Показываем в полноэкранном режиме
     
-    # Проверяем обновления после показа основного окна
-    QTimer.singleShot(2000, lambda: check_and_show_updates(window))
+    # Проверяем обновления с помощью updater.py
+    QTimer.singleShot(3000, lambda: check_and_show_updates(window))
     
     # Запускаем главный цикл обработки событий
     sys.exit(app.exec_())
 
 def check_and_show_updates(parent_window):
-    """Проверяет и показывает обновления в диалоговом окне"""
-    latest_version, changelog = check_for_updates()
-    if latest_version:
-        # Показываем диалог обновления
-        update_dialog = UpdateDialog(APP_VERSION, latest_version, changelog, parent_window)
-        update_dialog.exec_()
+    """Запускает внешний updater"""
+    try:
+        # Получаем путь к текущей директории
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # Формируем путь к updater.py
+        updater_path = os.path.join(current_dir, "Programm", "updater.py")
+        
+        # Определяем флаг темы
+        theme_flag = "--dark" if parent_window.dark_theme else "--light"
+        
+        # Запускаем updater в фоновом режиме
+        subprocess.Popen(
+            [sys.executable, updater_path, theme_flag],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
+    except Exception as e:
+        print(f"Ошибка запуска updater: {e}")
