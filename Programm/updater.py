@@ -3,6 +3,10 @@
 
 import sys
 import os
+
+# Родительская директорию в путь поиска модулей
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 import requests
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QTextEdit, 
