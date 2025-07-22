@@ -1,3 +1,5 @@
+#BETA
+
 #!/usr/bin/env python3
 # Импорт необходимых модулей
 import sys
