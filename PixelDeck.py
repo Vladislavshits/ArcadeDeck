@@ -1,9 +1,8 @@
-#BETA
-
 #!/usr/bin/env python3
 # Импорт необходимых модулей
 import sys
 import os
+import traceback
 
 # Проверка виртуального окружения
 if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
@@ -24,8 +23,14 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QSize, QTimer, QSettings, QFile, QTextStream
 from PyQt5.QtGui import QIcon, QFont, QColor, QPalette
-from common import APP_VERSION, CONTENT_DIR, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet, \
+from common import CONTENT_DIR, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet, \
     GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH  # Импорт путей к файлам
+
+# Обновленная версия программы
+APP_VERSION = "v0.1.6.2.2b (62) BETA"
+
+# Константа для пути к updater.py
+UPDATER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Programm", "updater.py")
 
 def load_content():
     """
@@ -35,7 +40,7 @@ def load_content():
     guides = []
     games = []
 
-    # АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ОТСУТСТВУЮЩИХ ФАЙЛОВ (НОВЫЙ КОД)
+    # Автосоздание отсутствующих файлов
     for path in [GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH]:
         if not os.path.exists(path):
             with open(path, 'w', encoding='utf-8') as f:
@@ -127,6 +132,45 @@ def show_style_error(missing_styles):
         webbrowser.open("https://github.com/Vladislavshits/PixelDeck/releases/download/v0.1.5/install.pixeldeck.sh")
 
     return False
+
+def updater_exists():
+    """Проверяет наличие компонента обновлений"""
+    return os.path.exists(UPDATER_PATH)
+
+def check_and_show_updates(parent_window):
+    """Запускает внешний updater с обработкой ошибок"""
+    try:
+        # Проверяем наличие компонента обновлений
+        if not updater_exists():
+            raise FileNotFoundError(
+                f"Компонент обновлений не найден по пути: {UPDATER_PATH}\n"
+                "Переустановите программу для восстановления функциональности."
+            )
+        
+        # Определяем флаг темы
+        theme_flag = "--dark" if parent_window.dark_theme else "--light"
+        
+        # Запускаем updater в фоновом режиме
+        subprocess.Popen(
+            [sys.executable, UPDATER_PATH, theme_flag],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
+    except Exception as e:
+        # Формируем подробное сообщение об ошибке
+        error_msg = (
+            f"Ошибка запуска компонента обновлений:\n\n"
+            f"{str(e)}\n\n"
+            f"Трассировка:\n{traceback.format_exc()}"
+        )
+        
+        # Показываем сообщение об ошибке
+        QMessageBox.critical(
+            parent_window,
+            "Ошибка обновлений",
+            error_msg
+        )
 
 class WelcomeScreen(QWidget):
     """Экран приветствия, показываемый при запуске приложения."""
@@ -739,29 +783,17 @@ if __name__ == "__main__":
     window = MainWindow(dark_theme=dark_theme)
     window.showMaximized()  # Показываем в полноэкранном режиме
     
-    # Проверяем обновления с помощью updater.py
-    QTimer.singleShot(3000, lambda: check_and_show_updates(window))
+    # Запускаем проверку обновлений только если компонент существует
+    if updater_exists():
+        QTimer.singleShot(3000, lambda: check_and_show_updates(window))
+    else:
+        # Показываем предупреждение об отсутствии компонента
+        QTimer.singleShot(3000, lambda: QMessageBox.warning(
+            window,
+            "Компонент обновлений отсутствует",
+            "Файл updater.py не найден. Функция обновления будет недоступна.\n\n"
+            "Переустановите программу для восстановления функциональности."
+        ))
     
     # Запускаем главный цикл обработки событий
     sys.exit(app.exec_())
-
-def check_and_show_updates(parent_window):
-    """Запускает внешний updater"""
-    try:
-        # Получаем путь к текущей директории
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        # Формируем путь к updater.py
-        updater_path = os.path.join(current_dir, "Programm", "updater.py")
-        
-        # Определяем флаг темы
-        theme_flag = "--dark" if parent_window.dark_theme else "--light"
-        
-        # Запускаем updater в фоновом режиме
-        subprocess.Popen(
-            [sys.executable, updater_path, theme_flag],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True
-        )
-    except Exception as e:
-        print(f"Ошибка запуска updater: {e}")
