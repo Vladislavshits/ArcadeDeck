@@ -8,7 +8,7 @@ if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.
     print("ВНИМАНИЕ: Виртуальное окружение не активировано!")
 
 # Добавить родительскую директорию в путь поиска модулей
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 import webbrowser
 import json
@@ -22,13 +22,8 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QSize, QTimer, QSettings, QFile, QTextStream
 from PyQt5.QtGui import QIcon, QFont, QColor, QPalette
-from common import APP_VERSION, USER_HOME, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet
-
-# Определяем недостающие константы
-USER_HOME = os.path.expanduser("~")
-CONTENT_DIR = os.path.join(USER_HOME, "PixelDeck", "data", "content")
-GUIDES_JSON_PATH = os.path.join(CONTENT_DIR, "guides.json")
-GAME_LIST_GUIDE_JSON_PATH = os.path.join(CONTENT_DIR, "game-list-guides.json")
+from common import APP_VERSION, CONTENT_DIR, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet, \
+    GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH  # Импорт путей к файлам
 
 def load_content():
     """
@@ -37,6 +32,13 @@ def load_content():
     """
     guides = []
     games = []
+
+    # АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ОТСУТСТВУЮЩИХ ФАЙЛОВ (НОВЫЙ КОД)
+    for path in [GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH]:
+        if not os.path.exists(path):
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump([], f)
+                print(f"Создан пустой файл: {os.path.basename(path)}")
 
     # Проверяем существование папки Content
     if not os.path.exists(CONTENT_DIR):
