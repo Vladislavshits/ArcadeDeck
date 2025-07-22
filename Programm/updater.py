@@ -8,6 +8,12 @@ import subprocess
 import platform
 import json
 from datetime import datetime
+import logging
+logging.basicConfig(
+    filename=os.path.join(CONFIG_DIR, 'updater.log'),
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 # Правильно добавляем корень проекта в путь поиска модулей
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
