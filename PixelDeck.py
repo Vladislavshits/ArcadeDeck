@@ -8,7 +8,7 @@ if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.
     print("ВНИМАНИЕ: Виртуальное окружение не активировано!")
 
 # Добавить родительскую директорию в путь поиска модулей
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import webbrowser
 import json
