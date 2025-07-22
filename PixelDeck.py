@@ -32,6 +32,9 @@ APP_VERSION = "v0.1.6.2.2b (62) BETA"
 # Константа для пути к updater.py
 UPDATER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Programm", "updater.py")
 
+# Определение корневой директории программы
+INSTALL_DIR = os.path.dirname(os.path.abspath(__file__))
+
 def load_content():
     """
     Загружает контент из JSON-файлов (guides.json и game-list-guides.json).
@@ -147,12 +150,45 @@ def check_and_show_updates(parent_window):
                 "Переустановите программу для восстановления функциональности."
             )
         
+        # Путь к Python в виртуальном окружении
+        venv_python = os.path.join(INSTALL_DIR, "venv", "bin", "python")
+        
+        # Проверяем существование интерпретатора в venv
+        venv_exists = os.path.exists(venv_python)
+        
+        # Логирование для отладки
+        print(f"Проверка виртуального окружения:")
+        print(f"  Путь к venv Python: {venv_python}")
+        print(f"  Файл существует: {venv_exists}")
+        
+        if not venv_exists:
+            # Если venv не найден, используем системный Python с предупреждением
+            warning_msg = (
+                f"Внимание: Виртуальное окружение не найдено по пути: {venv_python}\n"
+                f"Используется системный Python: {sys.executable}"
+            )
+            print(warning_msg)
+            venv_python = sys.executable
+        
         # Определяем флаг темы
         theme_flag = "--dark" if parent_window.dark_theme else "--light"
         
+        # Формируем команду для запуска
+        command = [
+            venv_python, 
+            UPDATER_PATH, 
+            theme_flag, 
+            "--current-version", 
+            APP_VERSION
+        ]
+        
+        # Логирование команды
+        print("Запуск updater с командой:")
+        print("  " + " ".join(command))
+        
         # Запускаем updater в фоновом режиме
         subprocess.Popen(
-            [sys.executable, UPDATER_PATH, theme_flag],
+            command,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True
