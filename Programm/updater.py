@@ -8,12 +8,6 @@ import subprocess
 import platform
 import json
 from datetime import datetime
-import logging
-logging.basicConfig(
-    filename=os.path.join(CONFIG_DIR, 'updater.log'),
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
 
 # Правильно добавляем корень проекта в путь поиска модулей
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -234,6 +228,11 @@ def run_updater(dark_theme=True, current_version=None):
         if current_version is None:
             current_version = APP_VERSION
         
+        # Диагностический вывод
+        print(f"Запуск обновления с параметрами:")
+        print(f"Тема: {'Тёмная' if dark_theme else 'Светлая'}")
+        print(f"Текущая версия: {current_version}")
+        
         latest_version, changelog, download_url = check_for_updates(current_version)
         if latest_version and download_url:
             dialog = UpdateDialog(current_version, latest_version, changelog, download_url)
@@ -242,12 +241,24 @@ def run_updater(dark_theme=True, current_version=None):
         print(f"Критическая ошибка в updater: {e}")
 
 if __name__ == "__main__":
-    # Парсим аргументы командной строки
-    dark_theme = "--dark" in sys.argv
+    # Парсинг аргументов по умолчанию
+    dark_theme = False
     current_version = None
     
-    for arg in sys.argv:
-        if arg.startswith("--current-version="):
-            current_version = arg.split('=')[1]
+    # Обработка аргументов командной строки
+    args = sys.argv[1:]  # Пропускаем первый аргумент (имя скрипта)
     
+    # Определение темы интерфейса
+    if "--dark" in args:
+        dark_theme = True
+    if "--light" in args:
+        dark_theme = False
+        
+    # Поиск версии в аргументах
+    for arg in args:
+        if arg.startswith("--current-version="):
+            # Разделяем аргумент по знаку '=' и берем вторую часть
+            current_version = arg.split('=', 1)[1]
+    
+    # Запуск основного процесса обновления
     run_updater(dark_theme, current_version)
