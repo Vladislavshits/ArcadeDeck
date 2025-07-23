@@ -1,33 +1,24 @@
 #!/usr/bin/env python3
-# Импорт необходимых модулей
 import sys
 import os
-import traceback
 
-# Проверка виртуального окружения
-if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
-    print("ВНИМАНИЕ: Виртуальное окружение не активировано!")
+# Активация окружения из файла venv_manager.py
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from venv_manager import enforce_virtualenv, run_in_venv
 
-# Добавить родительскую директорию в путь поиска модулей
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import webbrowser
-import json
 import requests
-import subprocess
+import json
+from datetime import datetime
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLineEdit, QListWidget, QListWidgetItem, QLabel, QPushButton, QDialog,
-    QSizePolicy, QSpacerItem, QDesktopWidget, QToolButton, QFrame,
-    QCheckBox, QMessageBox, QStackedWidget, QButtonGroup, QGridLayout
+    QDialog, QVBoxLayout, QLabel, QTextEdit, 
+    QPushButton, QHBoxLayout, QApplication, QMessageBox,
+    QProgressDialog
 )
-from PyQt5.QtCore import Qt, QSize, QTimer, QSettings, QFile, QTextStream
-from PyQt5.QtGui import QIcon, QFont, QColor, QPalette
-from common import CONTENT_DIR, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet, \
-    GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH  # Импорт путей к файлам
+from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
 
-# Обновленная версия программы
-APP_VERSION = "v0.1.6.2.2b (62) BETA"
+# Используем версию из common.py
+from common import APP_VERSION, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet
 
 # Константа для пути к updater.py
 UPDATER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Programm", "updater.py")
