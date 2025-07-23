@@ -14,10 +14,14 @@ from venv_manager import enforce_virtualenv
 enforce_virtualenv()
 
 # Импорт остальных модулей после активации окружения
+import webbrowser
+import subprocess
+import traceback
 import requests
 import json
 from datetime import datetime
 from PyQt5.QtWidgets import (
+    QCheckBox, QButtonGroup, QToolButton, QStackedWidget, QSizePolicy,
     QDialog, QVBoxLayout, QLabel, QTextEdit, 
     QPushButton, QHBoxLayout, QApplication, QMessageBox,
     QProgressDialog
@@ -27,6 +31,9 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal
 
 # Используем версию из core.py
 from core import APP_VERSION, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet
+
+# Используем константы напрямую из core.py
+from core import CONTENT_DIR, GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH
 
 # Константа для пути к updater.py
 UPDATER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Programm", "updater.py")
