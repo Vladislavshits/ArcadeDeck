@@ -1,32 +1,41 @@
-# В самом начале файла
+#!/usr/bin/env python3
 import os
 import sys
-
-# Добавляем путь к модулям проекта
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-# Активируем venv ДО импорта PyQt
-from venv_manager import enforce_virtualenv
-enforce_virtualenv()
-
-# Импорт остальных модулей после активации окружения
 import webbrowser
 import subprocess
 import traceback
 import requests
 import json
 from datetime import datetime
+
+# НАСТРОЙКА ПУТЕЙ И АКТИВАЦИЯ ОКРУЖЕНИЯ
+
+# Добавляем путь к текущей директории
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+# Добавляем путь к папке Programm
+programm_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Programm")
+if programm_path not in sys.path:
+    sys.path.append(programm_path)
+
+# Активируем виртуальное окружение ДО импорта PyQt
+from venv_manager import enforce_virtualenv
+enforce_virtualenv()
+
+# ИМПОРТЫ PYQT И ДРУГИХ ЗАВИСИМОСТЕЙ
+# Основные компоненты PyQt
 from PyQt5.QtWidgets import (
-    QCheckBox, QButtonGroup, QToolButton, QStackedWidget, QSizePolicy,
-    QDialog, QVBoxLayout, QLabel, QTextEdit, 
-    QPushButton, QHBoxLayout, QApplication, QMessageBox,
-    QProgressDialog
+    QApplication, QMainWindow, QWidget,  # Основные окна
+    QLabel, QPushButton, QVBoxLayout, QHBoxLayout,  # Виджеты и компоновки
+    QStackedWidget, QSizePolicy, QToolButton, QButtonGroup,  # Специальные виджеты
+    QCheckBox, QDialog, QTextEdit, QMessageBox, QProgressDialog  # Диалоги
 )
+
+# Дополнительные компоненты PyQt
 from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QSettings, QSize
-from PyQt5.QtWidgets import QWidget
 
-# +++ Все константы из core.py +++
+# Импорт внутренних модулей
 from core import (
     APP_VERSION, 
     STYLES_DIR, 
