@@ -3,9 +3,11 @@ import sys
 import os
 
 # Активация окружения из файла venv_manager.py
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from venv_manager import enforce_virtualenv, run_in_venv
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from venv_manager import enforce_virtualenv
+enforce_virtualenv()
 
+# Импорт остальных модулей после активации окружения
 import requests
 import json
 from datetime import datetime
