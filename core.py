@@ -1,4 +1,4 @@
-# common.py
+# core.py
 import os
 import sys
 from PyQt5.QtCore import QFile, QTextStream
