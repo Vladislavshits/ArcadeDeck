@@ -25,8 +25,8 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 
-# Используем версию из common.py
-from common import APP_VERSION, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet
+# Используем версию из core.py
+from core import APP_VERSION, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet
 
 # Константа для пути к updater.py
 UPDATER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Programm", "updater.py")
