@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
-# Programm/updater.py
-
 import sys
 import os
+
+# Активация окружения из файла venv_manager.py
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from venv_manager import enforce_virtualenv
+
 import requests
-import subprocess
-import platform
 import json
 from datetime import datetime
-
-# Правильно добавляем корень проекта в путь поиска модулей
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QTextEdit, 
     QPushButton, QHBoxLayout, QApplication, QMessageBox,
@@ -19,6 +16,8 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
+
+# Используем версию из common.py
 from common import APP_VERSION, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet
 
 # Настройки пользователя
