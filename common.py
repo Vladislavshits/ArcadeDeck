@@ -3,7 +3,7 @@ import os
 import sys
 from PyQt5.QtCore import QFile, QTextStream
 
-# ЕДИНСТВЕННОЕ МЕСТО ОПРЕДЕЛЕНИЯ ВЕРСИИ
+# Версия программы (stanle или beta)
 APP_VERSION = "0.1.6.2.2b (62) BETA"
 USER_HOME = os.path.expanduser("~")
 
