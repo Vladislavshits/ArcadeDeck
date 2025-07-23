@@ -29,11 +29,23 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QSettings, QSize
 
-# Используем версию из core.py
-from core import APP_VERSION, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet
+# +++ ИМПОРТ ВСЕХ НЕОБХОДИМЫХ КОНСТАНТ ИЗ CORE.PY +++
+from core import (
+    APP_VERSION, 
+    STYLES_DIR, 
+    DARK_STYLE, 
+    LIGHT_STYLE, 
+    load_stylesheet,
+    CONTENT_DIR, 
+    GUIDES_JSON_PATH, 
+    GAME_LIST_GUIDE_JSON_PATH
+)
 
-# Используем константы напрямую из core.py
-from core import CONTENT_DIR, GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH
+# Константа для пути к updater.py
+UPDATER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Programm", "updater.py")
+
+# Определение корневой директории программы
+INSTALL_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Константа для пути к updater.py
 UPDATER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Programm", "updater.py")
