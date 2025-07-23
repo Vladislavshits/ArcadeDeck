@@ -28,7 +28,8 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget,  # Основные окна
     QLabel, QPushButton, QVBoxLayout, QHBoxLayout,  # Виджеты и компоновки
     QStackedWidget, QSizePolicy, QToolButton, QButtonGroup,  # Специальные виджеты
-    QCheckBox, QDialog, QTextEdit, QMessageBox, QProgressDialog  # Диалоги
+    QCheckBox, QDialog, QTextEdit, QMessageBox, QProgressDialog,  # Диалоги
+    QLineEdit  # Добавьте этот класс для поля ввода
 )
 
 # Дополнительные компоненты PyQt
