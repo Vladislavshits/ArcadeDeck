@@ -29,7 +29,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QSettings, QSize
 
-# +++ ИМПОРТ ВСЕХ НЕОБХОДИМЫХ КОНСТАНТ ИЗ CORE.PY +++
+# +++ Все константы из core.py +++
 from core import (
     APP_VERSION, 
     STYLES_DIR, 
