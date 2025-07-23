@@ -3,7 +3,12 @@ import sys
 import os
 
 # Активация окружения из файла venv_manager.py
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))
+
+# Явно добавляем путь к папке Programm
+programm_path = os.path.join(os.path.dirname(os.path.abspath(__file__), "Programm")
+if programm_path not in sys.path:
+    sys.path.append(programm_path)
 from venv_manager import enforce_virtualenv
 enforce_virtualenv()
 
