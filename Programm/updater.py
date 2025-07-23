@@ -4,7 +4,16 @@ import sys
 import os
 
 # Активация окружения через venv_manager
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Добавляем путь к корневой директории проекта
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
+
+# Явно добавляем путь к текущей папке Programm
+programm_dir = os.path.dirname(os.path.abspath(__file__))
+if programm_dir not in sys.path:
+    sys.path.insert(0, programm_dir)
+
 from venv_manager import enforce_virtualenv
 enforce_virtualenv()
 
