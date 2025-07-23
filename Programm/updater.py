@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+# Programm/updater.py
 import sys
 import os
 
-# Активация окружения из файла venv_manager.py
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Активация окружения через venv_manager
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from venv_manager import enforce_virtualenv
+enforce_virtualenv()
 
 import requests
 import json
