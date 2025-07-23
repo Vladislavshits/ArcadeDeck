@@ -15,10 +15,10 @@ import json
 import requests
 import subprocess
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLineEdit, QListWidget, QListWidgetItem, QLabel, QPushButton, QDialog,
-    QSizePolicy, QSpacerItem, QDesktopWidget, QToolButton, QFrame,
-    QCheckBox, QMessageBox, QStackedWidget, QButtonGroup, QGridLayout
+    QApplication, QMainWindow, QWidget,
+    QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
+    QStackedWidget, QSizePolicy, QToolButton, QButtonGroup,
+    QCheckBox, QDialog, QTextEdit, QMessageBox, QProgressDialog
 )
 from PyQt5.QtCore import Qt, QSize, QTimer, QSettings, QFile, QTextStream
 from PyQt5.QtGui import QIcon, QFont, QColor, QPalette
