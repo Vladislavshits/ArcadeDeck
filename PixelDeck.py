@@ -34,6 +34,11 @@ UPDATER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Program
 # Определение корневой директории программы
 INSTALL_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Определение путей к JSON-файлам
+CONTENT_DIR = os.path.join(INSTALL_DIR, "Content")
+GUIDES_JSON_PATH = os.path.join(CONTENT_DIR, "guides.json")
+GAME_LIST_GUIDE_JSON_PATH = os.path.join(CONTENT_DIR, "game-list-guides.json")
+
 def load_content():
     """
     Загружает контент из JSON-файлов (guides.json и game-list-guides.json).
