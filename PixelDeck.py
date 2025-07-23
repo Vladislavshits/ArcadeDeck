@@ -770,13 +770,10 @@ class MainWindow(QMainWindow):
 
 # Точка входа в приложение
 if __name__ == "__main__":
-    # Создаем необходимые директории
-    os.makedirs(STYLES_DIR, exist_ok=True)
-    os.makedirs(CONTENT_DIR, exist_ok=True)
     
     # Создаем экземпляр приложения
     app = QApplication(sys.argv)
-    app.setStyle("Fusion")  # Устанавливаем стиль Fusion
+    app.setStyle("Fusion")
 
     # --- ПРОВЕРКА НАЛИЧИЯ ФАЙЛОВ СТИЛЕЙ ---
     # Список обязательных файлов стилей
