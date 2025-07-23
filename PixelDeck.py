@@ -1,15 +1,11 @@
-#!/usr/bin/env python3
-import sys
+# В самом начале файла
 import os
+import sys
 
-# Активация окружения из файла venv_manager.py
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Добавляем путь к модулям проекта
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# Явно добавляем путь к папке Programm
-programm_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Programm")
-if programm_path not in sys.path:
-    sys.path.append(programm_path)
-
+# Активируем venv ДО импорта PyQt
 from venv_manager import enforce_virtualenv
 enforce_virtualenv()
 
@@ -28,6 +24,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QSettings, QSize
+from PyQt5.QtWidgets import QWidget
 
 # +++ Все константы из core.py +++
 from core import (
