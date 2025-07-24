@@ -15,43 +15,47 @@ QLabel#title {
     font-size: 28px;
 }
 
+/* Обновленный стиль для поля поиска */
 QLineEdit {
     background-color: #252525;
     color: white;
     padding: 10px 30px;
-    font-size: 18px;
+    font-size: 24px; /* Увеличили размер шрифта */
     border: 2px solid #64b5f6;
     border-radius: 35px;
-    min-height: 60px;
-    min-width: 700px;
+    min-height: 70px; /* Увеличили высоту */
+    min-width: 0; /* Убрали фиксированную ширину */
 }
 
 QListWidget {
     background-color: #252525;
     color: white;
     border: 1px solid #333;
-    border-radius: 10px;
-    padding: 5px;
-    font-size: 16px;
-    min-width: 700px;
+    border-radius: 12px;
+    padding: 10px; /* Увеличили отступы */
+    font-size: 18px; /* Увеличили размер шрифта */
+    min-width: 0; /* Убрали фиксированную ширину */
 }
 
 QListWidget::item {
-    background-color: #252525;
+    background-color: #333; /* Темнее фон */
     color: white;
-    padding: 15px;
-    border-bottom: 1px solid #333;
-    border-radius: 5px;
+    padding: 20px; /* Увеличили отступы */
+    border: 1px solid #444; /* Добавили границу */
+    border-radius: 10px; /* Скруглили углы */
+    margin: 8px 0; /* Отступы между элементами */
 }
 
 QListWidget::item:selected {
     background-color: #64b5f6;
-    color: black;
-    border-radius: 5px;
+    color: black; /* Черный текст для лучшей читаемости */
+    border-radius: 10px;
+    border: 1px solid #5aa5e6; /* Граница для выбранного элемента */
 }
 
 QListWidget::item:hover {
-    background-color: #333;
+    background-color: #3a3a3a; /* Темнее при наведении */
+    border: 1px solid #555; /* Граница при наведении */
 }
 
 QToolButton {
