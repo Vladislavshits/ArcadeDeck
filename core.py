@@ -3,7 +3,7 @@ import os
 import sys
 from PyQt5.QtCore import QFile, QTextStream
 
-APP_VERSION = "0.1.6.2.2 (62) BETA"
+APP_VERSION = "0.1.6.2"
 USER_HOME = os.path.expanduser("~")
 
 # Определяем BASE_DIR как директорию, содержащую core.py
