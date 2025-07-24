@@ -19,39 +19,43 @@ QLineEdit {
     background-color: white;
     color: #333333;
     padding: 10px 30px;
-    font-size: 18px;
+    font-size: 24px; /* Размер шрифта */
     border: 2px solid #4285f4;
     border-radius: 35px;
-    min-height: 60px;
-    min-width: 700px;
+    min-height: 70px; /* Высота */
+    min-width: 0; /* Убрали фиксированную ширину */
 }
 
+/* Стиль для списка результатов */
 QListWidget {
     background-color: white;
     color: #333333;
     border: 1px solid #ddd;
-    border-radius: 10px;
-    padding: 5px;
-    font-size: 16px;
-    min-width: 700px;
+    border-radius: 12px;
+    padding: 10px; /* Увеличили отступы */
+    font-size: 18px; /* Увеличили размер шрифта */
+    min-width: 0; /* Убрали фиксированную ширину */
 }
 
 QListWidget::item {
     background-color: white;
     color: #333333;
-    padding: 15px;
-    border-bottom: 1px solid #eee;
-    border-radius: 5px;
+    padding: 20px; /* Увеличили отступы */
+    border: 1px solid #eee; /* Добавили границу */
+    border-radius: 10px; /* Скруглили углы */
+    margin: 8px 0; /* Отступы между элементами */
 }
 
 QListWidget::item:selected {
     background-color: #4285f4;
     color: white;
-    border-radius: 5px;
+    border-radius: 10px;
+    border: 1px solid #3a75d4; /* Граница для выбранного элемента */
 }
 
 QListWidget::item:hover {
     background-color: #f0f0f0;
+    border: 1px solid #ddd; /* Граница при наведении */
 }
 
 QToolButton {
