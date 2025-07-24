@@ -2,6 +2,7 @@
 # Programm/updater.py
 import sys
 import os
+from packaging import version
 
 # Активация окружения через venv_manager
 # Добавляем путь к корневой директории проекта
@@ -34,6 +35,76 @@ from core import APP_VERSION, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_styleshe
 # Настройки пользователя
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), "PixelDeck")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "updater.json")
+
+class Updater:
+    def __init__(self, parent=None):
+        self.parent = parent
+        self.github_repo = "Vladislavshits/PixelDeck"
+        # Проверяем, содержит ли APP_VERSION подстроку 'beta' в любом регистре
+        self.is_beta = "beta" in APP_VERSION.lower()
+        
+    def check_for_updates(self):
+        try:
+            # Загружаем список пропущенных версий
+            skipped_versions = self.get_skip_config()
+            
+            # Для стабильной версии: получаем "Latest Release"
+            if not self.is_beta:
+                latest_url = f"https://api.github.com/repos/{self.github_repo}/releases/latest"
+                response = requests.get(latest_url, timeout=10)
+                response.raise_for_status()
+                latest_release = response.json()
+                
+                latest_version = latest_release['tag_name']
+                
+                # Если версия пропущена - игнорируем
+                if latest_version in skipped_versions:
+                    return None
+                
+                current_version = APP_VERSION
+                if version.parse(latest_version.lstrip('v')) > version.parse(current_version):
+                    return latest_release
+            
+            # Для бета-версии: получаем все пре-релизы
+            else:
+                releases_url = f"https://api.github.com/repos/{self.github_repo}/releases"
+                response = requests.get(releases_url, timeout=10)
+                response.raise_for_status()
+                releases = response.json()
+                
+                # Фильтруем только пре-релизы
+                beta_releases = [r for r in releases if r['prerelease']]
+                
+                if not beta_releases:
+                    return None
+                    
+                # Сортируем по версии (новые сверху)
+                sorted_releases = sorted(
+                    beta_releases,
+                    key=lambda x: version.parse(x['tag_name'].lstrip('v')),
+                    reverse=True
+                )
+                
+                latest_beta = sorted_releases[0]
+                latest_version = latest_beta['tag_name']
+                
+                # Если версия пропущена - игнорируем
+                if latest_version in skipped_versions:
+                    return None
+                
+                # Удаляем различные варианты написания 'beta' из текущей версии
+                current_version = APP_VERSION
+                for suffix in [' BETA', ' beta', ' Beta']:
+                    current_version = current_version.replace(suffix, '')
+                
+                if version.parse(latest_version.lstrip('v')) > version.parse(current_version):
+                    return latest_beta
+                
+        except Exception as e:
+            print(f"Ошибка при проверке обновлений: {str(e)}")
+            return None
+            
+        return None
 
 class UpdateDownloaderThread(QThread):
     """Поток для скачивания обновления в фоновом режиме"""
@@ -187,42 +258,6 @@ class UpdateDialog(QDialog):
             f"Не удалось скачать обновление:\n{error_msg}"
         )
 
-def check_for_updates(current_version):
-    """Проверяет наличие обновлений на GitHub"""
-    try:
-        # Проверяем пропущенные версии
-        skipped_versions = []
-        if os.path.exists(CONFIG_PATH):
-            try:
-                with open(CONFIG_PATH, 'r') as f:
-                    config = json.load(f)
-                    skipped_versions = config.get('skipped_versions', [])
-            except:
-                pass
-        
-        api_url = "https://api.github.com/repos/Vladislavshits/PixelDeck/releases/latest"
-        response = requests.get(api_url, timeout=10)
-        response.raise_for_status()
-        release_data = response.json()
-        latest_version = release_data.get("tag_name", "")
-        
-        # Если версия пропущена - не показываем
-        if latest_version in skipped_versions:
-            return None, None, None
-        
-        # Если есть новая версия
-        if latest_version and latest_version != current_version:
-            changelog = release_data.get("body", "Нет информации об изменениях")
-            
-            # Ищем URL для скачивания (берем первый asset)
-            assets = release_data.get('assets', [])
-            download_url = assets[0].get('browser_download_url') if assets else None
-            
-            return latest_version, changelog, download_url
-    except Exception as e:
-        print(f"Ошибка при проверке обновлений: {e}")
-    return None, None, None
-
 def run_updater(dark_theme=True, current_version=None):
     """Запуск процесса проверки обновлений"""
     try:
@@ -243,10 +278,18 @@ def run_updater(dark_theme=True, current_version=None):
         print(f"Тема: {'Тёмная' if dark_theme else 'Светлая'}")
         print(f"Текущая версия: {current_version}")
         
-        latest_version, changelog, download_url = check_for_updates(current_version)
-        if latest_version and download_url:
-            dialog = UpdateDialog(current_version, latest_version, changelog, download_url)
-            dialog.exec_()
+        updater = Updater()
+        release = updater.check_for_updates()
+        
+        if release:
+            latest_version = release['tag_name']
+            changelog = release.get("body", "Нет информации об изменениях")
+            assets = release.get('assets', [])
+            download_url = assets[0].get('browser_download_url') if assets else None
+            
+            if download_url:
+                dialog = UpdateDialog(current_version, latest_version, changelog, download_url)
+                dialog.exec_()
     except Exception as e:
         print(f"Критическая ошибка в updater: {e}")
 
