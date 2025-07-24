@@ -68,6 +68,16 @@ QToolButton:hover {
     background-color: #3a75d4;
 }
 
+SearchItemWidget {
+    background-color: #ffffff;
+    border: 1px solid #4285f4;
+    border-radius: 10px;
+}
+
+SearchItemWidget:hover {
+    background-color: #f0f0f0;
+}
+
 /* Настройки для экрана настроек */
 SettingsScreen QLabel#versionLabel {
     color: #777;
