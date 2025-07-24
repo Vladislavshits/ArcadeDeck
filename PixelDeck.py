@@ -16,13 +16,13 @@ import requests
 import subprocess
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget,
-    QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
+    QLabel, QLineEdit,QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QHBoxLayout,
     QStackedWidget, QSizePolicy, QToolButton, QButtonGroup,
     QCheckBox, QDialog, QTextEdit, QMessageBox, QProgressDialog
 )
 from PyQt5.QtCore import Qt, QSize, QTimer, QSettings, QFile, QTextStream
 from PyQt5.QtGui import QIcon, QFont, QColor, QPalette
-from common import APP_VERSION, CONTENT_DIR, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet, \
+from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet, \
     GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH  # Импорт путей к файлам
 
 def load_content():
@@ -373,6 +373,173 @@ class DummyScreen(QWidget):
         label.setAlignment(Qt.AlignCenter)
         layout.addWidget(label)
 
+class SearchScreen(QWidget):
+    """Экран поиска гайдов и игр."""
+
+    def __init__(self, parent=None, dark_theme=False):
+        super().__init__(parent)
+        self.dark_theme = dark_theme
+        self.setup_ui()
+        self.apply_theme()
+
+    def setup_ui(self):
+        # Создаем основной лэйаут
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(20)
+
+        # Заголовок
+        title = QLabel("Поиск")
+        title.setObjectName("title")
+        title_font = QFont("Arial", 28)
+        title_font.setBold(True)
+        title.setFont(title_font)
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+
+        # Поле поиска
+        self.search_field = QLineEdit()
+        self.search_field.setPlaceholderText("Введите название игры или гайда...")
+        self.search_field.textChanged.connect(self.search_content)
+        layout.addWidget(self.search_field)
+
+        # Список результатов
+        self.results_list = QListWidget()
+        self.results_list.itemClicked.connect(self.open_item)
+        self.results_list.hide()  # Скрываем изначально
+        layout.addWidget(self.results_list, 1)  # Растягиваем
+
+        # Настраиваем список результатов
+        self.results_list.setSpacing(10)  # Отступ между элементами
+        self.results_list.setVerticalScrollMode(QListWidget.ScrollPerPixel)
+        self.results_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+    def apply_theme(self):
+        """Применяет выбранную тему (темную или светлую) к экрану поиска."""
+        if self.dark_theme:
+            style = load_stylesheet(DARK_STYLE)
+        else:
+            style = load_stylesheet(LIGHT_STYLE)
+
+        if style:
+            self.setStyleSheet(style)
+
+        # Обновляем стиль для поля поиска
+        if self.dark_theme:
+            self.search_field.setStyleSheet("""
+                QLineEdit {
+                    background-color: #252525;
+                    color: white;
+                    font-size: 24px;
+                    border: 2px solid #64b5f6;
+                    border-radius: 35px;
+                    padding: 15px 30px;
+                }
+            """)
+        else:
+            self.search_field.setStyleSheet("""
+                QLineEdit {
+                    background-color: white;
+                    color: #333;
+                    font-size: 24px;
+                    border: 2px solid #4285f4;
+                    border-radius: 35px;
+                    padding: 15px 30px;
+                }
+            """)
+
+    def display_results(self, results):
+        """
+        Отображает результаты поиска в виджете списка.
+
+        :param results: Список результатов (каждый элемент - словарь с ключами 'type', 'title', 'url')
+        """
+        self.results_list.clear()  # Очищаем предыдущие результаты
+        # Если результатов нет, скрываем виджет
+        if not results:
+            self.results_list.hide()
+            return
+
+        # Добавляем каждый результат в список
+        for item in results:
+            list_item = QListWidgetItem()
+
+            # Создаем кастомный виджет для элемента
+            item_widget = SearchItemWidget(
+                item['title'],
+                item['type'],
+                self.dark_theme
+            )
+
+            # Устанавливаем виджет в элемент списка
+            list_item.setSizeHint(item_widget.sizeHint())
+            self.results_list.addItem(list_item)
+            self.results_list.setItemWidget(list_item, item_widget)
+
+            # Сохраняем URL в пользовательских данных элемента
+            list_item.setData(Qt.UserRole, item['url'])
+
+        # Показываем виджет с результатами
+        self.results_list.show()
+        self.results_list.updateGeometry()  # Обновляем геометрию виджета
+
+    def search_content(self, text):
+        """
+        Обработчик изменения текста в поле поиска.
+        Использует таймер для отложенного поиска.
+
+        :param text: Текст для поиска
+        """
+        # Запускаем поиск через 100 мс для оптимизации
+        QTimer.singleShot(100, lambda: self.perform_search(text))
+
+    def perform_search(self, text):
+        """
+        Выполняет поиск по гайдам и играм.
+
+        :param text: Текст для поиска
+        """
+        # Если поле поиска пустое, скрываем результаты
+        if not text.strip():
+            self.results_list.hide()
+            return
+
+        # Приводим запрос к нижнему регистру для регистронезависимого поиска
+        query = text.lower()
+        results = []
+
+        # Поиск в гайдах
+        for guide in GUIDES:
+            if query in guide["title"].lower():
+                results.append({
+                    'type': 'Гайд',
+                    'title': guide["title"],
+                    'url': guide["url"]
+                })
+
+        # Поиск в играх
+        for game in GAMES:
+            if query in game["title"].lower():
+                results.append({
+                    'type': 'Игра',
+                    'title': game["title"],
+                    'url': game["url"]
+                })
+
+        # Отображаем результаты
+        self.display_results(results)
+
+    def open_item(self, item):
+        """
+        Открывает выбранный элемент в браузере по умолчанию.
+
+        :param item: Элемент списка, по которому кликнули
+        """
+        # Получаем URL из пользовательских данных элемента
+        url = item.data(Qt.UserRole)
+        # Открываем URL в браузере по умолчанию
+        webbrowser.open(url)
+
 class SearchItemWidget(QWidget):
     """Кастомный виджет для отображения результата поиска"""
     
@@ -381,7 +548,6 @@ class SearchItemWidget(QWidget):
         self.setObjectName("SearchItemWidget")
         self.dark_theme = dark_theme
         self.setup_ui(title, item_type)
-        self.apply_theme()
         
     def setup_ui(self, title, item_type):
         layout = QVBoxLayout(self)
@@ -403,11 +569,6 @@ class SearchItemWidget(QWidget):
         
         # Устанавливаем минимальную высоту
         self.setMinimumHeight(100)
-
-        # Настраиваем список результатов
-        self.results_list.setSpacing(10)  # Отступ между элементами
-        self.results_list.setVerticalScrollMode(QListWidget.ScrollPerPixel)
-        self.results_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         
 def apply_theme(self):
     """Применяет выбранную тему (темную или светлую) к экрану поиска."""
@@ -680,12 +841,33 @@ class MainWindow(QMainWindow):
             self.settings_screen.apply_theme()
             self.dummy_screen.setStyleSheet(style)
 
+def check_and_show_updates(parent_window):
+    """Запускает внешний updater"""
+    try:
+        # Получаем путь к текущей директории
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # Формируем путь к updater.py
+        updater_path = os.path.join(current_dir, "Programm", "updater.py")
+
+        # Определяем флаг темы
+        theme_flag = "--dark" if parent_window.dark_theme else "--light"
+
+        # Запускаем updater в фоновом режиме
+        subprocess.Popen(
+            [sys.executable, updater_path, theme_flag],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
+    except Exception as e:
+        print(f"Ошибка запуска updater: {e}")
+
 # Точка входа в приложение
 if __name__ == "__main__":
     # Создаем необходимые директории
     os.makedirs(STYLES_DIR, exist_ok=True)
     os.makedirs(CONTENT_DIR, exist_ok=True)
-    
+
     # Создаем экземпляр приложения
     app = QApplication(sys.argv)
     app.setStyle("Fusion")  # Устанавливаем стиль Fusion
@@ -722,7 +904,7 @@ if __name__ == "__main__":
 
     # Читаем настройки
     welcome_shown = settings.value("welcome_shown", False, type=bool)
-    dark_theme = settings.value("dark_theme", True, type=bool)
+    dark_theme = settings.value("dark_theme", True, type=bool)  # Читаем тему из настроек
 
     # Если приветственное окно еще не показывалось
     if not welcome_shown:
@@ -734,32 +916,11 @@ if __name__ == "__main__":
             settings.setValue("welcome_shown", True)
 
     # Создаем и показываем главное окно приложения
-    window = MainWindow(dark_theme=dark_theme)
+    window = MainWindow(dark_theme=dark_theme)  # Используем переменную dark_theme
     window.showMaximized()  # Показываем в полноэкранном режиме
-    
+
     # Проверяем обновления с помощью updater.py
     QTimer.singleShot(3000, lambda: check_and_show_updates(window))
-    
+
     # Запускаем главный цикл обработки событий
     sys.exit(app.exec_())
-
-def check_and_show_updates(parent_window):
-    """Запускает внешний updater"""
-    try:
-        # Получаем путь к текущей директории
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        # Формируем путь к updater.py
-        updater_path = os.path.join(current_dir, "Programm", "updater.py")
-        
-        # Определяем флаг темы
-        theme_flag = "--dark" if parent_window.dark_theme else "--light"
-        
-        # Запускаем updater в фоновом режиме
-        subprocess.Popen(
-            [sys.executable, updater_path, theme_flag],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True
-        )
-    except Exception as e:
-        print(f"Ошибка запуска updater: {e}")
