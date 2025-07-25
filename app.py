@@ -14,15 +14,15 @@ import webbrowser
 import json
 import requests
 import subprocess
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
-    QLabel, QLineEdit,QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QHBoxLayout,
+    QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QHBoxLayout,
     QStackedWidget, QSizePolicy, QToolButton, QButtonGroup,
     QCheckBox, QDialog, QTextEdit, QMessageBox, QProgressDialog
 )
-from PyQt5.QtCore import Qt, QSize, QTimer, QSettings, QFile, QTextStream
-from PyQt5.QtGui import QIcon, QFont, QColor, QPalette
-from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet, \
+from PyQt6.QtCore import Qt, QSize, QTimer, QSettings, QFile, QTextStream
+from PyQt6.QtGui import QIcon, QFont, QColor, QPalette, QScreen  # Добавлен QScreen
+from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, THEME_FILE, load_stylesheet, \
     GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH  # Импорт путей к файлам
 
 def load_content():
