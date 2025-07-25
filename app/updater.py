@@ -21,13 +21,13 @@ enforce_virtualenv()
 import requests
 import json
 from datetime import datetime
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QTextEdit, 
     QPushButton, QHBoxLayout, QApplication, QMessageBox,
     QProgressDialog
 )
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
 # Используем версию из core.py
 from core import APP_VERSION, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet
@@ -264,7 +264,7 @@ def run_updater(dark_theme=True, current_version=None):
         app = QApplication(sys.argv)
         
         # Применение стилей
-        style_path = DARK_STYLE if dark_theme else LIGHT_STYLE
+        style = load_stylesheet('dark' if dark_theme else 'light')
         style = load_stylesheet(style_path)
         if style:
             app.setStyleSheet(style)
