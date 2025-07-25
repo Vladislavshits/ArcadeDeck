@@ -33,7 +33,7 @@ def load_content():
     guides = []
     games = []
 
-    # АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ОТСУТСТВУЮЩИХ ФАЙЛОВ (НОВЫЙ КОД)
+    # АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ОТСУТСТВУЮЩИХ ФАЙЛОВ
     for path in [GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH]:
         if not os.path.exists(path):
             with open(path, 'w', encoding='utf-8') as f:
@@ -103,7 +103,7 @@ def show_style_error(missing_styles):
     # Создаем диалоговое окно с ошибкой
     error_dialog = QMessageBox()
     error_dialog.setWindowTitle("Ошибка запуска! Код #1!")
-    error_dialog.setIcon(QMessageBox.Critical)
+    error_dialog.setIcon(QMessageBox.Icon.Critical)
 
     # Формируем текст сообщения
     message = "Отсутствуют файлы стилей. Переустановите программу с сайта проекта.\n\n"
@@ -166,10 +166,12 @@ class WelcomeDialog(QDialog):
         
     def center_on_screen(self):
         """Центрирует окно на экране."""
-        screen_geometry = QApplication.desktop().screenGeometry()
-        x = (screen_geometry.width() - self.width()) // 2
-        y = (screen_geometry.height() - self.height()) // 2
-        self.move(x, y)
+        screen = QApplication.primaryScreen()
+        if screen:
+            screen_geometry = screen.geometry()
+            x = (screen_geometry.width() - self.width()) // 2
+            y = (screen_geometry.height() - self.height()) // 2
+            self.move(x, y)
         
     def setup_ui(self):
         self.setWindowTitle("Добро пожаловать в PixelDeck!")
@@ -814,7 +816,14 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.nav_bar)
         
         # Применяем выбранную тему
-        self.apply_theme()
+        style = load_stylesheet('dark' if self.dark_theme else 'light')
+        if style:
+            self.setStyleSheet(style)
+            # Применяем тему ко всем экранам
+            self.welcome_screen.setStyleSheet(style)
+            self.search_screen.apply_theme()
+            self.settings_screen.apply_theme()
+            self.dummy_screen.setStyleSheet(style)
 
     def switch_to_search(self):
         """Переключает на экран поиска."""
@@ -872,12 +881,9 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion")  # Устанавливаем стиль Fusion
 
-    # --- ПРОВЕРКА НАЛИЧИЯ ФАЙЛОВ СТИЛЕЙ ---
+    # --- Проверка наличия файлов стилей ---
     # Список обязательных файлов стилей
-    required_styles = [
-        DARK_STYLE,
-        LIGHT_STYLE
-    ]
+    required_styles = [THEME_FILE]
 
     # Проверяем наличие каждого файла стиля
     missing_styles = [style for style in required_styles if not os.path.exists(style)]
