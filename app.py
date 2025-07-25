@@ -243,10 +243,10 @@ class WelcomeDialog(QDialog):
         
     def apply_theme(self):
         """Применяет выбранную тему (темную или светлую) к диалогу."""
- if self.dark_theme:
-    style = load_stylesheet('dark')
-else:
-    style = load_stylesheet('light')
+        if self.dark_theme:
+            style = load_stylesheet('dark')
+        else:
+            style = load_stylesheet('light')
 
         if style:
             self.setStyleSheet(style)
@@ -354,10 +354,10 @@ class SettingsScreen(QWidget):
 
     def apply_theme(self):
         """Применяет выбранную тему (темную или светлую) к экрану настроек."""
-if self.dark_theme:
-    style = load_stylesheet('dark')
-else:
-    style = load_stylesheet('light')
+        if self.dark_theme:
+            style = load_stylesheet('dark')
+        else:
+            style = load_stylesheet('light')
 
         if style:
             self.setStyleSheet(style)
@@ -418,10 +418,10 @@ class SearchScreen(QWidget):
 
     def apply_theme(self):
         """Применяет выбранную тему (темную или светлую) к экрану поиска."""
-if self.dark_theme:
-    style = load_stylesheet('dark')
-else:
-    style = load_stylesheet('light')
+        if self.dark_theme:
+            style = load_stylesheet('dark')
+        else:
+            style = load_stylesheet('light')
 
         if style:
             self.setStyleSheet(style)
@@ -837,10 +837,10 @@ class MainWindow(QMainWindow):
 
     def apply_theme(self):
         """Применяет выбранную тему (темную или светлую) ко всем экранам."""
-if self.dark_theme:
-    style = load_stylesheet('dark')
-else:
-    style = load_stylesheet('light')
+        if self.dark_theme:
+            style = load_stylesheet('dark')
+        else:
+            style = load_stylesheet('light')
 
         if style:
             self.setStyleSheet(style)
