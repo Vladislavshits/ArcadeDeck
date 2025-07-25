@@ -4,11 +4,15 @@ import sys
 import os
 
 # Проверка виртуального окружения
-if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
+if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix:
     print("ВНИМАНИЕ: Виртуальное окружение не активировано!")
 
-# Добавить родительскую директорию в путь поиска модулей
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Определяем корневую директорию проекта
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Добавляем пути к модулям
+sys.path.insert(0, os.path.join(BASE_DIR, "app"))  # Для импорта core.py и settings.py
+sys.path.insert(0, BASE_DIR)  # Для импорта других модулей
 
 import webbrowser
 import json
@@ -22,10 +26,19 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, QSettings, QFile, QTextStream, QSize, QUrl
 from PyQt6.QtGui import QIcon, QFont, QColor, QPalette, QScreen
-from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, THEME_FILE, load_stylesheet, \
-    apply_theme, \
-    GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH  # Импорт путей к файлам
-from settings import app_settings
+
+# Импорт из нашего приложения
+from app.core import (
+    APP_VERSION,
+    CONTENT_DIR,
+    STYLES_DIR,
+    THEME_FILE,
+    load_stylesheet,
+    apply_theme,
+    GUIDES_JSON_PATH,
+    GAME_LIST_GUIDE_JSON_PATH
+)
+from app.settings import app_settings
 
 def load_content():
     """
