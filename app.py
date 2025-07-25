@@ -1,4 +1,46 @@
 #!/usr/bin/env python3
+# Добавляем в самое начало app.py
+import logging
+import traceback
+
+# Настройка логгирования
+log_dir = os.path.join(os.path.expanduser("~"), "PixelDeck", "logs")
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, "pixeldeck.log")
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger('PixelDeck')
+
+# Глобальный обработчик исключений
+def handle_exception(exc_type, exc_value, exc_traceback):
+    """Перехватывает все необработанные исключения"""
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    
+    logger.error(
+        "Неперехваченное исключение:",
+        exc_info=(exc_type, exc_value, exc_traceback)
+    )
+    
+    # Показываем ошибку пользователю
+    error_msg = f"{exc_type.__name__}: {exc_value}"
+    QMessageBox.critical(
+        None,
+        "Критическая ошибка",
+        f"Произошла непредвиденная ошибка:\n\n{error_msg}\n\n"
+        f"Подробности в логах: {log_file}"
+    )
+
+sys.excepthook = handle_exception
+
 # Импорт необходимых модулей
 import sys
 import os
