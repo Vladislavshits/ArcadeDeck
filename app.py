@@ -11,7 +11,6 @@ if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Добавляем пути к модулям
-sys.path.insert(0, os.path.join(BASE_DIR, "app"))  # Для импорта core.py и settings.py
 sys.path.insert(0, BASE_DIR)  # Для импорта других модулей
 
 import webbrowser
