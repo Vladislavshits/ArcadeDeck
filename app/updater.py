@@ -29,8 +29,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
-# Используем версию из core.py
-from core import APP_VERSION, STYLES_DIR, load_stylesheet
+#Версия из core.py и настройки темы
+from app.core import APP_VERSION, STYLES_DIR, load_stylesheet
+from app.settings import app_settings
 
 # Настройки пользователя
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), "PixelDeck")
