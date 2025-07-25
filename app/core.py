@@ -5,7 +5,7 @@ import re
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
-from settings import app_settings
+from settings import app_settings  # Исправленный импорт
 
 APP_VERSION = "0.1.7.10 (71) BETA"
 USER_HOME = os.path.expanduser("~")
@@ -21,6 +21,10 @@ else:
 CONTENT_DIR = os.path.join(BASE_DIR, "Content")
 STYLES_DIR = os.path.join(BASE_DIR, "app", "ui_assets")
 THEME_FILE = os.path.join(STYLES_DIR, "theme.qs5")
+
+# Добавляем пути к JSON-файлам
+GUIDES_JSON_PATH = os.path.join(CONTENT_DIR, "guides.json")
+GAME_LIST_GUIDE_JSON_PATH = os.path.join(CONTENT_DIR, "game-list-guides.json")
 
 # Создаем необходимые директории
 os.makedirs(CONTENT_DIR, exist_ok=True)
