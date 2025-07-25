@@ -2,7 +2,6 @@
 import os
 import sys
 import re
-from PyQt6.QtCore import QFile, QTextStream
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
@@ -26,7 +25,7 @@ os.makedirs(STYLES_DIR, exist_ok=True)
 
 def load_stylesheet(theme_name='dark'):
     """
-    Загружает стили из файла theme.qs5 или возвращает стандартные стили Qt
+    Загружает стили из файла theme.qs5
     :param theme_name: 'dark' или 'light'
     :return: Строка со стилями
     """
@@ -76,36 +75,36 @@ def apply_theme(app, theme_name=None):
         app.setStyleSheet("")
         
         # Создаем палитру в зависимости от темы
-        palette = app.palette()
+        palette = QPalette()
         
         if theme_name == 'dark':
             # Настройки для темной темы
-            palette.setColor(palette.ColorRole.Window, QColor(53, 53, 53))
-            palette.setColor(palette.ColorRole.WindowText, Qt.GlobalColor.white)
-            palette.setColor(palette.ColorRole.Base, QColor(35, 35, 35))
-            palette.setColor(palette.ColorRole.AlternateBase, QColor(53, 53, 53))
-            palette.setColor(palette.ColorRole.ToolTipBase, QColor(25, 25, 25))
-            palette.setColor(palette.ColorRole.ToolTipText, Qt.GlobalColor.white)
-            palette.setColor(palette.ColorRole.Text, Qt.GlobalColor.white)
-            palette.setColor(palette.ColorRole.Button, QColor(53, 53, 53))
-            palette.setColor(palette.ColorRole.ButtonText, Qt.GlobalColor.white)
-            palette.setColor(palette.ColorRole.BrightText, Qt.GlobalColor.red)
-            palette.setColor(palette.ColorRole.Highlight, QColor(42, 130, 218))
-            palette.setColor(palette.ColorRole.HighlightedText, Qt.GlobalColor.black)
+            palette.setColor(QPalette.ColorRole.Window, QColor(53, 53, 53))
+            palette.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.white)
+            palette.setColor(QPalette.ColorRole.Base, QColor(35, 35, 35))
+            palette.setColor(QPalette.ColorRole.AlternateBase, QColor(53, 53, 53))
+            palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(25, 25, 25))
+            palette.setColor(QPalette.ColorRole.ToolTipText, Qt.GlobalColor.white)
+            palette.setColor(QPalette.ColorRole.Text, Qt.GlobalColor.white)
+            palette.setColor(QPalette.ColorRole.Button, QColor(53, 53, 53))
+            palette.setColor(QPalette.ColorRole.ButtonText, Qt.GlobalColor.white)
+            palette.setColor(QPalette.ColorRole.BrightText, Qt.GlobalColor.red)
+            palette.setColor(QPalette.ColorRole.Highlight, QColor(42, 130, 218))
+            palette.setColor(QPalette.ColorRole.HighlightedText, Qt.GlobalColor.black)
         else:
             # Настройки для светлой темы
-            palette.setColor(palette.ColorRole.Window, QColor(240, 240, 240))
-            palette.setColor(palette.ColorRole.WindowText, Qt.GlobalColor.black)
-            palette.setColor(palette.ColorRole.Base, Qt.GlobalColor.white)
-            palette.setColor(palette.ColorRole.AlternateBase, QColor(240, 240, 240))
-            palette.setColor(palette.ColorRole.ToolTipBase, Qt.GlobalColor.white)
-            palette.setColor(palette.ColorRole.ToolTipText, Qt.GlobalColor.black)
-            palette.setColor(palette.ColorRole.Text, Qt.GlobalColor.black)
-            palette.setColor(palette.ColorRole.Button, QColor(240, 240, 240))
-            palette.setColor(palette.ColorRole.ButtonText, Qt.GlobalColor.black)
-            palette.setColor(palette.ColorRole.BrightText, Qt.GlobalColor.red)
-            palette.setColor(palette.ColorRole.Highlight, QColor(100, 160, 220))
-            palette.setColor(palette.ColorRole.HighlightedText, Qt.GlobalColor.white)
+            palette.setColor(QPalette.ColorRole.Window, QColor(240, 240, 240))
+            palette.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.black)
+            palette.setColor(QPalette.ColorRole.Base, Qt.GlobalColor.white)
+            palette.setColor(QPalette.ColorRole.AlternateBase, QColor(240, 240, 240))
+            palette.setColor(QPalette.ColorRole.ToolTipBase, Qt.GlobalColor.white)
+            palette.setColor(QPalette.ColorRole.ToolTipText, Qt.GlobalColor.black)
+            palette.setColor(QPalette.ColorRole.Text, Qt.GlobalColor.black)
+            palette.setColor(QPalette.ColorRole.Button, QColor(240, 240, 240))
+            palette.setColor(QPalette.ColorRole.ButtonText, Qt.GlobalColor.black)
+            palette.setColor(QPalette.ColorRole.BrightText, Qt.GlobalColor.red)
+            palette.setColor(QPalette.ColorRole.Highlight, QColor(100, 160, 220))
+            palette.setColor(QPalette.ColorRole.HighlightedText, Qt.GlobalColor.white)
         
         # Применяем палитру
         app.setPalette(palette)
