@@ -349,7 +349,7 @@ class SettingsScreen(QWidget):
             # Сохраняем настройку темы в конфигурационный файл
             config_dir = os.path.join(os.path.expanduser("~"), "PixelDeck")
             config_path = os.path.join(config_dir, "pixeldeck.ini")
-            settings = QSettings(config_path, QSettings.IniFormat)
+            settings = QSettings(config_path, QSettings.Format.IniFormat)
             settings.setValue("dark_theme", checked)
 
     def apply_theme(self):
@@ -906,7 +906,7 @@ if __name__ == "__main__":
     # Путь к файлу настроек
     config_path = os.path.join(config_dir, "pixeldeck.ini")
     # Создаем объект для работы с настройками
-    settings = QSettings(config_path, QSettings.IniFormat)
+    settings = QSettings(config_path, QSettings.Format.IniFormat)
 
     # Читаем настройки
     welcome_shown = settings.value("welcome_shown", False, type=bool)
