@@ -450,41 +450,41 @@ class SearchScreen(QWidget):
                 }
             """)
 
-def display_results(self, results):
-    """
-    Отображает результаты поиска в виджете списка.
+    def display_results(self, results):
+        """
+        Отображает результаты поиска в виджете списка.
 
-    :param results: Список результатов (каждый элемент - словарь с ключами 'type', 'title', 'url')
-    """
-    self.results_list.clear()  # Очищаем предыдущие результаты
-    # Если результатов нет, скрываем виджет
-    if not results:
-        self.results_list.hide()
-        return
+        :param results: Список результатов (каждый элемент - словарь с ключами 'type', 'title', 'url')
+        """
+        self.results_list.clear()  # Очищаем предыдущие результаты
+        # Если результатов нет, скрываем виджет
+        if not results:
+            self.results_list.hide()
+            return
 
-    # Добавляем каждый результат в список
-    for item in results:
-        # Создаем элемент списка
-        list_item = QListWidgetItem()
-        
-        # Сохраняем URL в пользовательских данных элемента
-        list_item.setData(Qt.ItemDataRole.UserRole, item['url'])
+        # Добавляем каждый результат в список
+        for item in results:
+            # Создаем элемент списка
+            list_item = QListWidgetItem()
+            
+            # Сохраняем URL в пользовательских данных элемента
+            list_item.setData(Qt.ItemDataRole.UserRole, item['url'])
 
-        # Создаем кастомный виджет для элемента
-        item_widget = SearchItemWidget(
-            item['title'],
-            item['type'],
-            self.dark_theme
-        )
+            # Создаем кастомный виджет для элемента
+            item_widget = SearchItemWidget(
+                item['title'],
+                item['type'],
+                self.dark_theme
+            )
 
-        # Устанавливаем виджет в элемент списка
-        list_item.setSizeHint(item_widget.sizeHint())
-        self.results_list.addItem(list_item)
-        self.results_list.setItemWidget(list_item, item_widget)
+            # Устанавливаем виджет в элемент списка
+            list_item.setSizeHint(item_widget.sizeHint())
+            self.results_list.addItem(list_item)
+            self.results_list.setItemWidget(list_item, item_widget)
 
-    # Показываем виджет с результатами
-    self.results_list.show()
-    self.results_list.updateGeometry()
+        # Показываем виджет с результатами
+        self.results_list.show()
+        self.results_list.updateGeometry()  # Обновляем геометрию виджета
 
     def search_content(self, text):
         """
@@ -533,16 +533,12 @@ def display_results(self, results):
         self.display_results(results)
 
     def open_item(self, item):
-    """
-    Открывает выбранный элемент в браузере по умолчанию.
+        """
+        Открывает выбранный элемент в браузере по умолчанию.
 
-    :param item: Элемент списка, по которому кликнули
-    """
-    # Получаем URL из пользовательских данных элемента
-    url = item.data(Qt.ItemDataRole.UserRole)
-    webbrowser.open(url)
-
-    def open_item(self, item):
+        :param item: Элемент списка, по которому кликнули
+        """
+        # Получаем URL из пользовательских данных элемента
         url = item.data(Qt.ItemDataRole.UserRole)
         webbrowser.open(url)
 
