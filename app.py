@@ -54,7 +54,7 @@ sys.excepthook = handle_exception
 # Проверка виртуального окружения
 def is_venv_active():
     return (hasattr(sys, 'real_prefix') or 
-            (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
+            (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix))
 
 if not is_venv_active():
     logger.warning("ВНИМАНИЕ: Виртуальное окружение не активировано!")
@@ -225,6 +225,20 @@ class WelcomeDialog(QDialog):
         self.setup_ui()
         self.center_on_screen()
         self.apply_theme()
+
+    def apply_theme(self):
+        """Применяет тему к диалоговому окну"""
+        try:
+            # Загружаем стили для текущей темы
+            style = load_stylesheet('dark' if self.dark_theme else 'light')
+            if style:
+                self.setStyleSheet(style)
+                
+                # Применяем стили ко всем дочерним виджетам
+                for child in self.findChildren(QWidget):
+                    child.setStyleSheet(style)
+        except Exception as e:
+            logger.error(f"Ошибка применения темы к WelcomeDialog: {e}")
         
     def center_on_screen(self):
         """Центрирует окно на экране."""
