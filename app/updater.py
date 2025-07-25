@@ -28,10 +28,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-
-#Версия из core.py и настройки темы
-from app.core import APP_VERSION, STYLES_DIR, load_stylesheet
-from app.settings import app_settings
+from core import APP_VERSION, STYLES_DIR, THEME_FILE
 
 # Настройки пользователя
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), "PixelDeck")
@@ -106,6 +103,18 @@ class Updater:
             return None
             
         return None
+
+    def get_skip_config(self):
+        """Возвращает список пропущенных версий из конфига"""
+        skipped_versions = []
+        if os.path.exists(CONFIG_PATH):
+            try:
+                with open(CONFIG_PATH, 'r') as f:
+                    config = json.load(f)
+                    skipped_versions = config.get('skipped_versions', [])
+            except:
+                pass
+        return skipped_versions
 
 class UpdateDownloaderThread(QThread):
     """Поток для скачивания обновления в фоновом режиме"""
@@ -264,10 +273,16 @@ def run_updater(dark_theme=True, current_version=None):
     try:
         app = QApplication(sys.argv)
         
-        # Применение стилей
-        style = load_stylesheet('dark' if dark_theme else 'light')
-        if style:
-            app.setStyleSheet(style)
+        # Загрузка стилей
+        try:
+            with open(THEME_FILE, 'r', encoding='utf-8') as f:
+                global_stylesheet = f.read()
+            app.setStyleSheet(global_stylesheet)
+        except Exception as e:
+            print(f"Ошибка загрузки стилей: {e}")
+        
+        # Устанавливаем класс темы
+        app.setProperty("class", "dark-theme" if dark_theme else "light-theme")
         
         # Если версия не передана, используем из common
         if current_version is None:
@@ -289,7 +304,7 @@ def run_updater(dark_theme=True, current_version=None):
             
             if download_url:
                 dialog = UpdateDialog(current_version, latest_version, changelog, download_url)
-                dialog.exec_()
+                dialog.exec()
     except Exception as e:
         print(f"Критическая ошибка в updater: {e}")
 
