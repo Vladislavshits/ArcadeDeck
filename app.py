@@ -22,9 +22,10 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, QSettings, QFile, QTextStream, QSize, QUrl
 from PyQt6.QtGui import QIcon, QFont, QColor, QPalette, QScreen
-from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, THEME_FILE, apply_theme
-from settings import app_settings \
+from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, THEME_FILE, load_stylesheet, \
+    apply_theme, \
     GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH  # Импорт путей к файлам
+from settings import app_settings
 
 def load_content():
     """
