@@ -413,8 +413,8 @@ class SearchScreen(QWidget):
 
         # Настраиваем список результатов
         self.results_list.setSpacing(10)  # Отступ между элементами
-        self.results_list.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
-        self.results_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.results_list.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.results_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
     def apply_theme(self):
         """Применяет выбранную тему (темную или светлую) к экрану поиска."""
