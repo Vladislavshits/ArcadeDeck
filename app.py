@@ -1,16 +1,69 @@
-# Импорт необходимых модулей
-import os
+#!/usr/bin/env python3
 import sys
+import os
+import logging
+import traceback
+import shutil
+import time
+
+# Настройка логирования
+log_dir = os.path.join(os.path.expanduser("~"), "PixelDeck", "logs")
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, "pixeldeck.log")
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger('PixelDeck')
+
+# Глобальный обработчик исключений
+def handle_exception(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    
+    logger.error(
+        "Неперехваченное исключение:",
+        exc_info=(exc_type, exc_value, exc_traceback)
+    )
+    
+    error_msg = f"{exc_type.__name__}: {exc_value}"
+    
+    # Попытка показать сообщение об ошибке
+    try:
+        app = QApplication.instance()
+        if not app:
+            app = QApplication(sys.argv)
+            
+        QMessageBox.critical(
+            None,
+            "Критическая ошибка",
+            f"Произошла непредвиденная ошибка:\n\n{error_msg}\n\n"
+            f"Подробности в логах: {log_file}"
+        )
+    except Exception:
+        pass
+
+sys.excepthook = handle_exception
 
 # Проверка виртуального окружения
-if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
-    print("ВНИМАНИЕ: Виртуальное окружение не активировано!")
+def is_venv_active():
+    return (hasattr(sys, 'real_prefix') or 
+            (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
+
+if not is_venv_active():
+    logger.warning("ВНИМАНИЕ: Виртуальное окружение не активировано!")
 
 # Определяем корневую директорию проекта
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Добавляем пути к модулям
-sys.path.insert(0, BASE_DIR)  # Для импорта других модулей
+sys.path.insert(0, BASE_DIR)
 
 import webbrowser
 import json
@@ -38,116 +91,113 @@ from core import (
 )
 from settings import app_settings
 
+# Безопасная загрузка JSON
+def safe_load_json(path, default):
+    try:
+        if not os.path.exists(path):
+            logger.warning(f"Файл не найден: {path}")
+            return default
+            
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+            
+        if not content:
+            logger.info(f"Файл пуст: {path}")
+            return default
+            
+        return json.loads(content)
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"Ошибка декодирования JSON в {path}: {e}")
+        # Создаем резервную копию битого файла
+        backup_path = f"{path}.corrupted.{int(time.time())}"
+        shutil.copyfile(path, backup_path)
+        logger.info(f"Создана резервная копия: {backup_path}")
+        
+        # Восстанавливаем исходный файл
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(default, f, ensure_ascii=False, indent=2)
+            
+        logger.info(f"Восстановлен исходный файл: {path}")
+        return default
+        
+    except Exception as e:
+        logger.error(f"Критическая ошибка при загрузке {path}: {e}")
+        return default
+
 def load_content():
     """
-    Загружает контент из JSON-файлов (guides.json и game-list-guides.json).
-    Возвращает два списка: гайды и игры.
+    Загружает контент из JSON-файлов с обработкой ошибок.
     """
-    guides = []
-    games = []
-
-    # АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ОТСУТСТВУЮЩИХ ФАЙЛОВ
-    for path in [GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH]:
-        if not os.path.exists(path):
-            with open(path, 'w', encoding='utf-8') as f:
-                json.dump([], f)
-                print(f"Создан пустой файл: {os.path.basename(path)}")
-
-    # Проверяем существование папки Content
-    if not os.path.exists(CONTENT_DIR):
-        print(f"Папка контента не найдена: {CONTENT_DIR}")
-        return guides, games
-
+    # Проверяем и создаем необходимые директории
+    os.makedirs(CONTENT_DIR, exist_ok=True)
+    
     # Загрузка гайдов
-    try:
-        if os.path.exists(GUIDES_JSON_PATH):
-            print(f"Загрузка файла гайдов: {GUIDES_JSON_PATH}")
-            with open(GUIDES_JSON_PATH, 'r', encoding='utf-8') as f:
-                content = f.read()
-                if content:
-                    guides_data = json.loads(content)
-                    if isinstance(guides_data, list):
-                        guides = guides_data
-                        print(f"Загружено гайдов: {len(guides)}")
-                    else:
-                        print(f"Ошибка: файл гайдов не содержит список")
-                else:
-                    print(f"Файл гайдов пуст: {GUIDES_JSON_PATH}")
-        else:
-            print(f"Файл гайдов не найден: {GUIDES_JSON_PATH}")
-    except json.JSONDecodeError as e:
-        print(f"Ошибка декодирования JSON в файле гайдов: {e}")
-    except Exception as e:
-        print(f"Ошибка загрузки гайдов: {e}")
-
-    # Загрузка списка игр
-    try:
-        if os.path.exists(GAME_LIST_GUIDE_JSON_PATH):
-            print(f"Загрузка файла игр: {GAME_LIST_GUIDE_JSON_PATH}")
-            with open(GAME_LIST_GUIDE_JSON_PATH, 'r', encoding='utf-8') as f:
-                content = f.read()
-                if content:
-                    games_data = json.loads(content)
-                    if isinstance(games_data, list):
-                        games = games_data
-                        print(f"Загружено игр: {len(games)}")
-                    else:
-                        print(f"Ошибка: файл игр не содержит список")
-                else:
-                    print(f"Файл игр пуст: {GAME_LIST_GUIDE_JSON_PATH}")
-        else:
-            print(f"Файл игр не найден: {GAME_LIST_GUIDE_JSON_PATH}")
-    except json.JSONDecodeError as e:
-        print(f"Ошибка декодирования JSON в файле игр: {e}")
-    except Exception as e:
-        print(f"Ошибка загрузки игр: {e}")
-
+    guides = safe_load_json(GUIDES_JSON_PATH, [])
+    
+    # Загрузка игр
+    games = safe_load_json(GAME_LIST_GUIDE_JSON_PATH, [])
+    
+    logger.info(f"Загружено гайдов: {len(guides)}, игр: {len(games)}")
     return guides, games
 
-# Загружаем контент
-GUIDES, GAMES = load_content()
-
-def show_style_error(missing_styles):
+def show_style_error(missing_resources):
     """
-    Показывает диалоговое окно с ошибкой отсутствия файлов стилей.
-
-    :param missing_styles: Список отсутствующих файлов стилей
+    Показывает диалоговое окно с ошибкой отсутствия ресурсов.
     """
-    # Создаем диалоговое окно с ошибкой
+    # Создаем временное приложение для показа сообщения
+    app = QApplication.instance()
+    if not app:
+        app = QApplication([])
+    
     error_dialog = QMessageBox()
     error_dialog.setWindowTitle("Ошибка запуска! Код #1!")
     error_dialog.setIcon(QMessageBox.Icon.Critical)
 
-    # Формируем текст сообщения
-    message = "Отсутствуют файлы стилей. Переустановите программу с сайта проекта.\n\n"
-    message += "Отсутствующие файлы:\n"
-    for style in missing_styles:
-        message += f"- {os.path.basename(style)}\n"
+    message = "Отсутствуют критические ресурсы. Переустановите программу.\n\n"
+    message += "Отсутствующие файлы/директории:\n"
+    for resource in missing_resources:
+        message += f"- {resource}\n"
 
     error_dialog.setText(message)
 
-    # Добавляем кнопки
     download_button = error_dialog.addButton("Скачать установщик", QMessageBox.ActionRole)
     close_button = error_dialog.addButton("Закрыть", QMessageBox.RejectRole)
 
-    # Показываем диалог
     error_dialog.exec()
 
-    # Обрабатываем нажатие кнопок
     if error_dialog.clickedButton() == download_button:
         webbrowser.open("https://github.com/Vladislavshits/PixelDeck/releases/download/v0.1.5/install.pixeldeck.sh")
 
-    return False
+def check_resources():
+    """Проверяет наличие всех критических ресурсов"""
+    missing = []
+    
+    # Список обязательных файлов
+    required_files = [
+        THEME_FILE,
+        GUIDES_JSON_PATH,
+        GAME_LIST_GUIDE_JSON_PATH
+    ]
+    
+    # Проверяем каждый файл
+    for path in required_files:
+        if not os.path.exists(path):
+            missing.append(os.path.basename(path))
+            logger.error(f"Отсутствует обязательный файл: {path}")
+    
+    # Проверяем директории
+    required_dirs = [STYLES_DIR, CONTENT_DIR]
+    for dir_path in required_dirs:
+        if not os.path.isdir(dir_path):
+            missing.append(os.path.basename(dir_path))
+            logger.error(f"Отсутствует обязательная директория: {dir_path}")
+    
+    return missing
 
 class WelcomeScreen(QWidget):
-    """Экран приветствия, показываемый при запуске приложения."""
-
+    """Экран приветствия"""
     def __init__(self, parent=None):
-        """
-        Инициализация экрана приветствия.
-
-        :param parent: Родительское окно
-        """
         super().__init__(parent)
         self.setup_ui()
 
@@ -156,7 +206,6 @@ class WelcomeScreen(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         
-        # Заголовок во весь экран
         title = QLabel("PixelDeck")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet("""
@@ -165,7 +214,7 @@ class WelcomeScreen(QWidget):
             color: #2a9fd6;
             padding: 30px;
         """)
-        layout.addWidget(title, 1)  # Растягиваем на все доступное пространство
+        layout.addWidget(title, 1)
 
 class WelcomeDialog(QDialog):
     """Диалоговое окно приветствия при первом запуске."""
@@ -262,6 +311,7 @@ class SettingsScreen(QWidget):
         
         # Загружаем текущую тему
         current_theme = app_settings.get_theme()
+        # Устанавливаем состояние переключателя на основе текущей темы
         self.theme_toggle.setChecked(current_theme == 'dark')
 
     def toggle_theme(self, checked):
@@ -300,7 +350,7 @@ class SettingsScreen(QWidget):
 
         # Переключатель темы (тумблер)
         self.theme_toggle = QCheckBox()
-        self.theme_toggle.setChecked(self.dark_theme)
+        # Убрали установку состояния здесь - она делается в __init__ после setup_ui
         self.theme_toggle.setFixedSize(80, 40)  # Больший размер
         # Стиль для тумблера
         self.theme_toggle.setStyleSheet("""
@@ -637,11 +687,11 @@ class MainWindow(QMainWindow):
         self.stacked_widget = QStackedWidget()
         main_layout.addWidget(self.stacked_widget, 1)  # Растягиваем на все пространство
         
-        # Создаем экраны (поменяли местами DummyScreen и SettingsScreen)
+        # Создаем экраны
         self.welcome_screen = WelcomeScreen()
         self.search_screen = SearchScreen(self, dark_theme)
         self.dummy_screen = DummyScreen()
-        self.settings_screen = SettingsScreen(self, dark_theme)
+        self.settings_screen = SettingsScreen(self)  # Без передачи dark_theme
         
         # Добавляем экраны в стек
         self.stacked_widget.addWidget(self.welcome_screen)
@@ -695,75 +745,77 @@ def check_and_show_updates(parent_window):
             start_new_session=True
         )
     except Exception as e:
-        print(f"Ошибка запуска updater: {e}")
+        logger.error(f"Ошибка запуска updater: {e}")
 
 # Точка входа в приложение
 if __name__ == "__main__":
+    logger.info("Запуск PixelDeck")
+    logger.info(f"Версия: {APP_VERSION}")
+    logger.info(f"Рабочая директория: {os.getcwd()}")
     
-    # Создаем необходимые директории
-    os.makedirs(STYLES_DIR, exist_ok=True)
-    os.makedirs(CONTENT_DIR, exist_ok=True)
-
-    # Создаем экземпляр приложения
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")  # Устанавливаем стиль Fusion
-
-    # --- Проверка наличия файлов стилей ---
-    # Список обязательных файлов стилей
-    required_styles = [THEME_FILE]
-
-    # Проверяем наличие каждого файла стиля
-    missing_styles = [style for style in required_styles if not os.path.exists(style)]
-
-    # Если директория со стилями не существует, считаем все стили отсутствующими
-    if not os.path.exists(STYLES_DIR):
-        missing_styles = required_styles
-
-    # Создаем экземпляр приложения
-    app = QApplication(sys.argv)
-    
-    # Применяем тему
-    apply_theme(app)
-
-    # Если какие-то файлы отсутствуют
-    if missing_styles:
-        # Показываем диалог с ошибкой
-        show_style_error(missing_styles)
-        sys.exit(1)  # Выходим с ошибкой
-
-    # --- НАСТРОЙКА КОНФИГУРАЦИИ ПРИЛОЖЕНИЯ ---
-    # Создаем каталог для настроек в домашней директории пользователя
-    config_dir = os.path.join(os.path.expanduser("~"), "PixelDeck")
-    os.makedirs(config_dir, exist_ok=True)
-
-    # Путь к файлу настроек
-    config_path = os.path.join(config_dir, "pixeldeck.ini")
-    # Создаем объект для работы с настройками
-    settings = QSettings(config_path, QSettings.Format.IniFormat)
-
-    # Читаем настройки
-    welcome_shown = settings.value("welcome_shown", False, type=bool)
-    dark_theme = settings.value("dark_theme", True, type=bool)
-
-    # Инициализируем app_settings после создания QApplication
-    from settings import app_settings
-    app_settings._ensure_settings()  # Явно инициализируем QSettings
-
-    # Если приветственное окно еще не показывалось
-    if not welcome_shown:
-        # Создаем и показываем приветственное окно
-        welcome = WelcomeDialog(dark_theme=dark_theme)
-        # Если пользователь нажал "Продолжить"
-        if welcome.exec() == QDialog.DialogCode.Accepted:
-            # Сохраняем флаг, что окно было показано
-            settings.setValue("welcome_shown", True)
-
-    # Создаем и показываем главное окно приложения
-    window = MainWindow(dark_theme=dark_theme)  # Используем переменную dark_theme
-    window.showMaximized()  # Показываем в полноэкранном режиме
-
-    # Проверяем обновления с помощью updater.py
-    QTimer.singleShot(3000, lambda: check_and_show_updates(window))
-
-    # Запускаем главный цикл обработки событий
-    sys.exit(app.exec())
+    try:
+        # Создаем необходимые директории
+        os.makedirs(STYLES_DIR, exist_ok=True)
+        os.makedirs(CONTENT_DIR, exist_ok=True)
+        
+        # Проверка ресурсов
+        missing_resources = check_resources()
+        if missing_resources:
+            logger.critical("Отсутствуют критические ресурсы")
+            show_style_error(missing_resources)
+            sys.exit(1)
+        
+        # Создаем экземпляр приложения
+        app = QApplication(sys.argv)
+        app.setStyle("Fusion")
+        
+        # Применяем тему
+        apply_theme(app)
+        
+        # Загружаем контент ПОСЛЕ создания QApplication
+        global GUIDES, GAMES
+        GUIDES, GAMES = load_content()
+        
+        # Создаем каталог для настроек
+        config_dir = os.path.join(os.path.expanduser("~"), "PixelDeck")
+        os.makedirs(config_dir, exist_ok=True)
+        config_path = os.path.join(config_dir, "pixeldeck.ini")
+        settings = QSettings(config_path, QSettings.Format.IniFormat)
+        
+        # Читаем настройки
+        welcome_shown = settings.value("welcome_shown", False, type=bool)
+        dark_theme = settings.value("dark_theme", True, type=bool)
+        
+        # Инициализируем app_settings
+        app_settings._ensure_settings()
+        
+        # Приветственное окно
+        if not welcome_shown:
+            welcome = WelcomeDialog(dark_theme=dark_theme)
+            if welcome.exec() == QDialog.DialogCode.Accepted:
+                settings.setValue("welcome_shown", True)
+        
+        # Главное окно
+        window = MainWindow(dark_theme=dark_theme)
+        window.showMaximized()
+        
+        # Проверка обновлений
+        QTimer.singleShot(3000, lambda: check_and_show_updates(window))
+        
+        sys.exit(app.exec())
+        
+    except Exception as e:
+        logger.exception("Критическая ошибка при запуске")
+        # Попытка показать сообщение об ошибке
+        try:
+            app = QApplication(sys.argv)
+            QMessageBox.critical(
+                None,
+                "Ошибка запуска",
+                f"Произошла критическая ошибка: {str(e)}\n\n"
+                f"Подробности в логах: {log_file}"
+            )
+            app.exec()
+        except:
+            pass
+        sys.exit(1)
