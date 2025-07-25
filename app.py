@@ -22,7 +22,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, QSettings, QFile, QTextStream, QSize, QUrl
 from PyQt6.QtGui import QIcon, QFont, QColor, QPalette, QScreen
-from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, THEME_FILE, load_stylesheet, \
+from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, THEME_FILE, apply_theme
+from settings import app_settings \
     GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH  # Импорт путей к файлам
 
 def load_content():
@@ -240,31 +241,25 @@ class WelcomeDialog(QDialog):
         """)
         continue_button.clicked.connect(self.accept)
         layout.addWidget(continue_button)
-        
-    def apply_theme(self):
-        """Применяет выбранную тему (темную или светлую) к диалогу."""
-        if self.dark_theme:
-            style = load_stylesheet('dark')
-        else:
-            style = load_stylesheet('light')
-
-        if style:
-            self.setStyleSheet(style)
 
 class SettingsScreen(QWidget):
-    """Экран настроек приложения."""
-
-    def __init__(self, parent=None, dark_theme=True):
-        """
-        Инициализация экрана настроек.
-
-        :param parent: Родительское окно
-        :param dark_theme: Использовать темную тему (по умолчанию True)
-        """
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.dark_theme = dark_theme
         self.parent = parent
         self.setup_ui()
+        
+        # Загружаем текущую тему
+        current_theme = app_settings.get_theme()
+        self.theme_toggle.setChecked(current_theme == 'dark')
+
+    def toggle_theme(self, checked):
+        """Обработчик изменения темы"""
+        theme = 'dark' if checked else 'light'
+        app_settings.set_theme(theme)
+        
+        # Применяем новую тему
+        app = QApplication.instance()
+        apply_theme(app, theme)
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -331,36 +326,6 @@ class SettingsScreen(QWidget):
         version_label.setObjectName("versionLabel")
         main_layout.addWidget(version_label)
 
-    def apply_theme(self):
-        """Применяет выбранную тему (темную или светлую) ко всем экранам."""
-        # Получаем экземпляр приложения
-        app = QApplication.instance()
-        
-        if self.dark_theme:
-            style = load_stylesheet('dark')
-        else:
-            style = load_stylesheet('light')
-
-        if style:
-            # Устанавливаем стиль для всего приложения
-            app.setStyleSheet(style)
-            
-            # Дополнительно обновляем стили для всех виджетов
-            self.setStyleSheet(style)
-            self.welcome_screen.setStyleSheet(style)
-            self.search_screen.setStyleSheet(style)
-            self.settings_screen.setStyleSheet(style)
-            self.dummy_screen.setStyleSheet(style)
-
-    def apply_theme(self):
-        """Применяет выбранную тему (темную или светлую) к экрану настроек."""
-        if self.dark_theme:
-            style = load_stylesheet('dark')
-        else:
-            style = load_stylesheet('light')
-
-        if style:
-            self.setStyleSheet(style)
 
 class DummyScreen(QWidget):
     """Заглушка для дополнительного экрана."""
@@ -415,16 +380,6 @@ class SearchScreen(QWidget):
         self.results_list.setSpacing(10)  # Отступ между элементами
         self.results_list.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.results_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-
-    def apply_theme(self):
-        """Применяет выбранную тему (темную или светлую) к экрану поиска."""
-        if self.dark_theme:
-            style = load_stylesheet('dark')
-        else:
-            style = load_stylesheet('light')
-
-        if style:
-            self.setStyleSheet(style)
 
         # Обновляем стиль для поля поиска
         if self.dark_theme:
@@ -709,21 +664,6 @@ class MainWindow(QMainWindow):
         self.stacked_widget.setCurrentIndex(3)
         self.nav_bar.settings_button.setChecked(True)
 
-    def apply_theme(self):
-        """Применяет выбранную тему (темную или светлую) ко всем экранам."""
-        if self.dark_theme:
-            style = load_stylesheet('dark')
-        else:
-            style = load_stylesheet('light')
-
-        if style:
-            self.setStyleSheet(style)
-            # Применяем тему ко всем экранам
-            self.welcome_screen.setStyleSheet(style)
-            self.search_screen.apply_theme()
-            self.settings_screen.apply_theme()
-            self.dummy_screen.setStyleSheet(style)
-
 def check_and_show_updates(parent_window):
     """Запускает внешний updater"""
     try:
@@ -765,6 +705,12 @@ if __name__ == "__main__":
     # Если директория со стилями не существует, считаем все стили отсутствующими
     if not os.path.exists(STYLES_DIR):
         missing_styles = required_styles
+
+    # Создаем экземпляр приложения
+    app = QApplication(sys.argv)
+    
+    # Применяем тему
+    apply_theme(app)
 
     # Если какие-то файлы отсутствуют
     if missing_styles:
