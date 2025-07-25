@@ -145,7 +145,7 @@ class WelcomeScreen(QWidget):
         
         # Заголовок во весь экран
         title = QLabel("PixelDeck")
-        title.setAlignment(Qt.AlignCenter)
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet("""
             font-size: 80px;
             font-weight: bold;
@@ -183,7 +183,7 @@ class WelcomeDialog(QDialog):
         
         # Заголовок
         title = QLabel("Добро пожаловать в PixelDeck!")
-        title.setAlignment(Qt.AlignCenter)
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_font = QFont()
         title_font.setBold(True)
         title_font.setPointSize(24)
@@ -196,7 +196,7 @@ class WelcomeDialog(QDialog):
             "автоустановки игр, а так же многое другое ждет вас в будущем!\n\n"
             "Приятного пользования!"
         )
-        description.setAlignment(Qt.AlignCenter)
+        description.setAlignment(Qt.AlignmentFlag.AlignCenter)
         description.setWordWrap(True)
         description_font = QFont()
         description_font.setPointSize(14)
@@ -277,7 +277,7 @@ class SettingsScreen(QWidget):
         title_font.setBold(True)
         title_font.setPointSize(32)
         title.setFont(title_font)
-        title.setAlignment(Qt.AlignCenter)
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(title)
 
         # Лэйаут для переключателя темы
@@ -327,7 +327,7 @@ class SettingsScreen(QWidget):
         # Метка с версией приложения
         version_label = QLabel(f"Версия {APP_VERSION}")
         version_label.setFont(QFont("Arial", 14))
-        version_label.setAlignment(Qt.AlignCenter)
+        version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         version_label.setObjectName("versionLabel")
         main_layout.addWidget(version_label)
 
@@ -372,7 +372,7 @@ class DummyScreen(QWidget):
     def setup_ui(self):
         layout = QVBoxLayout(self)
         label = QLabel("Этот экран пока не реализован")
-        label.setAlignment(Qt.AlignCenter)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
 
 class SearchScreen(QWidget):
