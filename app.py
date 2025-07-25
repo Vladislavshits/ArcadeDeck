@@ -734,7 +734,7 @@ if __name__ == "__main__":
     # --- НАСТРОЙКА КОНФИГУРАЦИИ ПРИЛОЖЕНИЯ ---
     # Создаем каталог для настроек в домашней директории пользователя
     config_dir = os.path.join(os.path.expanduser("~"), "PixelDeck")
-    os.makedirs(config_dir, exist_ok=True)  # Создаем, если не существует
+    os.makedirs(config_dir, exist_ok=True)
 
     # Путь к файлу настроек
     config_path = os.path.join(config_dir, "pixeldeck.ini")
@@ -743,7 +743,11 @@ if __name__ == "__main__":
 
     # Читаем настройки
     welcome_shown = settings.value("welcome_shown", False, type=bool)
-    dark_theme = settings.value("dark_theme", True, type=bool)  # Читаем тему из настроек
+    dark_theme = settings.value("dark_theme", True, type=bool)
+
+    # Инициализируем app_settings после создания QApplication
+    from settings import app_settings
+    app_settings._ensure_settings()  # Явно инициализируем QSettings
 
     # Если приветственное окно еще не показывалось
     if not welcome_shown:
