@@ -15,7 +15,7 @@ import json
 import requests
 import subprocess
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget,
+    QApplication, QAbstractItemView, QMainWindow, QWidget,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QHBoxLayout,
     QStackedWidget, QSizePolicy, QToolButton, QButtonGroup,
     QCheckBox, QDialog, QTextEdit, QMessageBox, QProgressDialog
@@ -413,7 +413,7 @@ class SearchScreen(QWidget):
 
         # Настраиваем список результатов
         self.results_list.setSpacing(10)  # Отступ между элементами
-        self.results_list.setVerticalScrollMode(QListWidget.ScrollPerPixel)
+        self.results_list.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.results_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
     def apply_theme(self):
@@ -571,132 +571,6 @@ class SearchItemWidget(QWidget):
         
         # Устанавливаем минимальную высоту
         self.setMinimumHeight(100)
-        
-def apply_theme(self):
-    """Применяет выбранную тему (темную или светлую) к экрану поиска."""
-    if self.dark_theme:
-        style = load_stylesheet(DARK_STYLE)
-    else:
-        style = load_stylesheet(LIGHT_STYLE)
-
-    if style:
-        self.setStyleSheet(style)
-        
-    # Обновляем стиль для поля поиска
-    if self.dark_theme:
-        self.search_field.setStyleSheet("""
-            QLineEdit {
-                background-color: #252525;
-                color: white;
-                font-size: 24px;
-                border: 2px solid #64b5f6;
-                border-radius: 35px;
-                padding: 15px 30px;
-            }
-        """)
-    else:
-        self.search_field.setStyleSheet("""
-            QLineEdit {
-                background-color: white;
-                color: #333;
-                font-size: 24px;
-                border: 2px solid #4285f4;
-                border-radius: 35px;
-                padding: 15px 30px;
-            }
-        """)
-
-def display_results(self, results):
-    """
-    Отображает результаты поиска в виджете списка.
-
-    :param results: Список результатов (каждый элемент - словарь с ключами 'type', 'title', 'url')
-    """
-    self.results_list.clear()  # Очищаем предыдущие результаты
-    # Если результатов нет, скрываем виджет
-    if not results:
-        self.results_list.hide()
-        return
-
-    # Добавляем каждый результат в список
-    for item in results:
-        list_item = QListWidgetItem()
-        
-        # Создаем кастомный виджет для элемента
-        item_widget = SearchItemWidget(
-            item['title'],
-            item['type'],
-            self.dark_theme
-        )
-        
-        # Устанавливаем виджет в элемент списка
-        list_item.setSizeHint(item_widget.sizeHint())
-        self.results_list.addItem(list_item)
-        self.results_list.setItemWidget(list_item, item_widget)
-
-        # Сохраняем URL в пользовательских данных элемента
-        list_item.setData(Qt.UserRole, item['url'])
-
-    # Показываем виджет с результатами
-    self.results_list.show()
-    self.results_list.updateGeometry()  # Обновляем геометрию виджета
-
-    def search_content(self, text):
-        """
-        Обработчик изменения текста в поле поиска.
-        Использует таймер для отложенного поиска.
-
-        :param text: Текст для поиска
-        """
-        # Запускаем поиск через 100 мс для оптимизации
-        QTimer.singleShot(100, lambda: self.perform_search(text))
-
-    def perform_search(self, text):
-        """
-        Выполняет поиск по гайдам и играм.
-
-        :param text: Текст для поиска
-        """
-        # Если поле поиска пустое, скрываем результаты
-        if not text.strip():
-            self.results_list.hide()
-            return
-
-        # Приводим запрос к нижнему регистру для регистронезависимого поиска
-        query = text.lower()
-        results = []
-
-        # Поиск в гайдах
-        for guide in GUIDES:
-            if query in guide["title"].lower():
-                results.append({
-                    'type': 'Гайд',
-                    'title': guide["title"],
-                    'url': guide["url"]
-                })
-
-        # Поиск в играх
-        for game in GAMES:
-            if query in game["title"].lower():
-                results.append({
-                    'type': 'Игра',
-                    'title': game["title"],
-                    'url': game["url"]
-                })
-
-        # Отображаем результаты
-        self.display_results(results)
-
-    def open_item(self, item):
-        """
-        Открывает выбранный элемент в браузере по умолчанию.
-
-        :param item: Элемент списка, по которому кликнули
-        """
-        # Получаем URL из пользовательских данных элемента
-        url = item.data(Qt.UserRole)
-        # Открываем URL в браузере по умолчанию
-        webbrowser.open(url)
 
 class NavigationBar(QWidget):
     """Нижняя панель навигации для переключения между экранами."""
