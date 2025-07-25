@@ -118,7 +118,7 @@ def show_style_error(missing_styles):
     close_button = error_dialog.addButton("Закрыть", QMessageBox.RejectRole)
 
     # Показываем диалог
-    error_dialog.exec_()
+    error_dialog.exec()
 
     # Обрабатываем нажатие кнопок
     if error_dialog.clickedButton() == download_button:
@@ -917,7 +917,7 @@ if __name__ == "__main__":
         # Создаем и показываем приветственное окно
         welcome = WelcomeDialog(dark_theme=dark_theme)
         # Если пользователь нажал "Продолжить"
-        if welcome.exec_() == QDialog.Accepted:
+        if welcome.exec() == QDialog.DialogCode.Accepted:
             # Сохраняем флаг, что окно было показано
             settings.setValue("welcome_shown", True)
 
