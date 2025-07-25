@@ -803,4 +803,4 @@ if __name__ == "__main__":
     QTimer.singleShot(3000, lambda: check_and_show_updates(window))
 
     # Запускаем главный цикл обработки событий
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
