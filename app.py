@@ -331,26 +331,26 @@ class SettingsScreen(QWidget):
         version_label.setObjectName("versionLabel")
         main_layout.addWidget(version_label)
 
-    def toggle_theme(self, checked):
-        """
-        Обработчик изменения состояния переключателя темы.
+    def apply_theme(self):
+        """Применяет выбранную тему (темную или светлую) ко всем экранам."""
+        # Получаем экземпляр приложения
+        app = QApplication.instance()
+        
+        if self.dark_theme:
+            style = load_stylesheet('dark')
+        else:
+            style = load_stylesheet('light')
 
-        :param checked: Новое состояние переключателя (включена темная тема)
-        """
-        self.dark_theme = checked
-        # Обновляем тему текущего экрана
-        self.apply_theme()
-
-        if self.parent:
-            # Обновляем тему родительского окна
-            self.parent.dark_theme = checked
-            self.parent.apply_theme()
-
-            # Сохраняем настройку темы в конфигурационный файл
-            config_dir = os.path.join(os.path.expanduser("~"), "PixelDeck")
-            config_path = os.path.join(config_dir, "pixeldeck.ini")
-            settings = QSettings(config_path, QSettings.Format.IniFormat)
-            settings.setValue("dark_theme", checked)
+        if style:
+            # Устанавливаем стиль для всего приложения
+            app.setStyleSheet(style)
+            
+            # Дополнительно обновляем стили для всех виджетов
+            self.setStyleSheet(style)
+            self.welcome_screen.setStyleSheet(style)
+            self.search_screen.setStyleSheet(style)
+            self.settings_screen.setStyleSheet(style)
+            self.dummy_screen.setStyleSheet(style)
 
     def apply_theme(self):
         """Применяет выбранную тему (темную или светлую) к экрану настроек."""
