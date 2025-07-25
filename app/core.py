@@ -19,7 +19,7 @@ else:
 CONTENT_DIR = os.path.join(BASE_DIR, "Content")
 
 # Путь к стилям теперь в data/style
-STYLES_DIR = os.path.join(BASE_DIR, "data", "style")
+STYLES_DIR = os.path.join(BASE_DIR, "app", "ui_assets")
 
 # Пути к файлам контента
 GUIDES_JSON_PATH = os.path.join(CONTENT_DIR, "guides.json")
