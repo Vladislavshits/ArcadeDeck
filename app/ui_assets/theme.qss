@@ -1,0 +1,254 @@
+/* DARK THEME */
+:root {
+    /* Общие переменные */
+    --primary-color: #64b5f6;
+    --secondary-color: #2a9fd6;
+    --background-color: #1b1b1b;
+    --text-color: #e0e0e0;
+    --card-bg: #252525;
+    --border-color: #444;
+    --hover-bg: #3a3a3a;
+    --version-color: #aaa;
+}
+
+QMainWindow, QDialog, QWidget {
+    background-color: var(--background-color);
+    color: var(--text-color);
+    font-family: Arial;
+}
+
+QLabel {
+    color: var(--text-color);
+}
+
+/* Тёмная тема для всех окон */
+QMainWindow, QDialog, QWidget {
+    background-color: #1b1b1b;
+    color: #e0e0e0;
+    font-family: Arial;
+}
+
+QLabel {
+    color: #e0e0e0;
+}
+
+QLabel#title {
+    color: #64b5f6;
+    font-weight: bold;
+    font-size: 28px;
+}
+
+/* Обновленный стиль для поля поиска */
+QLineEdit {
+    background-color: #252525;
+    color: white;
+    padding: 10px 30px;
+    font-size: 24px; /* Увеличили размер шрифта */
+    border: 2px solid #64b5f6;
+    border-radius: 35px;
+    min-height: 70px; /* Увеличили высоту */
+    min-width: 0; /* Убрали фиксированную ширину */
+}
+
+QListWidget {
+    background-color: #252525;
+    color: white;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 10px; /* Увеличили отступы */
+    font-size: 18px; /* Увеличили размер шрифта */
+    min-width: 0; /* Убрали фиксированную ширину */
+}
+
+QListWidget::item {
+    background-color: #333; /* Темнее фон */
+    color: white;
+    padding: 20px; /* Увеличили отступы */
+    border: 1px solid #444; /* Добавили границу */
+    border-radius: 10px; /* Скруглили углы */
+    margin: 8px 0; /* Отступы между элементами */
+}
+
+QListWidget::item:selected {
+    background-color: #64b5f6;
+    color: black; /* Черный текст для лучшей читаемости */
+    border-radius: 10px;
+    border: 1px solid #5aa5e6; /* Граница для выбранного элемента */
+}
+
+QListWidget::item:hover {
+    background-color: #3a3a3a; /* Темнее при наведении */
+    border: 1px solid #555; /* Граница при наведении */
+}
+
+QToolButton {
+    background-color: #64b5f6;
+    border-radius: 20px;
+    border: none;
+}
+
+QToolButton:hover {
+    background-color: #5aa5e6;
+}
+
+QWidget#SearchItemWidget {
+    background-color: #252525;
+    border: 1px solid #64b5f6;
+    border-radius: 10px;
+}
+
+QWidget#SearchItemWidget:hover {
+    background-color: #353535;
+}
+
+/* Настройки для экрана настроек */
+SettingsScreen QLabel#versionLabel {
+    color: #aaa;
+    font-size: 12px;
+}
+
+/* Настройки для экрана приветствия */
+WelcomeScreen {
+    background-color: #1a1a1a;
+}
+WelcomeScreen QLabel {
+    font-size: 80px;
+    font-weight: bold;
+    color: #2a9fd6;
+    padding: 30px;
+}
+
+/* Стиль для экрана поиска */
+QListWidget::item {
+    padding: 20px; /* Увеличили отступы */
+}
+
+/* END DARK THEME */
+
+
+
+/* LIGHT THEME */
+:root {
+    /* Общие переменные */
+    --primary-color: #4285f4;
+    --secondary-color: #2a9fd6;
+    --background-color: #f3f3f3;
+    --text-color: #333333;
+    --card-bg: #ffffff;
+    --border-color: #ddd;
+    --hover-bg: #f0f0f0;
+    --version-color: #777;
+}
+
+QMainWindow, QDialog, QWidget {
+    background-color: var(--background-color);
+    color: var(--text-color);
+    font-family: Arial;
+}
+
+QLabel {
+    color: var(--text-color);
+}
+
+QMainWindow, QDialog, QWidget {
+    background-color: #f3f3f3;
+    color: #333333;
+    font-family: Arial;
+}
+
+QLabel {
+    color: #333333;
+}
+
+QLabel#title {
+    color: #4285f4;
+    font-weight: bold;
+    font-size: 28px;
+}
+
+QLineEdit {
+    background-color: white;
+    color: #333333;
+    padding: 10px 30px;
+    font-size: 24px; /* Размер шрифта */
+    border: 2px solid #4285f4;
+    border-radius: 35px;
+    min-height: 70px; /* Высота */
+    min-width: 0; /* Убрали фиксированную ширину */
+}
+
+/* Стиль для списка результатов */
+QListWidget {
+    background-color: white;
+    color: #333333;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 10px; /* Увеличили отступы */
+    font-size: 18px; /* Увеличили размер шрифта */
+    min-width: 0; /* Убрали фиксированную ширину */
+}
+
+QListWidget::item {
+    background-color: white;
+    color: #333333;
+    padding: 20px; /* Увеличили отступы */
+    border: 1px solid #eee; /* Добавили границу */
+    border-radius: 10px; /* Скруглили углы */
+    margin: 8px 0; /* Отступы между элементами */
+}
+
+QListWidget::item:selected {
+    background-color: #4285f4;
+    color: white;
+    border-radius: 10px;
+    border: 1px solid #3a75d4; /* Граница для выбранного элемента */
+}
+
+QListWidget::item:hover {
+    background-color: #f0f0f0;
+    border: 1px solid #ddd; /* Граница при наведении */
+}
+
+QToolButton {
+    background-color: #4285f4;
+    border-radius: 20px;
+    border: none;
+}
+
+QToolButton:hover {
+    background-color: #3a75d4;
+}
+
+QWidget#SearchItemWidget {
+    background-color: #ffffff;
+    border: 1px solid #4285f4;
+    border-radius: 10px;
+}
+
+QWidget#SearchItemWidget:hover {
+    background-color: #f0f0f0;
+}
+
+/* Настройки для экрана настроек */
+SettingsScreen QLabel#versionLabel {
+    color: #777;
+    font-size: 12px;
+}
+
+/* Настройки для экрана приветствия */
+WelcomeScreen {
+    background-color: #f0f0f0;
+}
+WelcomeScreen QLabel {
+    font-size: 80px;
+    font-weight: bold;
+    color: #4285f4;
+    padding: 30px;
+}
+
+/* Стиль для экрана поиска */
+QListWidget::item {
+    padding: 20px; /* Увеличили отступы */
+}
+
+/* END LIGHT THEME */
