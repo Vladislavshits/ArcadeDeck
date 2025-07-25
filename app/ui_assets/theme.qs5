@@ -91,13 +91,13 @@ QToolButton:hover {
     background-color: #5aa5e6;
 }
 
-SearchItemWidget {
+QWidget#SearchItemWidget {
     background-color: #252525;
     border: 1px solid #64b5f6;
     border-radius: 10px;
 }
 
-SearchItemWidget:hover {
+QWidget#SearchItemWidget:hover {
     background-color: #353535;
 }
 
@@ -219,13 +219,13 @@ QToolButton:hover {
     background-color: #3a75d4;
 }
 
-SearchItemWidget {
+QWidget#SearchItemWidget {
     background-color: #ffffff;
     border: 1px solid #4285f4;
     border-radius: 10px;
 }
 
-SearchItemWidget:hover {
+QWidget#SearchItemWidget:hover {
     background-color: #f0f0f0;
 }
 
