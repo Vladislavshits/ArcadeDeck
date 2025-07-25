@@ -700,42 +700,6 @@ def check_and_show_updates(parent_window):
 
 # Точка входа в приложение
 if __name__ == "__main__":
-    try:
-        # 1. Инициализация логгера
-        init_logging()
-        
-        # 2. Проверка окружения
-        check_environment()
-        
-        # 3. Проверка ресурсов
-        if not validate_resources():
-            show_resource_error()
-            sys.exit(1)
-        
-        # 4. Загрузка конфигурации
-        config = load_config()
-        
-        # 5. Создание приложения
-        app = QApplication(sys.argv)
-        
-        # 6. Применение темы
-        apply_theme(app, config.theme)
-        
-        # 7. Загрузка данных
-        content = ContentLoader.load_all()
-        
-        # 8. Создание главного окна
-        window = MainWindow(content, config)
-        window.show()
-        
-        # 9. Проверка обновлений
-        check_updates(window)
-        
-        # 10. Запуск приложения
-        sys.exit(app.exec())
-        
-    except Exception as e:
-        handle_critical_error(e)
     
     # Создаем необходимые директории
     os.makedirs(STYLES_DIR, exist_ok=True)
