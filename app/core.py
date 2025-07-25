@@ -13,7 +13,7 @@ if getattr(sys, 'frozen', False):
     BASE_DIR = os.path.dirname(sys.executable)
 else:
     # Для запуска из исходников
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Определяем CONTENT_DIR как папку Content в корне проекта
 CONTENT_DIR = os.path.join(BASE_DIR, "Content")
