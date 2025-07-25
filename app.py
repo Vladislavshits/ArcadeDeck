@@ -464,7 +464,7 @@ class SearchScreen(QWidget):
 
         # Добавляем каждый результат в список
         for item in results:
-            list_item = QListWidgetItem()
+            list_item.setData(Qt.ItemDataRole.UserRole, item['url'])
 
             # Создаем кастомный виджет для элемента
             item_widget = SearchItemWidget(
@@ -539,7 +539,8 @@ class SearchScreen(QWidget):
         """
         # Получаем URL из пользовательских данных элемента
     def display_results(self, results):
-        list_item.setData(Qt.ItemDataRole.UserRole, item['url'])
+            url = item.data(Qt.ItemDataRole.UserRole)
+    webbrowser.open(url)
 
     def open_item(self, item):
         url = item.data(Qt.ItemDataRole.UserRole)
