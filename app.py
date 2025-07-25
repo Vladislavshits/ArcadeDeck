@@ -6,6 +6,9 @@ import traceback
 import shutil
 import time
 
+# Глобальная переменная для хранения стилей
+global_stylesheet = ""
+
 # Настройка логирования
 log_dir = os.path.join(os.path.expanduser("~"), "PixelDeck", "logs")
 os.makedirs(log_dir, exist_ok=True)
@@ -84,8 +87,6 @@ from core import (
     CONTENT_DIR,
     STYLES_DIR,
     THEME_FILE,
-    load_stylesheet,
-    apply_theme,
     GUIDES_JSON_PATH,
     GAME_LIST_GUIDE_JSON_PATH
 )
@@ -208,12 +209,6 @@ class WelcomeScreen(QWidget):
         
         title = QLabel("PixelDeck")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("""
-            font-size: 80px;
-            font-weight: bold;
-            color: #2a9fd6;
-            padding: 30px;
-        """)
         layout.addWidget(title, 1)
 
 class WelcomeDialog(QDialog):
@@ -224,21 +219,6 @@ class WelcomeDialog(QDialog):
         self.dark_theme = dark_theme
         self.setup_ui()
         self.center_on_screen()
-        self.apply_theme()
-
-    def apply_theme(self):
-        """Применяет тему к диалоговому окну"""
-        try:
-            # Загружаем стили для текущей темы
-            style = load_stylesheet('dark' if self.dark_theme else 'light')
-            if style:
-                self.setStyleSheet(style)
-                
-                # Применяем стили ко всем дочерним виджетам
-                for child in self.findChildren(QWidget):
-                    child.setStyleSheet(style)
-        except Exception as e:
-            logger.error(f"Ошибка применения темы к WelcomeDialog: {e}")
         
     def center_on_screen(self):
         """Центрирует окно на экране."""
@@ -284,36 +264,12 @@ class WelcomeDialog(QDialog):
         # Кнопка GitHub
         github_button = QPushButton("Проект на GitHub")
         github_button.setFixedHeight(50)
-        github_button.setStyleSheet("""
-            QPushButton {
-                background-color: #444;
-                color: white;
-                border-radius: 10px;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #555;
-            }
-        """)
         github_button.clicked.connect(lambda: webbrowser.open("https://github.com/Vladislavshits/PixelDeck"))
         layout.addWidget(github_button)
         
         # Кнопка продолжения
         continue_button = QPushButton("Продолжить")
         continue_button.setFixedHeight(50)
-        continue_button.setStyleSheet("""
-            QPushButton {
-                background-color: #2a9fd6;
-                color: white;
-                border-radius: 10px;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #3ab0e6;
-            }
-        """)
         continue_button.clicked.connect(self.accept)
         layout.addWidget(continue_button)
 
@@ -332,10 +288,14 @@ class SettingsScreen(QWidget):
         """Обработчик изменения темы"""
         theme = 'dark' if checked else 'light'
         app_settings.set_theme(theme)
-        
+    
         # Применяем новую тему
         app = QApplication.instance()
-        apply_theme(app, theme)
+        app.setProperty("class", f"{theme}-theme")
+    
+        # Перезагружаем стили
+        app.setStyleSheet("")
+        app.setStyleSheet(global_stylesheet)
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -418,12 +378,9 @@ class DummyScreen(QWidget):
 
 class SearchScreen(QWidget):
     """Экран поиска гайдов и игр."""
-
-    def __init__(self, parent=None, dark_theme=False):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.dark_theme = dark_theme
         self.setup_ui()
-        self.apply_theme()
 
     def setup_ui(self):
         # Создаем основной лэйаут
@@ -457,30 +414,6 @@ class SearchScreen(QWidget):
         self.results_list.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.results_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-        # Обновляем стиль для поля поиска
-        if self.dark_theme:
-            self.search_field.setStyleSheet("""
-                QLineEdit {
-                    background-color: #252525;
-                    color: white;
-                    font-size: 24px;
-                    border: 2px solid #64b5f6;
-                    border-radius: 35px;
-                    padding: 15px 30px;
-                }
-            """)
-        else:
-            self.search_field.setStyleSheet("""
-                QLineEdit {
-                    background-color: white;
-                    color: #333;
-                    font-size: 24px;
-                    border: 2px solid #4285f4;
-                    border-radius: 35px;
-                    padding: 15px 30px;
-                }
-            """)
-
     def display_results(self, results):
         """
         Отображает результаты поиска в виджете списка.
@@ -502,11 +435,7 @@ class SearchScreen(QWidget):
             list_item.setData(Qt.ItemDataRole.UserRole, item['url'])
 
             # Создаем кастомный виджет для элемента
-            item_widget = SearchItemWidget(
-                item['title'],
-                item['type'],
-                self.dark_theme
-            )
+            item_widget = SearchItemWidget(item['title'], item['type'])
 
             # Устанавливаем виджет в элемент списка
             list_item.setSizeHint(item_widget.sizeHint())
@@ -575,11 +504,9 @@ class SearchScreen(QWidget):
 
 class SearchItemWidget(QWidget):
     """Кастомный виджет для отображения результата поиска"""
-    
-    def __init__(self, title, item_type, dark_theme=False, parent=None):
+    def __init__(self, title, item_type, parent=None):
         super().__init__(parent)
         self.setObjectName("SearchItemWidget")
-        self.dark_theme = dark_theme
         self.setup_ui(title, item_type)
         
     def setup_ui(self, title, item_type):
@@ -653,16 +580,6 @@ class NavigationBar(QWidget):
         button.setIconSize(QSize(24, 24))
         button.setCheckable(True)
         button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
-        button.setStyleSheet("""
-            QToolButton {
-                padding: 10px;
-                font-size: 12px;
-            }
-            QToolButton:checked {
-                background-color: #2a9fd6;
-                color: white;
-            }
-        """)
         return button
     
     def switch_screen(self, index):
@@ -703,7 +620,7 @@ class MainWindow(QMainWindow):
         
         # Создаем экраны
         self.welcome_screen = WelcomeScreen()
-        self.search_screen = SearchScreen(self, dark_theme)
+        self.search_screen = SearchScreen(self)
         self.dummy_screen = DummyScreen()
         self.settings_screen = SettingsScreen(self)  # Без передачи dark_theme
         
@@ -719,16 +636,6 @@ class MainWindow(QMainWindow):
         # Создаем панель навигации
         self.nav_bar = NavigationBar(self.stacked_widget)
         main_layout.addWidget(self.nav_bar)
-        
-        # Применяем выбранную тему
-        style = load_stylesheet('dark' if self.dark_theme else 'light')
-        if style:
-            self.setStyleSheet(style)
-            # Применяем тему ко всем экранам
-            self.welcome_screen.setStyleSheet(style)
-            self.search_screen.apply_theme()
-            self.settings_screen.apply_theme()
-            self.dummy_screen.setStyleSheet(style)
 
     def switch_to_search(self):
         """Переключает на экран поиска."""
@@ -779,16 +686,21 @@ if __name__ == "__main__":
             show_style_error(missing_resources)
             sys.exit(1)
         
+        # Загружаем глобальный стиль
+        try:
+            with open(THEME_FILE, 'r', encoding='utf-8') as f:
+                global_stylesheet = f.read()
+        except Exception as e:
+            logger.error(f"Ошибка загрузки стилей: {e}")
+            show_style_error([THEME_FILE])
+            sys.exit(1)
+        
         # Создаем экземпляр приложения
         app = QApplication(sys.argv)
         app.setStyle("Fusion")
         
-        # Применяем тему
-        apply_theme(app)
-        
-        # Загружаем контент ПОСЛЕ создания QApplication
-        global GUIDES, GAMES
-        GUIDES, GAMES = load_content()
+        # Устанавливаем глобальный стиль
+        app.setStyleSheet(global_stylesheet)
         
         # Создаем каталог для настроек
         config_dir = os.path.join(os.path.expanduser("~"), "PixelDeck")
@@ -800,8 +712,15 @@ if __name__ == "__main__":
         welcome_shown = settings.value("welcome_shown", False, type=bool)
         dark_theme = settings.value("dark_theme", True, type=bool)
         
+        # Устанавливаем класс темы
+        app.setProperty("class", "dark-theme" if dark_theme else "light-theme")
+        
         # Инициализируем app_settings
         app_settings._ensure_settings()
+        
+        # Загружаем контент ПОСЛЕ создания QApplication
+        global GUIDES, GAMES
+        GUIDES, GAMES = load_content()
         
         # Приветственное окно
         if not welcome_shown:
@@ -814,7 +733,7 @@ if __name__ == "__main__":
         window.showMaximized()
         
         # Проверка обновлений
-        QTimer.singleShot(3000, lambda: check_and_show_updates(window))
+        QTimer.singleShot(1000, lambda: check_and_show_updates(window))
         
         sys.exit(app.exec())
         
@@ -822,14 +741,15 @@ if __name__ == "__main__":
         logger.exception("Критическая ошибка при запуске")
         # Попытка показать сообщение об ошибке
         try:
-            app = QApplication(sys.argv)
+            # Создаем временное приложение для отображения ошибки
+            temp_app = QApplication(sys.argv)
             QMessageBox.critical(
                 None,
                 "Ошибка запуска",
                 f"Произошла критическая ошибка: {str(e)}\n\n"
                 f"Подробности в логах: {log_file}"
             )
-            app.exec()
-        except:
-            pass
+            temp_app.exec()
+        except Exception as ex:
+            logger.error(f"Ошибка при показе сообщения об ошибке: {ex}")
         sys.exit(1)
