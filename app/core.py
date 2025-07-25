@@ -11,8 +11,10 @@ USER_HOME = os.path.expanduser("~")
 
 # Определяем базовые пути
 if getattr(sys, 'frozen', False):
+    # Для собранного приложения (PyInstaller)
     BASE_DIR = os.path.dirname(sys.executable)
 else:
+    # Для запуска из исходников
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))
 
 CONTENT_DIR = os.path.join(BASE_DIR, "Content")
