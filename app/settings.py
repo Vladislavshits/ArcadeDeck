@@ -1,29 +1,22 @@
-# settings.py
-import os
 from PyQt6.QtCore import QSettings
 
 class AppSettings:
     def __init__(self):
-        self.config_dir = os.path.join(os.path.expanduser("~"), "PixelDeck")
-        os.makedirs(self.config_dir, exist_ok=True)
-        self.config_path = os.path.join(self.config_dir, "pixeldeck.ini")
-        self.settings = QSettings(self.config_path, QSettings.Format.IniFormat)
+        # Инициализация QSettings будет отложена до первого вызова
+        self._settings = None
+        
+    def _ensure_settings(self):
+        """Обеспечивает инициализацию QSettings"""
+        if self._settings is None:
+            self._settings = QSettings("PixelDeck", "PixelDeck")
     
     def get_theme(self):
-        """Возвращает текущую тему ('dark' или 'light')"""
-        return self.settings.value("theme", "dark", type=str)
+        self._ensure_settings()
+        return self._settings.value("theme", "dark", type=str)
     
-    def set_theme(self, theme):
-        """Устанавливает тему ('dark' или 'light')"""
-        self.settings.setValue("theme", theme)
-    
-    def get_welcome_shown(self):
-        """Показывалось ли приветственное окно"""
-        return self.settings.value("welcome_shown", False, type=bool)
-    
-    def set_welcome_shown(self, shown):
-        """Устанавливает флаг показа приветственного окна"""
-        self.settings.setValue("welcome_shown", shown)
+    def set_theme(self, theme_name):
+        self._ensure_settings()
+        self._settings.setValue("theme", theme_name)
 
 # Глобальный экземпляр настроек
 app_settings = AppSettings()
