@@ -30,7 +30,7 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
 # Используем версию из core.py
-from core import APP_VERSION, STYLES_DIR, DARK_STYLE, LIGHT_STYLE, load_stylesheet
+from core import APP_VERSION, STYLES_DIR, load_stylesheet
 
 # Настройки пользователя
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), "PixelDeck")
@@ -265,7 +265,6 @@ def run_updater(dark_theme=True, current_version=None):
         
         # Применение стилей
         style = load_stylesheet('dark' if dark_theme else 'light')
-        style = load_stylesheet(style_path)
         if style:
             app.setStyleSheet(style)
         
