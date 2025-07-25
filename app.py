@@ -396,7 +396,7 @@ class SearchScreen(QWidget):
         title_font = QFont("Arial", 28)
         title_font.setBold(True)
         title.setFont(title_font)
-        title.setAlignment(Qt.AlignCenter)
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
         # Поле поиска
