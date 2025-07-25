@@ -1,254 +1,212 @@
-/* DARK THEME */
+/* ОБЩИЕ ПЕРЕМЕННЫЕ И СТИЛИ */
 :root {
-    /* Общие переменные */
-    --primary-color: #64b5f6;
-    --secondary-color: #2a9fd6;
-    --background-color: #1b1b1b;
-    --text-color: #e0e0e0;
-    --card-bg: #252525;
-    --border-color: #444;
-    --hover-bg: #3a3a3a;
-    --version-color: #aaa;
+    /* Переменные для тёмной темы */
+    --dark-primary: #64b5f6;
+    --dark-secondary: #2a9fd6;
+    --dark-bg: #1b1b1b;
+    --dark-text: #e0e0e0;
+    --dark-card: #252525;
+    --dark-border: #444;
+    --dark-hover: #3a3a3a;
+    --dark-version: #aaa;
+    
+    /* Переменные для светлой темы */
+    --light-primary: #4285f4;
+    --light-secondary: #2a9fd6;
+    --light-bg: #f3f3f3;
+    --light-text: #333333;
+    --light-card: #ffffff;
+    --light-border: #ddd;
+    --light-hover: #f0f0f0;
+    --light-version: #777;
+    
+    /* Общие параметры */
+    --input-height: 70px;
+    --input-font-size: 24px;
+    --item-padding: 20px;
+    --list-font-size: 18px;
 }
 
+/* БАЗОВЫЕ СТИЛИ ДЛЯ ВСЕХ ТЕМ */
 QMainWindow, QDialog, QWidget {
+    font-family: Arial;
     background-color: var(--background-color);
     color: var(--text-color);
-    font-family: Arial;
 }
 
 QLabel {
     color: var(--text-color);
-}
-
-/* Тёмная тема для всех окон */
-QMainWindow, QDialog, QWidget {
-    background-color: #1b1b1b;
-    color: #e0e0e0;
-    font-family: Arial;
-}
-
-QLabel {
-    color: #e0e0e0;
 }
 
 QLabel#title {
-    color: #64b5f6;
     font-weight: bold;
     font-size: 28px;
 }
 
-/* Обновленный стиль для поля поиска */
 QLineEdit {
-    background-color: #252525;
-    color: white;
     padding: 10px 30px;
-    font-size: 24px; /* Увеличили размер шрифта */
-    border: 2px solid #64b5f6;
+    font-size: var(--input-font-size);
     border-radius: 35px;
-    min-height: 70px; /* Увеличили высоту */
-    min-width: 0; /* Убрали фиксированную ширину */
+    min-height: var(--input-height);
+    min-width: 0;
 }
 
 QListWidget {
-    background-color: #252525;
-    color: white;
-    border: 1px solid #333;
     border-radius: 12px;
-    padding: 10px; /* Увеличили отступы */
-    font-size: 18px; /* Увеличили размер шрифта */
-    min-width: 0; /* Убрали фиксированную ширину */
+    padding: 10px;
+    font-size: var(--list-font-size);
+    min-width: 0;
 }
 
 QListWidget::item {
-    background-color: #333; /* Темнее фон */
-    color: white;
-    padding: 20px; /* Увеличили отступы */
-    border: 1px solid #444; /* Добавили границу */
-    border-radius: 10px; /* Скруглили углы */
-    margin: 8px 0; /* Отступы между элементами */
-}
-
-QListWidget::item:selected {
-    background-color: #64b5f6;
-    color: black; /* Черный текст для лучшей читаемости */
+    padding: var(--item-padding);
     border-radius: 10px;
-    border: 1px solid #5aa5e6; /* Граница для выбранного элемента */
+    margin: 8px 0;
 }
 
-QListWidget::item:hover {
-    background-color: #3a3a3a; /* Темнее при наведении */
-    border: 1px solid #555; /* Граница при наведении */
+/* DARK THEME */
+.dark-theme {
+    --primary-color: var(--dark-primary);
+    --secondary-color: var(--dark-secondary);
+    --background-color: var(--dark-bg);
+    --text-color: var(--dark-text);
+    --card-bg: var(--dark-card);
+    --border-color: var(--dark-border);
+    --hover-bg: var(--dark-hover);
+    --version-color: var(--dark-version);
 }
 
-QToolButton {
-    background-color: #64b5f6;
-    border-radius: 20px;
-    border: none;
+.dark-theme QLineEdit {
+    background-color: var(--card-bg);
+    color: white;
+    border: 2px solid var(--primary-color);
 }
 
-QToolButton:hover {
+.dark-theme QListWidget {
+    background-color: var(--card-bg);
+    color: white;
+    border: 1px solid #333;
+}
+
+.dark-theme QListWidget::item {
+    background-color: #333;
+    color: white;
+    border: 1px solid #444;
+}
+
+.dark-theme QListWidget::item:selected {
+    background-color: var(--primary-color);
+    color: black;
+    border: 1px solid #5aa5e6;
+}
+
+.dark-theme QListWidget::item:hover {
+    background-color: var(--hover-bg);
+    border: 1px solid #555;
+}
+
+.dark-theme QToolButton {
+    background-color: var(--primary-color);
+}
+
+.dark-theme QToolButton:hover {
     background-color: #5aa5e6;
 }
 
-QWidget#SearchItemWidget {
-    background-color: #252525;
-    border: 1px solid #64b5f6;
-    border-radius: 10px;
+.dark-theme QWidget#SearchItemWidget {
+    background-color: var(--card-bg);
+    border: 1px solid var(--primary-color);
 }
 
-QWidget#SearchItemWidget:hover {
+.dark-theme QWidget#SearchItemWidget:hover {
     background-color: #353535;
 }
 
-/* Настройки для экрана настроек */
-SettingsScreen QLabel#versionLabel {
-    color: #aaa;
-    font-size: 12px;
+.dark-theme SettingsScreen QLabel#versionLabel {
+    color: var(--version-color);
 }
 
-/* Настройки для экрана приветствия */
-WelcomeScreen {
+.dark-theme WelcomeScreen {
     background-color: #1a1a1a;
 }
-WelcomeScreen QLabel {
-    font-size: 80px;
-    font-weight: bold;
-    color: #2a9fd6;
-    padding: 30px;
+
+.dark-theme WelcomeScreen QLabel {
+    color: var(--secondary-color);
 }
-
-/* Стиль для экрана поиска */
-QListWidget::item {
-    padding: 20px; /* Увеличили отступы */
-}
-
-/* END DARK THEME */
-
-
 
 /* LIGHT THEME */
-:root {
-    /* Общие переменные */
-    --primary-color: #4285f4;
-    --secondary-color: #2a9fd6;
-    --background-color: #f3f3f3;
-    --text-color: #333333;
-    --card-bg: #ffffff;
-    --border-color: #ddd;
-    --hover-bg: #f0f0f0;
-    --version-color: #777;
+.light-theme {
+    --primary-color: var(--light-primary);
+    --secondary-color: var(--light-secondary);
+    --background-color: var(--light-bg);
+    --text-color: var(--light-text);
+    --card-bg: var(--light-card);
+    --border-color: var(--light-border);
+    --hover-bg: var(--light-hover);
+    --version-color: var(--light-version);
 }
 
-QMainWindow, QDialog, QWidget {
-    background-color: var(--background-color);
+.light-theme QLineEdit {
+    background-color: var(--card-bg);
     color: var(--text-color);
-    font-family: Arial;
+    border: 2px solid var(--primary-color);
 }
 
-QLabel {
+.light-theme QListWidget {
+    background-color: var(--card-bg);
     color: var(--text-color);
+    border: 1px solid var(--border-color);
 }
 
-QMainWindow, QDialog, QWidget {
-    background-color: #f3f3f3;
-    color: #333333;
-    font-family: Arial;
+.light-theme QListWidget::item {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid #eee;
 }
 
-QLabel {
-    color: #333333;
-}
-
-QLabel#title {
-    color: #4285f4;
-    font-weight: bold;
-    font-size: 28px;
-}
-
-QLineEdit {
-    background-color: white;
-    color: #333333;
-    padding: 10px 30px;
-    font-size: 24px; /* Размер шрифта */
-    border: 2px solid #4285f4;
-    border-radius: 35px;
-    min-height: 70px; /* Высота */
-    min-width: 0; /* Убрали фиксированную ширину */
-}
-
-/* Стиль для списка результатов */
-QListWidget {
-    background-color: white;
-    color: #333333;
-    border: 1px solid #ddd;
-    border-radius: 12px;
-    padding: 10px; /* Увеличили отступы */
-    font-size: 18px; /* Увеличили размер шрифта */
-    min-width: 0; /* Убрали фиксированную ширину */
-}
-
-QListWidget::item {
-    background-color: white;
-    color: #333333;
-    padding: 20px; /* Увеличили отступы */
-    border: 1px solid #eee; /* Добавили границу */
-    border-radius: 10px; /* Скруглили углы */
-    margin: 8px 0; /* Отступы между элементами */
-}
-
-QListWidget::item:selected {
-    background-color: #4285f4;
+.light-theme QListWidget::item:selected {
+    background-color: var(--primary-color);
     color: white;
-    border-radius: 10px;
-    border: 1px solid #3a75d4; /* Граница для выбранного элемента */
+    border: 1px solid #3a75d4;
 }
 
-QListWidget::item:hover {
-    background-color: #f0f0f0;
-    border: 1px solid #ddd; /* Граница при наведении */
+.light-theme QListWidget::item:hover {
+    background-color: var(--hover-bg);
+    border: 1px solid var(--border-color);
 }
 
-QToolButton {
-    background-color: #4285f4;
-    border-radius: 20px;
-    border: none;
+.light-theme QToolButton {
+    background-color: var(--primary-color);
 }
 
-QToolButton:hover {
+.light-theme QToolButton:hover {
     background-color: #3a75d4;
 }
 
-QWidget#SearchItemWidget {
-    background-color: #ffffff;
-    border: 1px solid #4285f4;
-    border-radius: 10px;
+.light-theme QWidget#SearchItemWidget {
+    background-color: var(--card-bg);
+    border: 1px solid var(--primary-color);
 }
 
-QWidget#SearchItemWidget:hover {
+.light-theme QWidget#SearchItemWidget:hover {
+    background-color: var(--hover-bg);
+}
+
+.light-theme SettingsScreen QLabel#versionLabel {
+    color: var(--version-color);
+}
+
+.light-theme WelcomeScreen {
     background-color: #f0f0f0;
 }
 
-/* Настройки для экрана настроек */
-SettingsScreen QLabel#versionLabel {
-    color: #777;
-    font-size: 12px;
+.light-theme WelcomeScreen QLabel {
+    color: var(--primary-color);
 }
 
-/* Настройки для экрана приветствия */
-WelcomeScreen {
-    background-color: #f0f0f0;
-}
+/* ОБЩИЕ СТИЛИ ДЛЯ ВСЕХ ТЕМ */
 WelcomeScreen QLabel {
     font-size: 80px;
     font-weight: bold;
-    color: #4285f4;
     padding: 30px;
 }
-
-/* Стиль для экрана поиска */
-QListWidget::item {
-    padding: 20px; /* Увеличили отступы */
-}
-
-/* END LIGHT THEME */
