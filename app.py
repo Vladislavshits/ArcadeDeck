@@ -20,8 +20,8 @@ from PyQt6.QtWidgets import (
     QStackedWidget, QSizePolicy, QToolButton, QButtonGroup,
     QCheckBox, QDialog, QTextEdit, QMessageBox, QProgressDialog
 )
-from PyQt6.QtCore import Qt, QSize, QTimer, QSettings, QFile, QTextStream
-from PyQt6.QtGui import QIcon, QFont, QColor, QPalette, QScreen  # Добавлен QScreen
+from PyQt6.QtCore import Qt, QTimer, QSettings, QFile, QTextStream, QSize, QUrl
+from PyQt6.QtGui import QIcon, QFont, QColor, QPalette, QScreen
 from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, THEME_FILE, load_stylesheet, \
     GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH  # Импорт путей к файлам
 
@@ -538,8 +538,11 @@ class SearchScreen(QWidget):
         :param item: Элемент списка, по которому кликнули
         """
         # Получаем URL из пользовательских данных элемента
-        url = item.data(Qt.UserRole)
-        # Открываем URL в браузере по умолчанию
+    def display_results(self, results):
+        list_item.setData(Qt.ItemDataRole.UserRole, item['url'])
+
+    def open_item(self, item):
+        url = item.data(Qt.ItemDataRole.UserRole)
         webbrowser.open(url)
 
 class SearchItemWidget(QWidget):
