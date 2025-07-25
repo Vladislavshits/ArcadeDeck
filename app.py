@@ -28,7 +28,7 @@ from PyQt6.QtCore import Qt, QTimer, QSettings, QFile, QTextStream, QSize, QUrl
 from PyQt6.QtGui import QIcon, QFont, QColor, QPalette, QScreen
 
 # Импорт из нашего приложения
-from app.core import (
+from core import (
     APP_VERSION,
     CONTENT_DIR,
     STYLES_DIR,
@@ -38,7 +38,7 @@ from app.core import (
     GUIDES_JSON_PATH,
     GAME_LIST_GUIDE_JSON_PATH
 )
-from app.settings import app_settings
+from settings import app_settings
 
 def load_content():
     """
