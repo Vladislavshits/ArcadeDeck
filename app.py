@@ -621,7 +621,7 @@ class NavigationBar(QWidget):
         button.setIcon(QIcon.fromTheme(icon_name))
         button.setIconSize(QSize(24, 24))
         button.setCheckable(True)
-        button.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
         button.setStyleSheet("""
             QToolButton {
                 padding: 10px;
