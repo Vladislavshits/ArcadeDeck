@@ -30,7 +30,7 @@ THEME_FILE = os.path.join(STYLES_DIR, "theme.qs5")
 
 # Создаем необходимые директории при импорте
 os.makedirs(CONTENT_DIR, exist_ok=True)
-os.makedirs(STYLES_DIR, exist_ok=True)
+os.makedirs(STYLES_DIR, exist_ok=True)  # Это app/ui_assets
 
 def load_stylesheet(theme_name='dark'):
     """
@@ -38,25 +38,21 @@ def load_stylesheet(theme_name='dark'):
     :param theme_name: 'dark' или 'light'
     :return: Строка со стилями
     """
-    # Проверяем существование файла стилей
-    if not os.path.exists(THEME_FILE):
-        print(f"Файл стилей не найден: {THEME_FILE}")
+    try:
+        # Проверяем существование файла стилей
+        if not os.path.exists(THEME_FILE):
+            print(f"Файл стилей не найден: {THEME_FILE}")
+            return ""
+        
+        # Читаем весь файл
+        with open(THEME_FILE, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Извлекаем нужную тему
+        pattern = rf'/\* {theme_name.upper()} THEME \*/(.*?)/\* END {theme_name.upper()} THEME \*/'
+        match = re.search(pattern, content, re.DOTALL)
+        
+        return match.group(1).strip() if match else ""
+    except Exception as e:
+        print(f"Ошибка загрузки стилей: {e}")
         return ""
-    
-    # Читаем весь файл
-    file = QFile(THEME_FILE)
-    if file.open(QFile.OpenModeFlag.ReadOnly | QFile.OpenModeFlag.Text):
-        stream = QTextStream(file)
-        content = stream.readAll()
-        file.close()
-    else:
-        print(f"Не удалось открыть файл стилей: {THEME_FILE}")
-        return ""
-    
-    # Извлекаем нужную тему с помощью регулярных выражений
-    pattern = rf'/\* {theme_name.upper()} THEME \*/(.*?)/\* END {theme_name.upper()} THEME \*/'
-    match = re.search(pattern, content, re.DOTALL)
-    
-    if match:
-        return match.group(1).strip()
-    return ""
