@@ -4,7 +4,7 @@ import sys
 import os
 
 # Проверка виртуального окружения
-if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix:
+if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
     print("ВНИМАНИЕ: Виртуальное окружение не активировано!")
 
 # Определяем корневую директорию проекта
