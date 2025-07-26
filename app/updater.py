@@ -37,6 +37,7 @@ import requests
 from packaging import version
 
 from core import APP_VERSION, STYLES_DIR, THEME_FILE
+from app.ui_assets.theme_manager import theme_manager
 
 # Настройки пользователя
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), "PixelDeck")
@@ -297,6 +298,33 @@ class UpdateDialog(QDialog):
         self.later_button.clicked.connect(self.reject)
         self.skip_button.clicked.connect(self.skip_version)
         self.install_button.clicked.connect(self.start_download)
+
+        # Применяем текущую тему
+        self.apply_theme(theme_manager.current_theme)
+        
+        # Подписываемся на изменения темы
+        theme_manager.theme_changed.connect(self.apply_theme)
+
+    def apply_theme(self, theme_name):
+        """Применяет указанную тему к диалогу"""
+        try:
+            # Загружаем стили из файла
+            from core import THEME_FILE
+            with open(THEME_FILE, 'r', encoding='utf-8') as f:
+                stylesheet = f.read()
+            
+            # Устанавливаем свойство класса
+            self.setProperty("class", f"{theme_name}-theme")
+            
+            # Применяем стили
+            self.setStyleSheet(stylesheet)
+            
+            # Обновляем стили дочерних виджетов
+            for widget in self.findChildren(QWidget):
+                widget.style().unpolish(widget)
+                widget.style().polish(widget)
+        except Exception as e:
+            print(f"Ошибка применения темы в диалоге обновления: {e}")
         
     def skip_version(self):
         """Добавляет версию в список пропущенных"""
@@ -412,10 +440,22 @@ class UpdateDialog(QDialog):
                 "Пожалуйста, перезапустите PixelDeck вручную для применения обновлений."
             )
 
-def run_updater(dark_theme=True, current_version=None):
+def run_updater():
     """Запуск процесса проверки и установки обновлений"""
     try:
         app = QApplication(sys.argv)
+        
+        # Инициализируем менеджер тем с текущей настройкой
+        from settings import app_settings
+        app_settings._ensure_settings()
+        current_theme = app_settings.get_theme()
+        theme_manager.set_theme(current_theme)
+        
+        # Применяем тему к приложению
+        app.setProperty("class", f"{current_theme}-theme")
+        from core import THEME_FILE
+        with open(THEME_FILE, 'r', encoding='utf-8') as f:
+            app.setStyleSheet(f.read())
         
         # Загружаем текущую тему из настроек
         from settings import app_settings
