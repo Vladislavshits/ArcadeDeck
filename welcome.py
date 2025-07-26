@@ -1,4 +1,4 @@
-[file name]: welcome (3).py
+[file name]: welcome.py
 [file content begin]
 from PyQt6.QtWidgets import QWizard, QWizardPage, QLabel, QVBoxLayout, QCheckBox, QApplication
 from PyQt6.QtGui import QFont
