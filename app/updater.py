@@ -185,7 +185,7 @@ class UpdateDialog(QDialog):
         layout = QVBoxLayout(self)
         
         title = QLabel(f"Доступна новая версия: {new_version}")
-        title.setFont(QFont("Arial", 16, QFont.Bold))
+        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         layout.addWidget(title)
         
         current_label = QLabel(f"Текущая версия: {current_version}")
@@ -195,7 +195,7 @@ class UpdateDialog(QDialog):
         layout.addSpacing(20)
         
         changelog_label = QLabel("Изменения в новой версии:")
-        changelog_label.setFont(QFont("Arial", 12, QFont.Bold))
+        changelog_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
         layout.addWidget(changelog_label)
         
         self.changelog_area = QTextEdit()
@@ -289,13 +289,19 @@ def run_updater(dark_theme=True, current_version=None):
     try:
         app = QApplication(sys.argv)
         
-        # Загрузка стилей
+        # Улучшенная загрузка стилей
+        stylesheet = ""
         try:
-            with open(THEME_FILE, 'r', encoding='utf-8') as f:
-                global_stylesheet = f.read()
-            app.setStyleSheet(global_stylesheet)
+            if os.path.exists(THEME_FILE):
+                with open(THEME_FILE, 'r', encoding='utf-8') as f:
+                    stylesheet = f.read()
+                app.setStyleSheet(stylesheet)
+            else:
+                print(f"Файл стилей не найден: {THEME_FILE}")
         except Exception as e:
             print(f"Ошибка загрузки стилей: {e}")
+            # Очищаем стили, чтобы использовать стандартные
+            app.setStyleSheet("")
         
         # Устанавливаем класс темы
         app.setProperty("class", "dark-theme" if dark_theme else "light-theme")
