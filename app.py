@@ -84,6 +84,7 @@ from PyQt6.QtGui import QIcon, QFont
 from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, THEME_FILE, GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH
 from settings import app_settings
 from welcome import WelcomeWizard
+from app.ui_assets.theme_manager import theme_manager
 
 # Безопасная загрузка JSON
 def safe_load_json(path, default):
@@ -253,6 +254,33 @@ class MainWindow(QMainWindow):
         self.results_list.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.results_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
+        # Применяем текущую тему
+        self.apply_theme(theme_manager.current_theme)
+        
+        # Подписываемся на изменения темы
+        theme_manager.theme_changed.connect(self.apply_theme)
+
+    def apply_theme(self, theme_name):
+        """Применяет указанную тему к окну и всем дочерним виджетам"""
+        try:
+            # Загружаем стили из файла
+            from core import THEME_FILE
+            with open(THEME_FILE, 'r', encoding='utf-8') as f:
+                stylesheet = f.read()
+            
+            # Устанавливаем свойство класса
+            self.setProperty("class", f"{theme_name}-theme")
+            
+            # Применяем стили
+            self.setStyleSheet(stylesheet)
+            
+            # Обновляем стили всех виджетов
+            for widget in self.findChildren(QWidget):
+                widget.style().unpolish(widget)
+                widget.style().polish(widget)
+        except Exception as e:
+            logger.error(f"Ошибка применения темы: {e}")
+
     def display_results(self, results):
         """Отображает результаты поиска в виджете списка."""
         self.results_list.clear()  # Очищаем предыдущие результаты
@@ -384,6 +412,9 @@ if __name__ == "__main__":
         welcome_shown = app_settings.get_welcome_shown()
         dark_theme = app_settings.get_theme() == 'dark'
         
+        # Инициализируем менеджер тем с текущей настройкой
+        theme_manager.set_theme(app_settings.get_theme())
+
         # Устанавливаем класс темы
         app.setProperty("class", "dark-theme" if dark_theme else "light-theme")
         
