@@ -665,11 +665,11 @@ if __name__ == "__main__":
         
         # Приветственное окно
         if not welcome_shown:
-        # Создаем и показываем мастер на весь экран
-        welcome = WelcomeWizard(dark_theme=dark_theme)
-        welcome.center_on_screen()
+            # Создаем и показываем мастер на весь экран
+            welcome = WelcomeWizard(dark_theme=dark_theme)
+            welcome.center_on_screen()
             if welcome.exec() == QDialog.DialogCode.Accepted:
-            settings.setValue("welcome_shown", True)
+                settings.setValue("welcome_shown", True)
         
         # Главное окно
         window = MainWindow(dark_theme=dark_theme)
