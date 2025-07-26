@@ -9,6 +9,9 @@ class WelcomeWizard(QWizard):
         self.setWindowTitle("Добро пожаловать в PixelDeck!")
         self.setFixedSize(800, 600)
         
+        # Важно: добавляем кнопку "Готово"
+        self.setButtonText(QWizard.WizardButton.FinishButton, "Готово")
+        
         # Страница 1: Приветствие
         self.page1 = QWizardPage()
         self.page1.setTitle("Добро пожаловать")
@@ -46,6 +49,9 @@ class WelcomeWizard(QWizard):
         
         # Сигналы
         self.theme_toggle.toggled.connect(self.toggle_theme)
+        
+        # Важно: при завершении мастера принимаем его
+        self.button(QWizard.WizardButton.FinishButton).clicked.connect(self.accept)
         
     def toggle_theme(self, checked):
         theme = 'dark' if checked else 'light'
