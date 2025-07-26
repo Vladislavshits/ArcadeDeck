@@ -5,6 +5,10 @@ import logging
 import traceback
 import shutil
 import time
+import webbrowser
+import json
+import requests
+import subprocess
 
 # Глобальная переменная для хранения стилей
 global_stylesheet = ""
@@ -68,17 +72,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Добавляем пути к модулям
 sys.path.insert(0, BASE_DIR)
 
-import webbrowser
-import json
-import requests
-import subprocess
 from PyQt6.QtWidgets import (
     QApplication, QAbstractItemView, QMainWindow, QWidget,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QHBoxLayout,
-    QStackedWidget, QSizePolicy, QToolButton, QButtonGroup,
-    QCheckBox, QDialog, QTextEdit, QMessageBox, QProgressDialog
+    QSizePolicy, QCheckBox, QDialog, QTextEdit, QMessageBox, QProgressDialog
 )
-from PyQt6.QtCore import Qt, QTimer, QSettings, QFile, QTextStream, QSize, QUrl
+from PyQt6.QtCore import Qt, QTimer, QSize, QUrl
 from PyQt6.QtGui import QIcon, QFont, QColor, QPalette, QScreen
 
 # Импорт из нашего приложения
@@ -197,158 +196,54 @@ def check_resources():
     
     return missing
 
-class WelcomeScreen(QWidget):
-    """Экран приветствия"""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setup_ui()
+class MainWindow(QMainWindow):
+    """Главное окно приложения с системой поиска."""
 
-    def setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+    def __init__(self, dark_theme=True):
+        """
+        Инициализация главного окна приложения.
+
+        :param dark_theme: Использовать темную тему (по умолчанию True)
+        """
+        super().__init__()
+        # Настройка окна
+        self.setWindowTitle("PixelDeck")
+        self.setGeometry(400, 300, 1280, 800)
+        self.setMinimumSize(QSize(800, 600))
+        self.dark_theme = dark_theme
+
+        # Устанавливаем иконку приложения
+        self.setWindowIcon(QIcon.fromTheme("system-search"))
+
+        # Создаем центральный виджет
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
         
-        title = QLabel("PixelDeck")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title, 1)
-
-
-
-class SettingsScreen(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.parent = parent
-        self.setup_ui()
-        
-        # Загружаем текущую тему
-        current_theme = app_settings.get_theme()
-        # Устанавливаем состояние переключателя на основе текущей темы
-        self.theme_toggle.setChecked(current_theme == 'dark')
-
-    def toggle_theme(self, checked):
-        """Обработчик изменения темы"""
-        theme = 'dark' if checked else 'light'
-        app_settings.set_theme(theme)
-    
-        # Применяем новую тему
-        app = QApplication.instance()
-        app.setProperty("class", f"{theme}-theme")
-    
-        # Перезагружаем стили
-        app.setStyleSheet("")
-        app.setStyleSheet(global_stylesheet)
-
-    def setup_ui(self):
-        main_layout = QVBoxLayout(self)
+        # Основной вертикальный лэйаут
+        main_layout = QVBoxLayout(central_widget)
         main_layout.setContentsMargins(30, 30, 30, 30)
         main_layout.setSpacing(20)
-
+        
         # Заголовок
-        title = QLabel("Настройки")
-        title_font = QFont()
-        title_font.setBold(True)
-        title_font.setPointSize(32)
-        title.setFont(title_font)
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(title)
-
-        # Лэйаут для переключателя темы
-        theme_layout = QHBoxLayout()
-        theme_layout.setContentsMargins(10, 0, 10, 0)
-
-        # Метка для переключателя
-        theme_label = QLabel("Темная тема:")
-        theme_label.setFont(QFont("Arial", 18))  # Увеличенный размер шрифта
-        theme_layout.addWidget(theme_label)
-
-        theme_layout.addStretch(1)  # Гибкий промежуток
-
-        # Переключатель темы (тумблер)
-        self.theme_toggle = QCheckBox()
-        # Убрали установку состояния здесь - она делается в __init__ после setup_ui
-        self.theme_toggle.setFixedSize(80, 40)  # Больший размер
-        # Стиль для тумблера
-        self.theme_toggle.setStyleSheet("""
-            QCheckBox::indicator {
-                width: 80px;
-                height: 40px;
-                border-radius: 20px;
-                background-color: #777;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #2a9fd6;
-            }
-            QCheckBox::indicator:unchecked {
-                background-color: #ccc;
-            }
-            QCheckBox::indicator:checked:disabled {
-                background-color: #555;
-            }
-            QCheckBox::indicator:unchecked:disabled {
-                background-color: #aaa;
-            }
-        """)
-        # Подключаем обработчик изменения состояния
-        self.theme_toggle.toggled.connect(self.toggle_theme)
-        theme_layout.addWidget(self.theme_toggle)
-
-        main_layout.addLayout(theme_layout)
-
-        main_layout.addStretch(1)  # Гибкий промежуток
-
-        # Метка с версией приложения
-        version_label = QLabel(f"Версия {APP_VERSION}")
-        version_label.setFont(QFont("Arial", 14))
-        version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        version_label.setObjectName("versionLabel")
-        main_layout.addWidget(version_label)
-
-
-class DummyScreen(QWidget):
-    """Заглушка для дополнительного экрана."""
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setup_ui()
-    
-    def setup_ui(self):
-        layout = QVBoxLayout(self)
-        label = QLabel("Этот экран пока не реализован")
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(label)
-
-class SearchScreen(QWidget):
-    """Экран поиска гайдов и игр."""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setup_ui()
-
-    def setup_ui(self):
-        # Создаем основной лэйаут
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(30, 30, 30, 30)
-        layout.setSpacing(20)
-
-        # Заголовок
-        title = QLabel("Поиск")
+        title = QLabel("PixelDeck")
         title.setObjectName("title")
         title_font = QFont("Arial", 28)
         title_font.setBold(True)
         title.setFont(title_font)
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
+        main_layout.addWidget(title)
 
         # Поле поиска
         self.search_field = QLineEdit()
         self.search_field.setPlaceholderText("Введите название игры или гайда...")
         self.search_field.textChanged.connect(self.search_content)
-        layout.addWidget(self.search_field)
+        main_layout.addWidget(self.search_field)
 
         # Список результатов
         self.results_list = QListWidget()
         self.results_list.itemClicked.connect(self.open_item)
         self.results_list.hide()  # Скрываем изначально
-        layout.addWidget(self.results_list, 1)  # Растягиваем
+        main_layout.addWidget(self.results_list, 1)  # Растягиваем
 
         # Настраиваем список результатов
         self.results_list.setSpacing(10)  # Отступ между элементами
@@ -471,124 +366,7 @@ class SearchItemWidget(QWidget):
         # Устанавливаем минимальную высоту
         self.setMinimumHeight(100)
 
-class NavigationBar(QWidget):
-    """Нижняя панель навигации для переключения между экранами."""
-    
-    def __init__(self, stacked_widget, parent=None):
-        super().__init__(parent)
-        self.stacked_widget = stacked_widget
-        self.setup_ui()
-    
-    def setup_ui(self):
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(20, 10, 20, 10)
-        layout.setSpacing(20)
-        
-        # Кнопки навигации (поменяли местами Настройки и Дополнительно)
-        self.home_button = self.create_nav_button("Домой", "go-home")
-        self.search_button = self.create_nav_button("Поиск", "system-search")
-        self.dummy_button = self.create_nav_button("Дополнительно", "applications-other")
-        self.settings_button = self.create_nav_button("Настройки", "preferences-system")
-        
-        # Группируем кнопки для управления состоянием
-        self.button_group = QButtonGroup(self)
-        self.button_group.setExclusive(True)
-        self.button_group.addButton(self.home_button, 0)
-        self.button_group.addButton(self.search_button, 1)
-        self.button_group.addButton(self.dummy_button, 2)  # Было 3
-        self.button_group.addButton(self.settings_button, 3)  # Было 2
-        
-        # Добавляем кнопки в лэйаут
-        layout.addWidget(self.home_button)
-        layout.addWidget(self.search_button)
-        layout.addWidget(self.dummy_button)
-        layout.addWidget(self.settings_button)
-        
-        # По умолчанию активна кнопка поиска
-        self.search_button.setChecked(True)
-        
-        # Подключаем обработчики
-        self.home_button.clicked.connect(lambda: self.switch_screen(0))
-        self.search_button.clicked.connect(lambda: self.switch_screen(1))
-        self.dummy_button.clicked.connect(lambda: self.switch_screen(2))
-        self.settings_button.clicked.connect(lambda: self.switch_screen(3))
-    
-    def create_nav_button(self, text, icon_name):
-        """Создает кнопку навигации с иконкой."""
-        button = QToolButton()
-        button.setText(text)
-        button.setIcon(QIcon.fromTheme(icon_name))
-        button.setIconSize(QSize(24, 24))
-        button.setCheckable(True)
-        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
-        return button
-    
-    def switch_screen(self, index):
-        """Переключает экран в стеке виджетов."""
-        self.stacked_widget.setCurrentIndex(index)
-
-class MainWindow(QMainWindow):
-    """Главное окно приложения с системой многоконного интерфейса."""
-
-    def __init__(self, dark_theme=True):
-        """
-        Инициализация главного окна приложения.
-
-        :param dark_theme: Использовать темную тему (по умолчанию True)
-        """
-        super().__init__()
-        # Настройка окна
-        self.setWindowTitle("PixelDeck")
-        self.setGeometry(400, 300, 1280, 800)
-        self.setMinimumSize(QSize(800, 600))
-        self.dark_theme = dark_theme
-
-        # Устанавливаем иконку приложения
-        self.setWindowIcon(QIcon.fromTheme("system-search"))
-
-        # Создаем центральный виджет
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        
-        # Основной вертикальный лэйаут
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-        
-        # Создаем стек виджетов для управления экранами
-        self.stacked_widget = QStackedWidget()
-        main_layout.addWidget(self.stacked_widget, 1)  # Растягиваем на все пространство
-        
-        # Создаем экраны
-        self.welcome_screen = WelcomeScreen()
-        self.search_screen = SearchScreen(self)
-        self.dummy_screen = DummyScreen()
-        self.settings_screen = SettingsScreen(self)  # Без передачи dark_theme
-        
-        # Добавляем экраны в стек
-        self.stacked_widget.addWidget(self.welcome_screen)
-        self.stacked_widget.addWidget(self.search_screen)
-        self.stacked_widget.addWidget(self.dummy_screen)  # Индекс 2
-        self.stacked_widget.addWidget(self.settings_screen)  # Индекс 3
-        
-        # По умолчанию показываем экран приветствия
-        self.stacked_widget.setCurrentIndex(0)
-        
-        # Создаем панель навигации
-        self.nav_bar = NavigationBar(self.stacked_widget)
-        main_layout.addWidget(self.nav_bar)
-
-    def switch_to_search(self):
-        """Переключает на экран поиска."""
-        self.stacked_widget.setCurrentIndex(1)
-        self.nav_bar.search_button.setChecked(True)
-
-    def switch_to_settings(self):
-        """Переключает на экран настроек."""
-        self.stacked_widget.setCurrentIndex(3)
-        self.nav_bar.settings_button.setChecked(True)
-
-def check_and_show_updates(parent_window):
+def check_and_show_updates(dark_theme):
     """Запускает внешний updater"""
     try:
         # Получаем путь к текущей директории
@@ -597,7 +375,7 @@ def check_and_show_updates(parent_window):
         updater_path = os.path.join(current_dir, "Programm", "updater.py")
 
         # Определяем флаг темы
-        theme_flag = "--dark" if parent_window.dark_theme else "--light"
+        theme_flag = "--dark" if dark_theme else "--light"
 
         # Передаем текущую версию
         version_arg = f"--current-version={APP_VERSION}"
@@ -646,25 +424,19 @@ if __name__ == "__main__":
         # Устанавливаем глобальный стиль
         app.setStyleSheet(global_stylesheet)
         
-        # Создаем каталог для настроек
-        config_dir = os.path.join(os.path.expanduser("~"), "PixelDeck")
-        os.makedirs(config_dir, exist_ok=True)
-        config_path = os.path.join(config_dir, "pixeldeck.ini")
-        settings = QSettings(config_path, QSettings.Format.IniFormat)
-        
-        # Читаем настройки
-        welcome_shown = settings.value("welcome_shown", False, type=bool)
-        dark_theme = settings.value("dark_theme", True, type=bool)
-        
-        # Устанавливаем класс темы
-        app.setProperty("class", "dark-theme" if dark_theme else "light-theme")
-        
-        # Инициализируем app_settings
+        # Инициализируем настройки
         app_settings._ensure_settings()
         
         # Загружаем контент ПОСЛЕ создания QApplication
         global GUIDES, GAMES
         GUIDES, GAMES = load_content()
+        
+        # Читаем настройки
+        welcome_shown = app_settings.get_welcome_shown()
+        dark_theme = app_settings.get_theme() == 'dark'
+        
+        # Устанавливаем класс темы
+        app.setProperty("class", "dark-theme" if dark_theme else "light-theme")
         
         # Приветственное окно
         if not welcome_shown:
@@ -672,14 +444,14 @@ if __name__ == "__main__":
             welcome = WelcomeWizard(dark_theme=dark_theme)
             welcome.center_on_screen()
             if welcome.exec() == QDialog.DialogCode.Accepted:
-                settings.setValue("welcome_shown", True)
+                app_settings.set_welcome_shown(True)
         
         # Главное окно
         window = MainWindow(dark_theme=dark_theme)
         window.showMaximized()
         
         # Проверка обновлений
-        QTimer.singleShot(1000, lambda: check_and_show_updates(window))
+        QTimer.singleShot(1000, lambda: check_and_show_updates(dark_theme))
         
         sys.exit(app.exec())
         
