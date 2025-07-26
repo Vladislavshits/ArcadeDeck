@@ -75,10 +75,10 @@ sys.path.insert(0, BASE_DIR)
 from PyQt6.QtWidgets import (
     QApplication, QAbstractItemView, QMainWindow, QWidget, QDialog,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout,
-    QMessageBox
+    QMessageBox, QStackedWidget, QFrame, QGridLayout, QHBoxLayout
 )
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QIcon, QFont
+from PyQt6.QtCore import Qt, QTimer, QEasingCurve, QPoint, QPropertyAnimation
+from PyQt6.QtGui import QIcon, QFont, QPixmap
 
 # Импорт из нашего приложения
 from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, THEME_FILE, GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH
@@ -122,6 +122,9 @@ def safe_load_json(path, default):
 
 def load_content():
     """Загружает контент из JSON-файлов с обработкой ошибок."""
+
+    global GUIDES, GAMES
+
     # Проверяем и создаем необходимые директории
     os.makedirs(CONTENT_DIR, exist_ok=True)
     
@@ -201,7 +204,7 @@ import subprocess
 # ... (остальной код без изменений) ...
 
 class MainWindow(QMainWindow):
-    """Главное окно приложения с системой поиска."""
+    """Главное окно приложения с двухслойным интерфейсом"""
 
     def __init__(self, dark_theme=True):
         super().__init__()
@@ -210,6 +213,8 @@ class MainWindow(QMainWindow):
         self.setGeometry(400, 300, 1280, 800)
         self.setMinimumSize(800, 600)
         self.dark_theme = dark_theme
+        self.current_layer = 0  # 0 = основной слой, 1 = слой настроек
+        self.animation_duration = 300  # мс
 
         # Устанавливаем иконку приложения
         self.setWindowIcon(QIcon.fromTheme("system-search"))
@@ -220,143 +225,251 @@ class MainWindow(QMainWindow):
         
         # Основной вертикальный лэйаут
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(30, 30, 30, 30)
-        main_layout.setSpacing(20)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(10)
         
-        # Пустой виджет для отступа сверху
-        top_spacer = QWidget()
-        top_spacer.setFixedHeight(20)
-        main_layout.addWidget(top_spacer)
+        # --- ВЕРХНЯЯ ЧАСТЬ (поиск) ---
+        search_layout = QHBoxLayout()
+        search_layout.setContentsMargins(0, 0, 0, 10)
         
-        # Поле поиска (ПЕРЕМЕЩЕНО ВВЕРХ)
         self.search_field = QLineEdit()
         self.search_field.setPlaceholderText("Введите название игры или гайда...")
         self.search_field.textChanged.connect(self.search_content)
-        main_layout.addWidget(self.search_field)
-
-        # Заголовок
-        title = QLabel("PixelDeck")
-        title.setObjectName("title")
-        title_font = QFont("Arial", 28)
-        title_font.setBold(True)
-        title.setFont(title_font)
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(title)
-
-        # Список результатов
-        self.results_list = QListWidget()
-        self.results_list.itemClicked.connect(self.open_item)
-        self.results_list.hide()  # Скрываем изначально
-        main_layout.addWidget(self.results_list, 1)  # Растягиваем
-
-        # Настраиваем список результатов
-        self.results_list.setSpacing(10)  # Отступ между элементами
-        self.results_list.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
-        self.results_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-
+        self.search_field.setMinimumHeight(40)
+        search_layout.addWidget(self.search_field)
+        
+        main_layout.addLayout(search_layout)
+        
+        # --- СТЕК СЛОЕВ ---
+        self.stack = QStackedWidget()
+        main_layout.addWidget(self.stack, 1)
+        
+        # --- НИЖНЯЯ ЧАСТЬ (подсказки) ---
+        hints_layout = QHBoxLayout()
+        self.hint_label = QLabel("B: Назад")
+        self.hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hints_layout.addWidget(self.hint_label)
+        
+        main_layout.addLayout(hints_layout)
+        
+        # --- СОЗДАЕМ СЛОИ ---
+        self.create_main_layer()    # Слой 0: Основной
+        self.create_settings_layer() # Слой 1: Настройки
+        
+        # Начальное состояние
+        self.stack.setCurrentIndex(0)
+        self.update_hints()
+        
         # Применяем текущую тему
         self.apply_theme(theme_manager.current_theme)
         
         # Подписываемся на изменения темы
         theme_manager.theme_changed.connect(self.apply_theme)
+        
+        # Устанавливаем фокус
+        self.search_field.setFocus()
 
-    def apply_theme(self, theme_name):
-        """Применяет указанную тему к окну и всем дочерним виджетам"""
-        try:
-            # Загружаем стили из файла
-            from core import THEME_FILE
-            with open(THEME_FILE, 'r', encoding='utf-8') as f:
-                stylesheet = f.read()
+    def create_main_layer(self):
+        """Создает основной слой с играми"""
+        main_widget = QWidget()
+        main_layout = QVBoxLayout(main_widget)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+        main_layout.setSpacing(20)
+        
+        # --- ПОСЛЕДНЯЯ ИГРА (большая плитка) ---
+        last_game_frame = QFrame()
+        last_game_frame.setObjectName("LastGameFrame")
+        last_game_frame.setMinimumHeight(200)
+        
+        last_game_layout = QVBoxLayout(last_game_frame)
+        last_game_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        self.last_game_label = QLabel("The Witcher 3: Wild Hunt")
+        self.last_game_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.last_game_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
+        last_game_layout.addWidget(self.last_game_label)
+        
+        self.last_game_icon = QLabel()
+        self.last_game_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.last_game_icon.setPixmap(QPixmap("placeholder.png").scaled(100, 100, Qt.AspectRatioMode.KeepAspectRatio))
+        last_game_layout.addWidget(self.last_game_icon)
+        
+        self.last_game_time = QLabel("Последний запуск: 2 часа назад")
+        self.last_game_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        last_game_layout.addWidget(self.last_game_time)
+        
+        main_layout.addWidget(last_game_frame, 1)  # Растягиваем
+        
+        # --- БИБЛИОТЕКА ИГР (сетка плиток) ---
+        games_label = QLabel("Библиотека игр")
+        games_label.setFont(QFont("Arial", 14))
+        main_layout.addWidget(games_label)
+        
+        # Сетка игр
+        self.games_grid = QGridLayout()
+        self.games_grid.setSpacing(15)
+        
+        # Заполняем демо-играми
+        games = [
+            {"name": "Cyberpunk 2077", "system": "PC"},
+            {"name": "God of War", "system": "PS4"},
+            {"name": "Hollow Knight", "system": "Switch"},
+            {"name": "Elden Ring", "system": "PC"},
+            {"name": "Stardew Valley", "system": "PC"},
+            {"name": "The Last of Us", "system": "PS4"}
+        ]
+        
+        for i, game in enumerate(games):
+            row = i // 3
+            col = i % 3
             
-            # Устанавливаем свойство класса
-            self.setProperty("class", f"{theme_name}-theme")
+            game_frame = QFrame()
+            game_frame.setObjectName("GameTile")
+            game_frame.setMinimumSize(150, 150)
+            game_frame.setMaximumSize(200, 200)
             
-            # Применяем стили
-            self.setStyleSheet(stylesheet)
+            game_layout = QVBoxLayout(game_frame)
+            game_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
             
-            # Обновляем стили всех виджетов
-            for widget in self.findChildren(QWidget):
-                widget.style().unpolish(widget)
-                widget.style().polish(widget)
-        except Exception as e:
-            logger.error(f"Ошибка применения темы: {e}")
+            icon = QLabel()
+            icon.setPixmap(QPixmap("game_icon.png").scaled(80, 80, Qt.AspectRatioMode.KeepAspectRatio))
+            game_layout.addWidget(icon)
+            
+            name_label = QLabel(game["name"])
+            name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            name_label.setFont(QFont("Arial", 10))
+            game_layout.addWidget(name_label)
+            
+            system_label = QLabel(game["system"])
+            system_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            system_label.setFont(QFont("Arial", 8))
+            game_layout.addWidget(system_label)
+            
+            self.games_grid.addWidget(game_frame, row, col)
+        
+        games_container = QWidget()
+        games_container.setLayout(self.games_grid)
+        main_layout.addWidget(games_container, 3)  # Больше места для игр
+        
+        self.stack.addWidget(main_widget)
 
-    def display_results(self, results):
-        """Отображает результаты поиска в виджете списка."""
-        self.results_list.clear()  # Очищаем предыдущие результаты
-        if not results:
-            self.results_list.hide()
+    def create_settings_layer(self):
+        """Создает слой настроек и инструментов"""
+        settings_widget = QWidget()
+        settings_layout = QVBoxLayout(settings_widget)
+        settings_layout.setContentsMargins(50, 50, 50, 50)
+        settings_layout.setSpacing(30)
+        
+        # Заголовок
+        settings_title = QLabel("Системные настройки")
+        settings_title.setFont(QFont("Arial", 20, QFont.Weight.Bold))
+        settings_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        settings_layout.addWidget(settings_title)
+        
+        # Сетка настроек
+        settings_grid = QGridLayout()
+        settings_grid.setSpacing(20)
+        
+        # Элементы настроек
+        settings_items = [
+            {"name": "Настройки системы", "icon": "settings.png"},
+            {"name": "Управление эмуляторами", "icon": "emulator.png"},
+            {"name": "Внешний вид", "icon": "appearance.png"},
+            {"name": "Сетевое подключение", "icon": "network.png"},
+            {"name": "Обновления", "icon": "update.png"},
+            {"name": "О программе", "icon": "info.png"},
+            {"name": "Инструменты разработчика", "icon": "tools.png"},
+            {"name": "Выход", "icon": "exit.png"}
+        ]
+        
+        for i, item in enumerate(settings_items):
+            row = i // 4
+            col = i % 4
+            
+            item_frame = QFrame()
+            item_frame.setObjectName("SettingsTile")
+            item_frame.setMinimumSize(120, 120)
+            
+            item_layout = QVBoxLayout(item_frame)
+            item_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            
+            icon = QLabel()
+            icon.setPixmap(QPixmap(item["icon"]).scaled(50, 50, Qt.AspectRatioMode.KeepAspectRatio))
+            item_layout.addWidget(icon)
+            
+            name_label = QLabel(item["name"])
+            name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            name_label.setFont(QFont("Arial", 9))
+            item_layout.addWidget(name_label)
+            
+            settings_grid.addWidget(item_frame, row, col)
+        
+        settings_container = QWidget()
+        settings_container.setLayout(settings_grid)
+        settings_layout.addWidget(settings_container, 1)
+        
+        self.stack.addWidget(settings_widget)
+
+    def switch_layer(self, direction):
+        """Переключает между слоями с анимацией"""
+        if direction == "down" and self.current_layer == 0:
+            target_layer = 1
+            self.animate_transition(target_layer, 0, -50)
+        elif direction == "up" and self.current_layer == 1:
+            target_layer = 0
+            self.animate_transition(target_layer, 0, 50)
+        else:
             return
 
-        for item in results:
-            list_item = QListWidgetItem()
-            list_item.setData(Qt.ItemDataRole.UserRole, item['url'])
-            item_widget = SearchItemWidget(item['title'], item['type'])
-            list_item.setSizeHint(item_widget.sizeHint())
-            self.results_list.addItem(list_item)
-            self.results_list.setItemWidget(list_item, item_widget)
-
-        self.results_list.show()
-        self.results_list.updateGeometry()
-
-    def search_content(self, text):
-        """Обработчик изменения текста в поле поиска."""
-        QTimer.singleShot(100, lambda: self.perform_search(text))
-
-    def perform_search(self, text):
-        """Выполняет поиск по гайдам и играм."""
-        if not text.strip():
-            self.results_list.hide()
-            return
-
-        query = text.lower()
-        results = []
-
-        for guide in GUIDES:
-            if query in guide["title"].lower():
-                results.append({
-                    'type': 'Гайд',
-                    'title': guide["title"],
-                    'url': guide["url"]
-                })
-
-        for game in GAMES:
-            if query in game["title"].lower():
-                results.append({
-                    'type': 'Игра',
-                    'title': game["title"],
-                    'url': game["url"]
-                })
-
-        self.display_results(results)
-
-    def open_item(self, item):
-        """Открывает выбранный элемент в браузере по умолчанию."""
-        url = item.data(Qt.ItemDataRole.UserRole)
-        webbrowser.open(url)
-
-class SearchItemWidget(QWidget):
-    """Кастомный виджет для отображения результата поиска"""
-    def __init__(self, title, item_type, parent=None):
-        super().__init__(parent)
-        self.setup_ui(title, item_type)
+    def animate_transition(self, target_layer, start_y, delta_y):
+        """Анимирует переход между слоями"""
+        # Сохраняем текущую позицию
+        current_pos = self.stack.pos()
         
-    def setup_ui(self, title, item_type):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(15, 15, 15, 15)
+        # Создаем анимацию
+        self.animation = QPropertyAnimation(self.stack, b"pos")
+        self.animation.setDuration(self.animation_duration)
+        self.animation.setEasingCurve(QEasingCurve.Type.OutQuad)
         
-        self.title_label = QLabel(title)
-        title_font = QFont("Arial", 16)
-        title_font.setBold(True)
-        self.title_label.setFont(title_font)
-        self.title_label.setWordWrap(True)
-        layout.addWidget(self.title_label)
+        # Начальное положение - смещение вниз/вверх
+        self.stack.move(current_pos.x(), current_pos.y() + delta_y)
+        self.animation.setStartValue(QPoint(current_pos.x(), current_pos.y() + delta_y))
         
-        self.type_label = QLabel(f"Тип: {item_type}")
-        type_font = QFont("Arial", 14)
-        self.type_label.setFont(type_font)
-        layout.addWidget(self.type_label)
-        self.setMinimumHeight(100)
+        # Конечное положение - исходное
+        self.animation.setEndValue(current_pos)
+        
+        # Запускаем анимацию
+        self.animation.start()
+        
+        # После завершения анимации переключаем слой
+        self.animation.finished.connect(lambda: self.finalize_layer_switch(target_layer))
+
+    def finalize_layer_switch(self, target_layer):
+        """Завершает переключение слоя"""
+        self.stack.setCurrentIndex(target_layer)
+        self.current_layer = target_layer
+        self.update_hints()
+        self.animation.deleteLater()
+
+    def update_hints(self):
+        """Обновляет подсказки в зависимости от текущего слоя"""
+        if self.current_layer == 0:
+            hints = "↓: Настройки  |  A: Запустить  |  Y: Поиск  |  B: Назад"
+        else:
+            hints = "↑: Главный экран  |  A: Выбрать  |  B: Назад"
+        
+        self.hint_label.setText(hints)
+
+    def keyPressEvent(self, event):
+        """Обрабатывает нажатия клавиш"""
+        if event.key() == Qt.Key.Key_Down:
+            self.switch_layer("down")
+            event.accept()
+        elif event.key() == Qt.Key.Key_Up:
+            self.switch_layer("up")
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
 def check_and_show_updates(dark_theme):
     """Запускает внешний updater"""
@@ -431,7 +544,7 @@ if __name__ == "__main__":
             dark_theme = app_settings.get_theme() == 'dark'
             app.setProperty("class", "dark-theme" if dark_theme else "light-theme")
         
-        window = MainWindow(dark_theme=dark_theme)
+        window = MainWindow()
         window.showMaximized()
         
         QTimer.singleShot(1000, lambda: check_and_show_updates(dark_theme))
