@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QPushButton, 
+    QApplication, QDialog, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QPushButton, 
     QStackedWidget, QButtonGroup, QRadioButton, QCheckBox
 )
 from PyQt6.QtCore import Qt, QSize
