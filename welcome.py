@@ -2,7 +2,16 @@ from PyQt6.QtWidgets import QWizard, QWizardPage, QLabel, QVBoxLayout, QPushButt
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
 from settings import app_settings
-from . import core
+import os
+import sys
+
+# Добавляем путь к корню проекта для импорта core
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(current_dir)
+if root_dir not in sys.path:
+    sys.path.append(root_dir)
+
+from core import THEME_FILE
 
 class WelcomeWizard(QWizard):
     def __init__(self, parent=None):
@@ -84,7 +93,6 @@ class WelcomeWizard(QWizard):
         self.button(QWizard.WizardButton.FinishButton).clicked.connect(self.accept)
         
     def toggle_theme(self, button, checked):
-        # Обрабатываем только нажатие (когда кнопка становится выбранной)
         if checked:
             if button == self.dark_theme_btn:
                 theme = 'dark'
@@ -92,10 +100,16 @@ class WelcomeWizard(QWizard):
                 theme = 'light'
             app_settings.set_theme(theme)
             
-            # Применяем тему сразу к приложению
             app = QApplication.instance()
             if app:
                 app.setProperty("class", theme + "-theme")
+                # Перезагружаем глобальные стили
+                try:
+                    with open(THEME_FILE, 'r', encoding='utf-8') as f:
+                        new_style = f.read()
+                    app.setStyleSheet(new_style)
+                except Exception as e:
+                    print(f"Ошибка перезагрузки стилей: {e}")
         
     def center_on_screen(self):
         screen_geometry = QApplication.primaryScreen().geometry()
