@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-# Programm/updater.py
+# app/updater.py
 import sys
 import os
 from packaging import version
+import re
 
 # Активация окружения через venv_manager
 # Добавляем путь к корневой директории проекта
@@ -38,53 +39,86 @@ class Updater:
     def __init__(self, parent=None):
         self.parent = parent
         self.github_repo = "Vladislavshits/PixelDeck"
-        # Проверяем, содержит ли APP_VERSION подстроку 'beta' в любом регистре
         self.is_beta = "beta" in APP_VERSION.lower()
+        
+    def normalize_version(self, version_str):
+        """Нормализует версию для корректного сравнения"""
+        # Удаляем префикс 'v' и суффиксы beta
+        clean_version = version_str.lstrip('v').lower()
+        
+        # Заменяем различные написания beta на стандартное
+        clean_version = re.sub(r'[\s\-_]?beta[\s\-_]?', '-beta', clean_version)
+        
+        return clean_version
         
     def check_for_updates(self):
         try:
-            # Загружаем список пропущенных версий
             skipped_versions = self.get_skip_config()
             
-            # Для стабильной версии: получаем "Latest Release"
+            # Для стабильной версии
             if not self.is_beta:
                 latest_url = f"https://api.github.com/repos/{self.github_repo}/releases/latest"
-                response = requests.get(latest_url, timeout=10)
+                response = requests.get(latest_url, timeout=15)  # Увеличили таймаут
                 response.raise_for_status()
                 latest_release = response.json()
                 
                 latest_version = latest_release['tag_name']
                 
-                # Если версия пропущена - игнорируем
                 if latest_version in skipped_versions:
+                    print(f"[DEBUG] Версия {latest_version} пропущена пользователем")
                     return None
                 
-                current_version = APP_VERSION
-                if version.parse(latest_version.lstrip('v')) > version.parse(current_version):
+                current_version = self.normalize_version(APP_VERSION)
+                latest_normalized = self.normalize_version(latest_version)
+                
+                print(f"[DEBUG] Стабильная версия: current={current_version}, latest={latest_normalized}")
+                
+                if version.parse(latest_normalized) > version.parse(current_version):
                     return latest_release
             
-            # Для бета-версии: получаем все пре-релизы
+            # Для бета-версии
             else:
                 releases_url = f"https://api.github.com/repos/{self.github_repo}/releases"
-                response = requests.get(releases_url, timeout=10)
+                response = requests.get(releases_url, timeout=15)  # Увеличили таймаут
                 response.raise_for_status()
                 releases = response.json()
                 
-                # Фильтруем только пре-релизы
                 beta_releases = [r for r in releases if r['prerelease']]
                 
                 if not beta_releases:
+                    print("[DEBUG] Нет доступных бета-релизов")
                     return None
                     
                 # Сортируем по версии (новые сверху)
                 sorted_releases = sorted(
                     beta_releases,
-                    key=lambda x: version.parse(x['tag_name'].lstrip('v')),
+                    key=lambda x: version.parse(self.normalize_version(x['tag_name'])),
                     reverse=True
                 )
                 
                 latest_beta = sorted_releases[0]
                 latest_version = latest_beta['tag_name']
+                
+                if latest_version in skipped_versions:
+                    print(f"[DEBUG] Бета-версия {latest_version} пропущена пользователем")
+                    return None
+                
+                # Нормализуем обе версии для корректного сравнения
+                current_normalized = self.normalize_version(APP_VERSION)
+                latest_normalized = self.normalize_version(latest_version)
+                
+                print(f"[DEBUG] Beta версия: current={current_normalized}, latest={latest_normalized}")
+                
+                if version.parse(latest_normalized) > version.parse(current_normalized):
+                    print(f"[DEBUG] Найдена новая бета-версия: {latest_version}")
+                    return latest_beta
+                
+        except Exception as e:
+            print(f"Ошибка при проверке обновлений: {str(e)}")
+            return None
+            
+        print("[DEBUG] Подходящих обновлений не найдено")
+        return None
                 
                 # Если версия пропущена - игнорируем
                 if latest_version in skipped_versions:
