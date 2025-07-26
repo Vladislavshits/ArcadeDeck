@@ -1,3 +1,5 @@
+[file name]: updater.py
+[file content begin]
 #!/usr/bin/env python3
 # app/updater.py
 import sys
@@ -413,19 +415,10 @@ def run_updater(dark_theme=True, current_version=None):
     try:
         app = QApplication(sys.argv)
         
-        # Улучшенная загрузка стилей
-        stylesheet = ""
-        try:
-            if os.path.exists(THEME_FILE):
-                with open(THEME_FILE, 'r', encoding='utf-8') as f:
-                    stylesheet = f.read()
-                app.setStyleSheet(stylesheet)
-            else:
-                print(f"Файл стилей не найден: {THEME_FILE}")
-        except Exception as e:
-            print(f"Ошибка загрузки стилей: {e}")
-            # Очищаем стили, чтобы использовать стандартные
-            app.setStyleSheet("")
+        # Загружаем текущую тему из настроек
+        from settings import app_settings
+        app_settings._ensure_settings()
+        dark_theme = app_settings.get_theme() == 'dark'
         
         # Устанавливаем класс темы
         app.setProperty("class", "dark-theme" if dark_theme else "light-theme")
