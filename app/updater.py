@@ -241,7 +241,7 @@ class UpdateDialog(QDialog):
         # Создаем прогресс-диалог
         self.progress_dialog = QProgressDialog("Скачивание обновления...", "Отмена", 0, 100, self)
         self.progress_dialog.setWindowTitle("Скачивание обновления")
-        self.progress_dialog.setWindowModality(Qt.WindowModal)
+        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self.progress_dialog.canceled.connect(self.cancel_download)
         
         # Создаем и запускаем поток скачивания
