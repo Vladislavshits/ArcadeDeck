@@ -376,11 +376,13 @@ if __name__ == "__main__":
         app.setProperty("class", "dark-theme" if dark_theme else "light-theme")
         
         if not welcome_shown:
+            logger.info("Показываем приветственное окно")
             welcome = WelcomeWizard()
             welcome.center_on_screen()
             result = welcome.exec()
-            if result == QDialog.DialogCode.Accepted:
-                app_settings.set_welcome_shown(True)
+            
+            # Всегда устанавливаем флаг после показа
+            app_settings.set_welcome_shown(True)
             
             # Обновляем тему после мастера
             dark_theme = app_settings.get_theme() == 'dark'
