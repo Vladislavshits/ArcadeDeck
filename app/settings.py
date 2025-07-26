@@ -1,6 +1,7 @@
 from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QApplication
 import os
+from app.ui_assets.theme_manager import theme_manager
 
 class AppSettings:
     def __init__(self):
