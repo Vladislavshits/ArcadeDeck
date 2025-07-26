@@ -86,6 +86,12 @@ class WelcomeWizard(QWizard):
         
         self.page2.setLayout(layout2)
         self.addPage(self.page2)
+
+        # Применяем текущую тему
+        self.apply_theme(theme_manager.current_theme)
+        
+        # Подписываемся на изменения темы
+        theme_manager.theme_changed.connect(self.apply_theme)
         
         # Сигналы
         self.theme_group.buttonToggled.connect(self.toggle_theme)
@@ -93,6 +99,26 @@ class WelcomeWizard(QWizard):
         # Важно: при завершении мастера принимаем его
         self.button(QWizard.WizardButton.FinishButton).clicked.connect(self.accept)
         
+    def apply_theme(self, theme_name):
+        """Применяет указанную тему к окну"""
+        try:
+            # Загружаем стили из файла
+            from core import THEME_FILE  # Импортируем путь
+            with open(THEME_FILE, 'r', encoding='utf-8') as f:
+                stylesheet = f.read()
+            
+            # Устанавливаем свойство класса
+            self.setProperty("class", f"{theme_name}-theme")
+            
+            # Применяем стили
+            self.setStyleSheet(stylesheet)
+            
+            # Обновляем стили дочерних виджетов
+            self.style().unpolish(self)
+            self.style().polish(self)
+        except Exception as e:
+            print(f"Ошибка применения темы: {e}")
+
     def toggle_theme(self, button, checked):
         if checked:
             if button == self.dark_theme_btn:
