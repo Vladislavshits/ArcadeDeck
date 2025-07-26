@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QWizard, QWizardPage, QLabel, QVBoxLayout, QPushButt
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
 from settings import app_settings
+from . import core
 
 class WelcomeWizard(QWizard):
     def __init__(self, parent=None):
@@ -50,45 +51,17 @@ class WelcomeWizard(QWizard):
         
         # Кнопка темной темы
         self.dark_theme_btn = QPushButton("Темная тема")
+        self.dark_theme_btn.setObjectName("themeButton")  # Идентификатор для стилей
         self.dark_theme_btn.setCheckable(True)
-        self.dark_theme_btn.setFixedSize(300, 200)  # Большая кнопка
+        self.dark_theme_btn.setFixedSize(300, 200)
         self.dark_theme_btn.setFont(QFont("Arial", 18))
-        self.dark_theme_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #252525;
-                color: white;
-                border: 2px solid #64b5f6;
-                border-radius: 10px;
-            }
-            QPushButton:checked {
-                background-color: #64b5f6;
-                color: black;
-            }
-            QPushButton:hover {
-                background-color: #353535;
-            }
-        """)
         
         # Кнопка светлой темы
         self.light_theme_btn = QPushButton("Светлая тема")
+        self.light_theme_btn.setObjectName("themeButton")  # Идентификатор для стилей
         self.light_theme_btn.setCheckable(True)
         self.light_theme_btn.setFixedSize(300, 200)
         self.light_theme_btn.setFont(QFont("Arial", 18))
-        self.light_theme_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ffffff;
-                color: #333333;
-                border: 2px solid #4285f4;
-                border-radius: 10px;
-            }
-            QPushButton:checked {
-                background-color: #4285f4;
-                color: white;
-            }
-            QPushButton:hover {
-                background-color: #f0f0f0;
-            }
-        """)
         
         # Добавляем кнопки в группу
         self.theme_group.addButton(self.dark_theme_btn, 0)
