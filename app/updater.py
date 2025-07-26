@@ -326,6 +326,7 @@ def run_updater(dark_theme=True, current_version=None):
         print(f"Запуск обновления с параметрами:")
         print(f"Тема: {'Тёмная' if dark_theme else 'Светлая'}")
         print(f"Текущая версия: {current_version}")
+        print(f"Режим: {'BETA' if 'beta' in current_version.lower() else 'Стабильный'}")
         
         updater = Updater()
         release = updater.check_for_updates()
@@ -337,6 +338,7 @@ def run_updater(dark_theme=True, current_version=None):
             download_url = assets[0].get('browser_download_url') if assets else None
             
             if download_url:
+                print(f"[DEBUG] Найдено обновление: {latest_version}")
                 dialog = UpdateDialog(current_version, latest_version, changelog, download_url)
                 dialog.exec()
     except Exception as e:
