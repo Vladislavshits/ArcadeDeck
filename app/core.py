@@ -1,11 +1,7 @@
 # core.py
 import os
 import sys
-import re
-from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import Qt
-from settings import app_settings
 
 APP_VERSION = "0.1.73-beta"
 USER_HOME = os.path.expanduser("~")
