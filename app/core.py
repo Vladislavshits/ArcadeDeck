@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 from settings import app_settings  # Исправленный импорт
 
-APP_VERSION = "0.1.7.10 (71) BETA"
+APP_VERSION = "0.1.73-beta"
 USER_HOME = os.path.expanduser("~")
 
 # Определяем базовые пути
