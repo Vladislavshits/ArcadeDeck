@@ -74,11 +74,11 @@ sys.path.insert(0, BASE_DIR)
 
 from PyQt6.QtWidgets import (
     QApplication, QAbstractItemView, QMainWindow, QWidget,
-    QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QHBoxLayout,
-    QSizePolicy, QCheckBox, QDialog, QTextEdit, QMessageBox, QProgressDialog
+    QLabel, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout,
+    QMessageBox
 )
-from PyQt6.QtCore import Qt, QTimer, QSize, QUrl
-from PyQt6.QtGui import QIcon, QFont, QColor, QPalette, QScreen
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QIcon, QFont
 
 # Импорт из нашего приложения
 from core import (
@@ -90,7 +90,7 @@ from core import (
     GAME_LIST_GUIDE_JSON_PATH
 )
 from settings import app_settings
-from welcome import WelcomeWizard  # Приветственное окно при первом запуске
+from welcome import WelcomeWizard
 
 # Безопасная загрузка JSON
 def safe_load_json(path, default):
@@ -127,9 +127,7 @@ def safe_load_json(path, default):
         return default
 
 def load_content():
-    """
-    Загружает контент из JSON-файлов с обработкой ошибок.
-    """
+    """Загружает контент из JSON-файлов с обработкой ошибок."""
     # Проверяем и создаем необходимые директории
     os.makedirs(CONTENT_DIR, exist_ok=True)
     
@@ -143,9 +141,7 @@ def load_content():
     return guides, games
 
 def show_style_error(missing_resources):
-    """
-    Показывает диалоговое окно с ошибкой отсутствия ресурсов.
-    """
+    """Показывает диалоговое окно с ошибкой отсутствия ресурсов."""
     # Создаем временное приложение для показа сообщения
     app = QApplication.instance()
     if not app:
@@ -200,16 +196,11 @@ class MainWindow(QMainWindow):
     """Главное окно приложения с системой поиска."""
 
     def __init__(self, dark_theme=True):
-        """
-        Инициализация главного окна приложения.
-
-        :param dark_theme: Использовать темную тему (по умолчанию True)
-        """
         super().__init__()
         # Настройка окна
         self.setWindowTitle("PixelDeck")
         self.setGeometry(400, 300, 1280, 800)
-        self.setMinimumSize(QSize(800, 600))
+        self.setMinimumSize(800, 600)
         self.dark_theme = dark_theme
 
         # Устанавливаем иконку приложения
@@ -251,63 +242,36 @@ class MainWindow(QMainWindow):
         self.results_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
     def display_results(self, results):
-        """
-        Отображает результаты поиска в виджете списка.
-
-        :param results: Список результатов (каждый элемент - словарь с ключами 'type', 'title', 'url')
-        """
+        """Отображает результаты поиска в виджете списка."""
         self.results_list.clear()  # Очищаем предыдущие результаты
-        # Если результатов нет, скрываем виджет
         if not results:
             self.results_list.hide()
             return
 
-        # Добавляем каждый результат в список
         for item in results:
-            # Создаем элемент списка
             list_item = QListWidgetItem()
-            
-            # Сохраняем URL в пользовательских данных элемента
             list_item.setData(Qt.ItemDataRole.UserRole, item['url'])
-
-            # Создаем кастомный виджет для элемента
             item_widget = SearchItemWidget(item['title'], item['type'])
-
-            # Устанавливаем виджет в элемент списка
             list_item.setSizeHint(item_widget.sizeHint())
             self.results_list.addItem(list_item)
             self.results_list.setItemWidget(list_item, item_widget)
 
-        # Показываем виджет с результатами
         self.results_list.show()
-        self.results_list.updateGeometry()  # Обновляем геометрию виджета
+        self.results_list.updateGeometry()
 
     def search_content(self, text):
-        """
-        Обработчик изменения текста в поле поиска.
-        Использует таймер для отложенного поиска.
-
-        :param text: Текст для поиска
-        """
-        # Запускаем поиск через 100 мс для оптимизации
+        """Обработчик изменения текста в поле поиска."""
         QTimer.singleShot(100, lambda: self.perform_search(text))
 
     def perform_search(self, text):
-        """
-        Выполняет поиск по гайдам и играм.
-
-        :param text: Текст для поиска
-        """
-        # Если поле поиска пустое, скрываем результаты
+        """Выполняет поиск по гайдам и играм."""
         if not text.strip():
             self.results_list.hide()
             return
 
-        # Приводим запрос к нижнему регистру для регистронезависимого поиска
         query = text.lower()
         results = []
 
-        # Поиск в гайдах
         for guide in GUIDES:
             if query in guide["title"].lower():
                 results.append({
@@ -316,7 +280,6 @@ class MainWindow(QMainWindow):
                     'url': guide["url"]
                 })
 
-        # Поиск в играх
         for game in GAMES:
             if query in game["title"].lower():
                 results.append({
@@ -325,16 +288,10 @@ class MainWindow(QMainWindow):
                     'url': game["url"]
                 })
 
-        # Отображаем результаты
         self.display_results(results)
 
     def open_item(self, item):
-        """
-        Открывает выбранный элемент в браузере по умолчанию.
-
-        :param item: Элемент списка, по которому кликнули
-        """
-        # Получаем URL из пользовательских данных элемента
+        """Открывает выбранный элемент в браузере по умолчанию."""
         url = item.data(Qt.ItemDataRole.UserRole)
         webbrowser.open(url)
 
@@ -342,45 +299,33 @@ class SearchItemWidget(QWidget):
     """Кастомный виджет для отображения результата поиска"""
     def __init__(self, title, item_type, parent=None):
         super().__init__(parent)
-        self.setObjectName("SearchItemWidget")
         self.setup_ui(title, item_type)
         
     def setup_ui(self, title, item_type):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
         
-        # Заголовок
         self.title_label = QLabel(title)
         title_font = QFont("Arial", 16)
         title_font.setBold(True)
         self.title_label.setFont(title_font)
-        self.title_label.setWordWrap(True)  # Разрешаем перенос текста
+        self.title_label.setWordWrap(True)
         layout.addWidget(self.title_label)
         
-        # Тип
         self.type_label = QLabel(f"Тип: {item_type}")
         type_font = QFont("Arial", 14)
         self.type_label.setFont(type_font)
         layout.addWidget(self.type_label)
-        
-        # Устанавливаем минимальную высоту
         self.setMinimumHeight(100)
 
 def check_and_show_updates(dark_theme):
     """Запускает внешний updater"""
     try:
-        # Получаем путь к текущей директории
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        # Формируем путь к updater.py
         updater_path = os.path.join(current_dir, "Programm", "updater.py")
-
-        # Определяем флаг темы
         theme_flag = "--dark" if dark_theme else "--light"
-
-        # Передаем текущую версию
         version_arg = f"--current-version={APP_VERSION}"
         
-        # Запускаем updater в фоновом режиме
         subprocess.Popen(
             [sys.executable, updater_path, theme_flag],
             stdout=subprocess.DEVNULL,
@@ -397,11 +342,9 @@ if __name__ == "__main__":
     logger.info(f"Рабочая директория: {os.getcwd()}")
     
     try:
-        # Создаем необходимые директории
         os.makedirs(STYLES_DIR, exist_ok=True)
         os.makedirs(CONTENT_DIR, exist_ok=True)
         
-        # Проверка ресурсов
         missing_resources = check_resources()
         if missing_resources:
             logger.critical("Отсутствуют критические ресурсы")
@@ -417,49 +360,37 @@ if __name__ == "__main__":
             show_style_error([THEME_FILE])
             sys.exit(1)
         
-        # Создаем экземпляр приложения
         app = QApplication(sys.argv)
         app.setStyle("Fusion")
-        
-        # Устанавливаем глобальный стиль
         app.setStyleSheet(global_stylesheet)
         
-        # Инициализируем настройки
         app_settings._ensure_settings()
         
-        # Загружаем контент ПОСЛЕ создания QApplication
         global GUIDES, GAMES
         GUIDES, GAMES = load_content()
         
-        # Читаем настройки
         welcome_shown = app_settings.get_welcome_shown()
         dark_theme = app_settings.get_theme() == 'dark'
         
         # Устанавливаем класс темы
         app.setProperty("class", "dark-theme" if dark_theme else "light-theme")
         
-        # Приветственное окно
         if not welcome_shown:
-            # Создаем и показываем мастер на весь экран
-            welcome = WelcomeWizard(dark_theme=dark_theme)
+            welcome = WelcomeWizard()
             welcome.center_on_screen()
             if welcome.exec() == QDialog.DialogCode.Accepted:
                 app_settings.set_welcome_shown(True)
         
-        # Главное окно
         window = MainWindow(dark_theme=dark_theme)
         window.showMaximized()
         
-        # Проверка обновлений
         QTimer.singleShot(1000, lambda: check_and_show_updates(dark_theme))
         
         sys.exit(app.exec())
         
     except Exception as e:
         logger.exception("Критическая ошибка при запуске")
-        # Попытка показать сообщение об ошибке
         try:
-            # Создаем временное приложение для отображения ошибки
             temp_app = QApplication(sys.argv)
             QMessageBox.critical(
                 None,
