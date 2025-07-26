@@ -2,8 +2,21 @@
 # app/updater.py
 import sys
 import os
-from packaging import version
 import re
+import json
+import shutil
+import tarfile
+import requests
+import subprocess
+import hashlib
+from packaging import version
+from datetime import datetime
+from PyQt6.QtWidgets import (
+    QDialog, QVBoxLayout, QLabel, QTextEdit, QPushButton, QHBoxLayout,
+    QApplication, QMessageBox, QProgressDialog
+)
+from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
 # Активация окружения через venv_manager
 # Добавляем путь к корневой директории проекта
@@ -19,16 +32,6 @@ if programm_dir not in sys.path:
 from venv_manager import enforce_virtualenv
 enforce_virtualenv()
 
-import requests
-import json
-from datetime import datetime
-from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QLabel, QTextEdit, 
-    QPushButton, QHBoxLayout, QApplication, QMessageBox,
-    QProgressDialog
-)
-from PyQt6.QtGui import QFont
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from core import APP_VERSION, STYLES_DIR, THEME_FILE
 
 # Настройки пользователя
@@ -40,6 +43,7 @@ class Updater:
         self.parent = parent
         self.github_repo = "Vladislavshits/PixelDeck"
         self.is_beta = "beta" in APP_VERSION.lower()
+        self.install_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         
     def normalize_version(self, version_str):
         """Нормализует версию для корректного сравнения"""
@@ -47,10 +51,19 @@ class Updater:
         clean_version = version_str.lstrip('v').lower()
         
         # Заменяем различные написания beta на стандартное (регистронезависимо)
-        clean_version = re.sub(r'[\s\-_]?beta[\s\-_]?', '-beta', clean_version, flags=re.IGNORECASE)
+        clean_version = re.sub(r'[\s\-_]?beta[\s\-_]?', '', clean_version, flags=re.IGNORECASE)
         
-        return clean_version
+        # Разбиваем на части и преобразуем числа в int для корректного сравнения
+        parts = []
+        for part in clean_version.split('.'):
+            if part.isdigit():
+                parts.append(int(part))
+            else:
+                # Для нечисловых частей (например, суффиксов) оставляем строкой
+                parts.append(part)
         
+        return parts
+    
     def check_for_updates(self):
         try:
             skipped_versions = self.get_skip_config()
@@ -68,13 +81,23 @@ class Updater:
                     print(f"[DEBUG] Версия {latest_version} пропущена пользователем")
                     return None
                 
-                current_version = self.normalize_version(APP_VERSION)
+                current_normalized = self.normalize_version(APP_VERSION)
                 latest_normalized = self.normalize_version(latest_version)
                 
-                print(f"[DEBUG] Стабильная версия: current={current_version}, latest={latest_normalized}")
+                print(f"[DEBUG] Стабильная версия: current={current_normalized}, latest={latest_normalized}")
                 
-                if version.parse(latest_normalized) > version.parse(current_version):
-                    return latest_release
+                if latest_normalized > current_normalized:
+                    # Ищем архив с обновлением
+                    for asset in latest_release.get('assets', []):
+                        if asset['name'].endswith('.tar.gz'):
+                            return {
+                                'release': latest_release,
+                                'download_url': asset['browser_download_url'],
+                                'version': latest_version,
+                                'type': 'stable',
+                                'asset_name': asset['name']
+                            }
+                    print("[ERROR] Не найден архив обновления в релизе")
             
             # Для бета-версии
             else:
@@ -89,10 +112,10 @@ class Updater:
                     print("[DEBUG] Нет доступных бета-релизов")
                     return None
                     
-                # Сортируем по версии (новые сверху)
+                # Сортируем бета-версии
                 sorted_releases = sorted(
                     beta_releases,
-                    key=lambda x: version.parse(self.normalize_version(x['tag_name'])),
+                    key=lambda r: self.normalize_version(r['tag_name']),
                     reverse=True
                 )
                 
@@ -103,15 +126,24 @@ class Updater:
                     print(f"[DEBUG] Бета-версия {latest_version} пропущена пользователем")
                     return None
                 
-                # Нормализуем обе версии для корректного сравнения
+                # Сравниваем версии
                 current_normalized = self.normalize_version(APP_VERSION)
                 latest_normalized = self.normalize_version(latest_version)
                 
                 print(f"[DEBUG] Beta версия: current={current_normalized}, latest={latest_normalized}")
                 
-                if version.parse(latest_normalized) > version.parse(current_normalized):
-                    print(f"[DEBUG] Найдена новая бета-версия: {latest_version}")
-                    return latest_beta
+                if latest_normalized > current_normalized:
+                    # Ищем архив с обновлением
+                    for asset in latest_beta.get('assets', []):
+                        if asset['name'].endswith('.tar.gz'):
+                            return {
+                                'release': latest_beta,
+                                'download_url': asset['browser_download_url'],
+                                'version': latest_version,
+                                'type': 'beta',
+                                'asset_name': asset['name']
+                            }
+                    print("[ERROR] Не найден архив обновления в бета-релизе")
                 
         except Exception as e:
             print(f"Ошибка при проверке обновлений: {str(e)}")
@@ -125,7 +157,7 @@ class Updater:
         skipped_versions = []
         if os.path.exists(CONFIG_PATH):
             try:
-                with open(CONFIG_PATH, 'r', encoding='utf-8') as f:  # Добавлена кодировка
+                with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
                     config = json.load(f)
                     skipped_versions = config.get('skipped_versions', [])
             except:
@@ -133,25 +165,26 @@ class Updater:
         return skipped_versions
 
 class UpdateDownloaderThread(QThread):
-    """Поток для скачивания обновления в фоновом режиме"""
+    """Поток для скачивания и установки обновления"""
     progress = pyqtSignal(int)
     finished = pyqtSignal(str)
     error = pyqtSignal(str)
 
-    def __init__(self, download_url, parent=None):
+    def __init__(self, download_url, install_dir, asset_name, parent=None):
         super().__init__(parent)
         self.download_url = download_url
+        self.install_dir = install_dir
+        self.asset_name = asset_name
         self.download_path = None
 
     def run(self):
         try:
-            # Создаем директорию для загрузок
-            download_dir = os.path.join(CONFIG_DIR, "downloads")
-            os.makedirs(download_dir, exist_ok=True)
+            # Создаем временную директорию
+            temp_dir = os.path.join(os.path.expanduser("~"), "PixelDeck", "temp_update")
+            os.makedirs(temp_dir, exist_ok=True)
             
             # Формируем имя файла
-            filename = f"PixelDeck_Update_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
-            self.download_path = os.path.join(download_dir, filename)
+            self.download_path = os.path.join(temp_dir, self.asset_name)
             
             # Скачиваем файл с прогрессом
             response = requests.get(self.download_url, stream=True)
@@ -170,17 +203,61 @@ class UpdateDownloaderThread(QThread):
                             progress = int((downloaded / total_size) * 100)
                             self.progress.emit(progress)
             
-            self.finished.emit(self.download_path)
+            # Распаковываем архив
+            self.progress.emit(101)  # Сигнал начала распаковки
+            with tarfile.open(self.download_path, "r:gz") as tar:
+                tar.extractall(temp_dir)
+            
+            # Ищем директорию с обновлением
+            update_dir = None
+            for item in os.listdir(temp_dir):
+                item_path = os.path.join(temp_dir, item)
+                if os.path.isdir(item_path) and "PixelDeck" in item:
+                    update_dir = item_path
+                    break
+            
+            if not update_dir:
+                raise Exception("Не найдена директория с обновлением в архиве")
+            
+            # Копируем файлы
+            self.progress.emit(102)  # Сигнал копирования файлов
+            
+            # Игнорируем некоторые файлы/директории
+            ignore = shutil.ignore_patterns(
+                'venv', '*.log', '*.bak', '__pycache__', 
+                'user_settings.json', 'downloads', 'temp_update',
+                'updater.json', 'pixeldeck.log'
+            )
+            
+            # Копируем с заменой существующих файлов
+            for item in os.listdir(update_dir):
+                src = os.path.join(update_dir, item)
+                dst = os.path.join(self.install_dir, item)
+                
+                if os.path.isdir(src):
+                    shutil.copytree(src, dst, ignore=ignore, dirs_exist_ok=True)
+                else:
+                    # Создаем директорию если нужно
+                    os.makedirs(os.path.dirname(dst), exist_ok=True)
+                    shutil.copy2(src, dst)
+            
+            # Очищаем временные файлы
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            
+            self.finished.emit(self.install_dir)
+            
         except Exception as e:
             self.error.emit(str(e))
 
 class UpdateDialog(QDialog):
-    def __init__(self, current_version, new_version, changelog, download_url, parent=None):
+    def __init__(self, current_version, new_version, changelog, download_url, install_dir, asset_name, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Доступно обновление!")
         self.setMinimumSize(500, 400)
         self.download_url = download_url
         self.new_version = new_version
+        self.install_dir = install_dir
+        self.asset_name = asset_name
         
         layout = QVBoxLayout(self)
         
@@ -222,7 +299,7 @@ class UpdateDialog(QDialog):
         skipped_versions = []
         if os.path.exists(CONFIG_PATH):
             try:
-                with open(CONFIG_PATH, 'r', encoding='utf-8') as f:  # Добавлена кодировка
+                with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
                     config = json.load(f)
                     skipped_versions = config.get('skipped_versions', [])
             except:
@@ -231,61 +308,108 @@ class UpdateDialog(QDialog):
         if self.new_version not in skipped_versions:
             skipped_versions.append(self.new_version)
             
-        with open(CONFIG_PATH, 'w', encoding='utf-8') as f:  # Добавлена кодировка
+        with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
             json.dump({'skipped_versions': skipped_versions}, f)
         
         self.reject()
         
     def start_download(self):
-        """Начинает процесс скачивания обновления"""
+        """Начинает процесс скачивания и установки"""
         # Создаем прогресс-диалог
-        self.progress_dialog = QProgressDialog("Скачивание обновления...", "Отмена", 0, 100, self)
-        self.progress_dialog.setWindowTitle("Скачивание обновления")
+        self.progress_dialog = QProgressDialog("Скачивание обновления...", "Отмена", 0, 103, self)
+        self.progress_dialog.setWindowTitle("Обновление PixelDeck")
         self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self.progress_dialog.canceled.connect(self.cancel_download)
         
+        # Добавляем текстовые метки для этапов
+        self.progress_dialog.setLabelText("Скачивание обновления...")
+        
         # Создаем и запускаем поток скачивания
-        self.download_thread = UpdateDownloaderThread(self.download_url)
-        self.download_thread.progress.connect(self.progress_dialog.setValue)
-        self.download_thread.finished.connect(self.on_download_finished)
+        self.download_thread = UpdateDownloaderThread(
+            self.download_url, 
+            self.install_dir,
+            self.asset_name
+        )
+        self.download_thread.progress.connect(self.update_progress)
+        self.download_thread.finished.connect(self.on_install_finished)
         self.download_thread.error.connect(self.on_download_error)
         self.download_thread.start()
         
         self.progress_dialog.show()
-        
+    
+    def update_progress(self, value):
+        """Обновляет прогресс с учетом этапов"""
+        if value == 101:
+            self.progress_dialog.setLabelText("Распаковка архива...")
+            self.progress_dialog.setValue(value)
+        elif value == 102:
+            self.progress_dialog.setLabelText("Установка файлов...")
+            self.progress_dialog.setValue(value)
+        else:
+            self.progress_dialog.setValue(value)
+    
     def cancel_download(self):
         """Отменяет скачивание"""
         if self.download_thread.isRunning():
             self.download_thread.terminate()
         self.progress_dialog.close()
         
-    def on_download_finished(self, file_path):
-        """Вызывается при успешном скачивании"""
+    def on_install_finished(self, install_dir):
+        """Вызывается при успешной установке"""
         self.progress_dialog.close()
         self.accept()
         
-        # Показываем сообщение с инструкциями
+        # Показываем сообщение об успехе
         QMessageBox.information(
             self.parent(),
-            "Скачивание завершено",
-            f"Обновление успешно скачано в:\n{file_path}\n\n"
-            "Для завершения установки:\n"
-            "1. Закройте PixelDeck\n"
-            "2. Распакуйте архив\n"
-            "3. Запустите установочный скрипт"
+            "Обновление установлено",
+            f"PixelDeck успешно обновлен до версии {self.new_version}!\n\n"
+            "Программа будет перезапущена для применения изменений."
         )
         
+        # Перезапускаем программу
+        self.restart_application()
+    
     def on_download_error(self, error_msg):
         """Вызывается при ошибке скачивания"""
         self.progress_dialog.close()
         QMessageBox.critical(
             self,
-            "Ошибка скачивания",
-            f"Не удалось скачать обновление:\n{error_msg}"
+            "Ошибка обновления",
+            f"Не удалось установить обновление:\n{error_msg}"
         )
+    
+    def restart_application(self):
+        """Перезапускает приложение"""
+        try:
+            # Определяем путь к основному скрипту
+            main_script = os.path.join(self.install_dir, "app.py")
+            
+            # Для Windows
+            if sys.platform == "win32":
+                subprocess.Popen([sys.executable, main_script])
+            
+            # Для Linux/Steam Deck
+            else:
+                # Проверяем, запущен ли через ./install.sh
+                if os.path.exists(os.path.join(self.install_dir, "install.sh")):
+                    subprocess.Popen([os.path.join(self.install_dir, "install.sh")])
+                else:
+                    subprocess.Popen([sys.executable, main_script])
+            
+            # Завершаем текущий процесс
+            QApplication.instance().quit()
+            
+        except Exception as e:
+            print(f"Ошибка при перезапуске: {e}")
+            QMessageBox.warning(
+                self,
+                "Перезапуск",
+                "Пожалуйста, перезапустите PixelDeck вручную для применения обновлений."
+            )
 
 def run_updater(dark_theme=True, current_version=None):
-    """Запуск процесса проверки обновлений"""
+    """Запуск процесса проверки и установки обновлений"""
     try:
         app = QApplication(sys.argv)
         
@@ -316,19 +440,28 @@ def run_updater(dark_theme=True, current_version=None):
         print(f"Текущая версия: {current_version}")
         print(f"Режим: {'BETA' if 'beta' in current_version.lower() else 'Стабильный'}")
         
-        updater = Updater()
-        release = updater.check_for_updates()
+        # Определяем директорию установки
+        install_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         
-        if release:
-            latest_version = release['tag_name']
-            changelog = release.get("body", "Нет информации об изменениях")
-            assets = release.get('assets', [])
-            download_url = assets[0].get('browser_download_url') if assets else None
+        updater = Updater()
+        update_info = updater.check_for_updates()
+        
+        if update_info:
+            latest_version = update_info['version']
+            changelog = update_info['release'].get("body", "Нет информации об изменениях")
+            download_url = update_info['download_url']
+            asset_name = update_info['asset_name']
             
-            if download_url:
-                print(f"[DEBUG] Найдено обновление: {latest_version}")
-                dialog = UpdateDialog(current_version, latest_version, changelog, download_url)
-                dialog.exec()
+            print(f"[DEBUG] Найдено обновление: {latest_version}")
+            dialog = UpdateDialog(
+                current_version, 
+                latest_version, 
+                changelog, 
+                download_url,
+                install_dir,
+                asset_name
+            )
+            dialog.exec()
     except Exception as e:
         print(f"Критическая ошибка в updater: {e}")
 
