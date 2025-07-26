@@ -46,96 +46,78 @@ class Updater:
         # Удаляем префикс 'v' и суффиксы beta
         clean_version = version_str.lstrip('v').lower()
         
-        # Заменяем различные написания beta на стандартное
-        clean_version = re.sub(r'[\s\-_]?beta[\s\-_]?', '-beta', clean_version)
+        # Заменяем различные написания beta на стандартное (регистронезависимо)
+        clean_version = re.sub(r'[\s\-_]?beta[\s\-_]?', '-beta', clean_version, flags=re.IGNORECASE)
         
         return clean_version
         
-def check_for_updates(self):
-    try:
-        skipped_versions = self.get_skip_config()
-        
-        # Для стабильной версии
-        if not self.is_beta:
-            latest_url = f"https://api.github.com/repos/{self.github_repo}/releases/latest"
-            response = requests.get(latest_url, timeout=15)
-            response.raise_for_status()
-            latest_release = response.json()
+    def check_for_updates(self):
+        try:
+            skipped_versions = self.get_skip_config()
             
-            latest_version = latest_release['tag_name']
-            
-            if latest_version in skipped_versions:
-                print(f"[DEBUG] Версия {latest_version} пропущена пользователем")
-                return None
-            
-            current_version = self.normalize_version(APP_VERSION)
-            latest_normalized = self.normalize_version(latest_version)
-            
-            print(f"[DEBUG] Стабильная версия: current={current_version}, latest={latest_normalized}")
-            
-            if version.parse(latest_normalized) > version.parse(current_version):
-                return latest_release
-        
-        # Для бета-версии
-        else:
-            releases_url = f"https://api.github.com/repos/{self.github_repo}/releases"
-            response = requests.get(releases_url, timeout=15)
-            response.raise_for_status()
-            releases = response.json()
-            
-            beta_releases = [r for r in releases if r['prerelease']]
-            
-            if not beta_releases:
-                print("[DEBUG] Нет доступных бета-релизов")
-                return None
+            # Для стабильной версии
+            if not self.is_beta:
+                latest_url = f"https://api.github.com/repos/{self.github_repo}/releases/latest"
+                response = requests.get(latest_url, timeout=15)
+                response.raise_for_status()
+                latest_release = response.json()
                 
-            # Сортируем по версии (новые сверху)
-            sorted_releases = sorted(
-                beta_releases,
-                key=lambda x: version.parse(self.normalize_version(x['tag_name'])),
-                reverse=True
-            )
-            
-            latest_beta = sorted_releases[0]
-            latest_version = latest_beta['tag_name']
-            
-            if latest_version in skipped_versions:
-                print(f"[DEBUG] Бета-версия {latest_version} пропущена пользователем")
-                return None
-            
-            # Нормализуем обе версии для корректного сравнения
-            current_normalized = self.normalize_version(APP_VERSION)
-            latest_normalized = self.normalize_version(latest_version)
-            
-            print(f"[DEBUG] Beta версия: current={current_normalized}, latest={latest_normalized}")
-            
-            if version.parse(latest_normalized) > version.parse(current_normalized):
-                print(f"[DEBUG] Найдена новая бета-версия: {latest_version}")
-                return latest_beta
-            
-    except Exception as e:
-        print(f"Ошибка при проверке обновлений: {str(e)}")
-        return None
-        
-    print("[DEBUG] Подходящих обновлений не найдено")
-    return None
+                latest_version = latest_release['tag_name']
                 
-                # Если версия пропущена - игнорируем
                 if latest_version in skipped_versions:
+                    print(f"[DEBUG] Версия {latest_version} пропущена пользователем")
                     return None
                 
-                # Удаляем различные варианты написания 'beta' из текущей версии
-                current_version = APP_VERSION
-                for suffix in [' BETA', ' beta', ' Beta']:
-                    current_version = current_version.replace(suffix, '')
+                current_version = self.normalize_version(APP_VERSION)
+                latest_normalized = self.normalize_version(latest_version)
                 
-                if version.parse(latest_version.lstrip('v')) > version.parse(current_version):
+                print(f"[DEBUG] Стабильная версия: current={current_version}, latest={latest_normalized}")
+                
+                if version.parse(latest_normalized) > version.parse(current_version):
+                    return latest_release
+            
+            # Для бета-версии
+            else:
+                releases_url = f"https://api.github.com/repos/{self.github_repo}/releases"
+                response = requests.get(releases_url, timeout=15)
+                response.raise_for_status()
+                releases = response.json()
+                
+                beta_releases = [r for r in releases if r['prerelease']]
+                
+                if not beta_releases:
+                    print("[DEBUG] Нет доступных бета-релизов")
+                    return None
+                    
+                # Сортируем по версии (новые сверху)
+                sorted_releases = sorted(
+                    beta_releases,
+                    key=lambda x: version.parse(self.normalize_version(x['tag_name'])),
+                    reverse=True
+                )
+                
+                latest_beta = sorted_releases[0]
+                latest_version = latest_beta['tag_name']
+                
+                if latest_version in skipped_versions:
+                    print(f"[DEBUG] Бета-версия {latest_version} пропущена пользователем")
+                    return None
+                
+                # Нормализуем обе версии для корректного сравнения
+                current_normalized = self.normalize_version(APP_VERSION)
+                latest_normalized = self.normalize_version(latest_version)
+                
+                print(f"[DEBUG] Beta версия: current={current_normalized}, latest={latest_normalized}")
+                
+                if version.parse(latest_normalized) > version.parse(current_normalized):
+                    print(f"[DEBUG] Найдена новая бета-версия: {latest_version}")
                     return latest_beta
                 
         except Exception as e:
             print(f"Ошибка при проверке обновлений: {str(e)}")
             return None
             
+        print("[DEBUG] Подходящих обновлений не найдено")
         return None
 
     def get_skip_config(self):
@@ -143,7 +125,7 @@ def check_for_updates(self):
         skipped_versions = []
         if os.path.exists(CONFIG_PATH):
             try:
-                with open(CONFIG_PATH, 'r') as f:
+                with open(CONFIG_PATH, 'r', encoding='utf-8') as f:  # Добавлена кодировка
                     config = json.load(f)
                     skipped_versions = config.get('skipped_versions', [])
             except:
@@ -240,7 +222,7 @@ class UpdateDialog(QDialog):
         skipped_versions = []
         if os.path.exists(CONFIG_PATH):
             try:
-                with open(CONFIG_PATH, 'r') as f:
+                with open(CONFIG_PATH, 'r', encoding='utf-8') as f:  # Добавлена кодировка
                     config = json.load(f)
                     skipped_versions = config.get('skipped_versions', [])
             except:
@@ -249,7 +231,7 @@ class UpdateDialog(QDialog):
         if self.new_version not in skipped_versions:
             skipped_versions.append(self.new_version)
             
-        with open(CONFIG_PATH, 'w') as f:
+        with open(CONFIG_PATH, 'w', encoding='utf-8') as f:  # Добавлена кодировка
             json.dump({'skipped_versions': skipped_versions}, f)
         
         self.reject()
