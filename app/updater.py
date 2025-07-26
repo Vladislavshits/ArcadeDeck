@@ -32,6 +32,10 @@ if programm_dir not in sys.path:
 from venv_manager import enforce_virtualenv
 enforce_virtualenv()
 
+# ТОЛЬКО ПОСЛЕ АКТИВАЦИИ ОКРУЖЕНИЯ ИМПОРТИРУЕМ ЗАВИСИМОСТИ
+import requests
+from packaging import version
+
 from core import APP_VERSION, STYLES_DIR, THEME_FILE
 
 # Настройки пользователя
