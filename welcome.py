@@ -126,9 +126,13 @@ class ThemePage(QWidget):
         app.setProperty("class", f"{theme}-theme")
         
         # Перезагружаем стили (если они уже были загружены)
-        if hasattr(app, 'stylesheet'):
+        try:
+            with open(THEME_FILE, 'r', encoding='utf-8') as f:
+                stylesheet = f.read()
             app.setStyleSheet("")
-            app.setStyleSheet(app.stylesheet)
+            app.setStyleSheet(stylesheet)
+        except Exception as e:
+            print(f"Ошибка загрузки стилей: {e}")
 
 class EmulatorPage(QWidget):
     """Страница выбора эмуляторов"""
