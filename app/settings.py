@@ -7,6 +7,7 @@ class AppSettings:
         
     def _ensure_settings(self):
         if self._settings is None:
+            # Важно: создаем настройки перед первым использованием
             self._settings = QSettings("PixelDeck", "PixelDeck")
     
     def get_theme(self):
@@ -19,11 +20,13 @@ class AppSettings:
     
     def get_welcome_shown(self):
         self._ensure_settings()
-        return self._settings.value("welcome_shown", False, type=bool)
+        # Используем 0 вместо False для лучшей совместимости
+        return bool(int(self._settings.value("welcome_shown", 0)))
     
     def set_welcome_shown(self, shown):
         self._ensure_settings()
-        self._settings.setValue("welcome_shown", shown)
+        # Сохраняем как целое число (1 или 0)
+        self._settings.setValue("welcome_shown", int(shown))
 
 # Глобальный экземпляр настроек
 app_settings = AppSettings()
