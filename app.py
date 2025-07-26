@@ -1,3 +1,5 @@
+[file name]: app.py
+[file content begin]
 #!/usr/bin/env python3
 import sys
 import os
@@ -73,7 +75,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
 from PyQt6.QtWidgets import (
-    QApplication, QAbstractItemView, QMainWindow, QWidget,
+    QApplication, QAbstractItemView, QMainWindow, QWidget, QDialog,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout,
     QMessageBox
 )
@@ -378,8 +380,13 @@ if __name__ == "__main__":
         if not welcome_shown:
             welcome = WelcomeWizard()
             welcome.center_on_screen()
-            if welcome.exec() == QDialog.DialogCode.Accepted:
+            result = welcome.exec()
+            if result == QDialog.DialogCode.Accepted:
                 app_settings.set_welcome_shown(True)
+            
+            # Обновляем тему после мастера
+            dark_theme = app_settings.get_theme() == 'dark'
+            app.setProperty("class", "dark-theme" if dark_theme else "light-theme")
         
         window = MainWindow(dark_theme=dark_theme)
         window.showMaximized()
@@ -402,3 +409,4 @@ if __name__ == "__main__":
         except Exception as ex:
             logger.error(f"Ошибка при показе сообщения об ошибке: {ex}")
         sys.exit(1)
+[file content end]
