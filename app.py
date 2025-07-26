@@ -599,6 +599,9 @@ def check_and_show_updates(parent_window):
         # Определяем флаг темы
         theme_flag = "--dark" if parent_window.dark_theme else "--light"
 
+        # Передаем текущую версию
+        version_arg = f"--current-version={APP_VERSION}"
+        
         # Запускаем updater в фоновом режиме
         subprocess.Popen(
             [sys.executable, updater_path, theme_flag],
