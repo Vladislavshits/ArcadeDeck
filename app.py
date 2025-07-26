@@ -81,14 +81,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QIcon, QFont
 
 # Импорт из нашего приложения
-from core import (
-    APP_VERSION,
-    CONTENT_DIR,
-    STYLES_DIR,
-    THEME_FILE,
-    GUIDES_JSON_PATH,
-    GAME_LIST_GUIDE_JSON_PATH
-)
+from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, THEME_FILE, GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH
 from settings import app_settings
 from welcome import WelcomeWizard
 
