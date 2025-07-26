@@ -91,6 +91,7 @@ from core import (
     GAME_LIST_GUIDE_JSON_PATH
 )
 from settings import app_settings
+from welcome import WelcomeWizard  # Приветственное окно при первом запуске
 
 # Безопасная загрузка JSON
 def safe_load_json(path, default):
@@ -211,67 +212,7 @@ class WelcomeScreen(QWidget):
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title, 1)
 
-class WelcomeDialog(QDialog):
-    """Диалоговое окно приветствия при первом запуске."""
-    
-    def __init__(self, dark_theme=True, parent=None):
-        super().__init__(parent)
-        self.dark_theme = dark_theme
-        self.setup_ui()
-        self.center_on_screen()
-        
-    def center_on_screen(self):
-        """Центрирует окно на экране."""
-        screen = QApplication.primaryScreen()
-        if screen:
-            screen_geometry = screen.geometry()
-            x = (screen_geometry.width() - self.width()) // 2
-            y = (screen_geometry.height() - self.height()) // 2
-            self.move(x, y)
-        
-    def setup_ui(self):
-        self.setWindowTitle("Добро пожаловать в PixelDeck!")
-        self.setMinimumSize(600, 500)
-        
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(30, 30, 30, 30)
-        layout.setSpacing(20)
-        
-        # Заголовок
-        title = QLabel("Добро пожаловать в PixelDeck!")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_font = QFont()
-        title_font.setBold(True)
-        title_font.setPointSize(24)
-        title.setFont(title_font)
-        layout.addWidget(title)
-        
-        # Описание
-        description = QLabel(
-            "Эта программа разрабатывается для автоматизации процесса эмуляции, "
-            "автоустановки игр, а так же многое другое ждет вас в будущем!\n\n"
-            "Приятного пользования!"
-        )
-        description.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        description.setWordWrap(True)
-        description_font = QFont()
-        description_font.setPointSize(14)
-        description.setFont(description_font)
-        layout.addWidget(description)
-        
-        layout.addStretch(1)
-        
-        # Кнопка GitHub
-        github_button = QPushButton("Проект на GitHub")
-        github_button.setFixedHeight(50)
-        github_button.clicked.connect(lambda: webbrowser.open("https://github.com/Vladislavshits/PixelDeck"))
-        layout.addWidget(github_button)
-        
-        # Кнопка продолжения
-        continue_button = QPushButton("Продолжить")
-        continue_button.setFixedHeight(50)
-        continue_button.clicked.connect(self.accept)
-        layout.addWidget(continue_button)
+
 
 class SettingsScreen(QWidget):
     def __init__(self, parent=None):
@@ -724,9 +665,11 @@ if __name__ == "__main__":
         
         # Приветственное окно
         if not welcome_shown:
-            welcome = WelcomeDialog(dark_theme=dark_theme)
+        # Создаем и показываем мастер на весь экран
+        welcome = WelcomeWizard(dark_theme=dark_theme)
+        welcome.center_on_screen()
             if welcome.exec() == QDialog.DialogCode.Accepted:
-                settings.setValue("welcome_shown", True)
+            settings.setValue("welcome_shown", True)
         
         # Главное окно
         window = MainWindow(dark_theme=dark_theme)
