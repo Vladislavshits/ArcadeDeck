@@ -1,5 +1,3 @@
-[file name]: updater.py
-[file content begin]
 #!/usr/bin/env python3
 # app/updater.py
 import sys
