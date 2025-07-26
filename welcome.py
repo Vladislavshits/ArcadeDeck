@@ -1,5 +1,7 @@
-from PyQt6.QtWidgets import QWizard, QWizardPage, QLabel, QVBoxLayout, QCheckBox
-from PyQt6.QtGui import QFont, QPixmap
+[file name]: welcome (3).py
+[file content begin]
+from PyQt6.QtWidgets import QWizard, QWizardPage, QLabel, QVBoxLayout, QCheckBox, QApplication
+from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
 from settings import app_settings
 
@@ -8,14 +10,6 @@ class WelcomeWizard(QWizard):
         super().__init__(parent)
         self.setWindowTitle("Добро пожаловать в PixelDeck!")
         self.setFixedSize(800, 600)
-        self.setStyleSheet("""
-            QWizard {
-                background-color: #2D2D30;
-            }
-            QLabel {
-                color: white;
-            }
-        """)
         
         # Страница 1: Приветствие
         self.page1 = QWizardPage()
@@ -59,8 +53,14 @@ class WelcomeWizard(QWizard):
         theme = 'dark' if checked else 'light'
         app_settings.set_theme(theme)
         
+        # Применяем тему сразу к приложению
+        app = QApplication.instance()
+        if app:
+            app.setProperty("class", "dark-theme" if checked else "light-theme")
+        
     def center_on_screen(self):
         screen_geometry = QApplication.primaryScreen().geometry()
         x = (screen_geometry.width() - self.width()) // 2
         y = (screen_geometry.height() - self.height()) // 2
         self.move(x, y)
+[file content end]
