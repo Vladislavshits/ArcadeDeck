@@ -1,5 +1,3 @@
-[file name]: welcome.py
-[file content begin]
 from PyQt6.QtWidgets import QWizard, QWizardPage, QLabel, QVBoxLayout, QCheckBox, QApplication
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
@@ -63,4 +61,3 @@ class WelcomeWizard(QWizard):
         x = (screen_geometry.width() - self.width()) // 2
         y = (screen_geometry.height() - self.height()) // 2
         self.move(x, y)
-[file content end]
