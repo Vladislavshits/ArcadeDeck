@@ -1,5 +1,3 @@
-[file name]: app.py
-[file content begin]
 #!/usr/bin/env python3
 import sys
 import os
@@ -409,4 +407,3 @@ if __name__ == "__main__":
         except Exception as ex:
             logger.error(f"Ошибка при показе сообщения об ошибке: {ex}")
         sys.exit(1)
-[file content end]
