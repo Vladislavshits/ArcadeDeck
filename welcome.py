@@ -11,6 +11,7 @@ root_dir = os.path.dirname(current_dir)
 if root_dir not in sys.path:
     sys.path.append(root_dir)
 
+from app.ui_assets.theme_manager import theme_manager
 from core import THEME_FILE
 
 class WelcomeWizard(QWizard):
