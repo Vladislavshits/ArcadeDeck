@@ -192,6 +192,20 @@ def check_resources():
     
     return missing
 
+#!/usr/bin/env python3
+import sys
+import os
+import logging
+import traceback
+import shutil
+import time
+import webbrowser
+import json
+import requests
+import subprocess
+
+# ... (остальной код без изменений) ...
+
 class MainWindow(QMainWindow):
     """Главное окно приложения с системой поиска."""
 
@@ -215,6 +229,17 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(30, 30, 30, 30)
         main_layout.setSpacing(20)
         
+        # Пустой виджет для отступа сверху
+        top_spacer = QWidget()
+        top_spacer.setFixedHeight(20)
+        main_layout.addWidget(top_spacer)
+        
+        # Поле поиска (ПЕРЕМЕЩЕНО ВВЕРХ)
+        self.search_field = QLineEdit()
+        self.search_field.setPlaceholderText("Введите название игры или гайда...")
+        self.search_field.textChanged.connect(self.search_content)
+        main_layout.addWidget(self.search_field)
+
         # Заголовок
         title = QLabel("PixelDeck")
         title.setObjectName("title")
@@ -223,12 +248,6 @@ class MainWindow(QMainWindow):
         title.setFont(title_font)
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(title)
-
-        # Поле поиска
-        self.search_field = QLineEdit()
-        self.search_field.setPlaceholderText("Введите название игры или гайда...")
-        self.search_field.textChanged.connect(self.search_content)
-        main_layout.addWidget(self.search_field)
 
         # Список результатов
         self.results_list = QListWidget()
