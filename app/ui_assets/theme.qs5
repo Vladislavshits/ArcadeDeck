@@ -1,41 +1,9 @@
-/* ОБЩИЕ ПЕРЕМЕННЫЕ И СТИЛИ */
-:root {
-    /* Переменные для тёмной темы */
-    --dark-primary: #64b5f6;
-    --dark-secondary: #2a9fd6;
-    --dark-bg: #1b1b1b;
-    --dark-text: #e0e0e0;
-    --dark-card: #252525;
-    --dark-border: #444;
-    --dark-hover: #3a3a3a;
-    --dark-version: #aaa;
-    
-    /* Переменные для светлой темы */
-    --light-primary: #4285f4;
-    --light-secondary: #2a9fd6;
-    --light-bg: #f3f3f3;
-    --light-text: #333333;
-    --light-card: #ffffff;
-    --light-border: #ddd;
-    --light-hover: #f0f0f0;
-    --light-version: #777;
-    
-    /* Общие параметры */
-    --input-height: 70px;
-    --input-font-size: 24px;
-    --item-padding: 20px;
-    --list-font-size: 18px;
-}
-
-/* БАЗОВЫЕ СТИЛИ ДЛЯ ВСЕХ ТЕМ */
+/* ОБЩИЕ СТИЛИ */
 QMainWindow, QDialog, QWidget {
     font-family: Arial;
-    background-color: var(--background-color);
-    color: var(--text-color);
 }
 
 QLabel {
-    color: var(--text-color);
 }
 
 QLabel#title {
@@ -45,45 +13,45 @@ QLabel#title {
 
 QLineEdit {
     padding: 10px 30px;
-    font-size: var(--input-font-size);
+    font-size: 24px;
     border-radius: 35px;
-    min-height: var(--input-height);
+    min-height: 70px;
     min-width: 0;
 }
 
 QListWidget {
     border-radius: 12px;
     padding: 10px;
-    font-size: var(--list-font-size);
+    font-size: 18px;
     min-width: 0;
 }
 
 QListWidget::item {
-    padding: var(--item-padding);
+    padding: 20px;
     border-radius: 10px;
     margin: 8px 0;
 }
 
 /* DARK THEME */
-.dark-theme {
-    --primary-color: var(--dark-primary);
-    --secondary-color: var(--dark-secondary);
-    --background-color: var(--dark-bg);
-    --text-color: var(--dark-text);
-    --card-bg: var(--dark-card);
-    --border-color: var(--dark-border);
-    --hover-bg: var(--dark-hover);
-    --version-color: var(--dark-version);
+.dark-theme QMainWindow,
+.dark-theme QDialog,
+.dark-theme QWidget {
+    background-color: #1b1b1b;
+    color: #e0e0e0;
+}
+
+.dark-theme QLabel {
+    color: #e0e0e0;
 }
 
 .dark-theme QLineEdit {
-    background-color: var(--card-bg);
+    background-color: #252525;
     color: white;
-    border: 2px solid var(--primary-color);
+    border: 2px solid #64b5f6;
 }
 
 .dark-theme QListWidget {
-    background-color: var(--card-bg);
+    background-color: #252525;
     color: white;
     border: 1px solid #333;
 }
@@ -95,118 +63,71 @@ QListWidget::item {
 }
 
 .dark-theme QListWidget::item:selected {
-    background-color: var(--primary-color);
+    background-color: #64b5f6;
     color: black;
     border: 1px solid #5aa5e6;
 }
 
 .dark-theme QListWidget::item:hover {
-    background-color: var(--hover-bg);
+    background-color: #3a3a3a;
     border: 1px solid #555;
 }
 
-.dark-theme QToolButton {
-    background-color: var(--primary-color);
-}
-
-.dark-theme QToolButton:hover {
-    background-color: #5aa5e6;
-}
-
 .dark-theme QWidget#SearchItemWidget {
-    background-color: var(--card-bg);
-    border: 1px solid var(--primary-color);
+    background-color: #252525;
+    border: 1px solid #64b5f6;
 }
 
 .dark-theme QWidget#SearchItemWidget:hover {
     background-color: #353535;
 }
 
-.dark-theme SettingsScreen QLabel#versionLabel {
-    color: var(--version-color);
-}
-
-.dark-theme WelcomeScreen {
-    background-color: #1a1a1a;
-}
-
-.dark-theme WelcomeScreen QLabel {
-    color: var(--secondary-color);
-}
-
 /* LIGHT THEME */
-.light-theme {
-    --primary-color: var(--light-primary);
-    --secondary-color: var(--light-secondary);
-    --background-color: var(--light-bg);
-    --text-color: var(--light-text);
-    --card-bg: var(--light-card);
-    --border-color: var(--light-border);
-    --hover-bg: var(--light-hover);
-    --version-color: var(--light-version);
+.light-theme QMainWindow,
+.light-theme QDialog,
+.light-theme QWidget {
+    background-color: #f3f3f3;
+    color: #333333;
+}
+
+.light-theme QLabel {
+    color: #333333;
 }
 
 .light-theme QLineEdit {
-    background-color: var(--card-bg);
-    color: var(--text-color);
-    border: 2px solid var(--primary-color);
+    background-color: #ffffff;
+    color: #333333;
+    border: 2px solid #4285f4;
 }
 
 .light-theme QListWidget {
-    background-color: var(--card-bg);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
+    background-color: #ffffff;
+    color: #333333;
+    border: 1px solid #ddd;
 }
 
 .light-theme QListWidget::item {
-    background-color: var(--card-bg);
-    color: var(--text-color);
+    background-color: #ffffff;
+    color: #333333;
     border: 1px solid #eee;
 }
 
 .light-theme QListWidget::item:selected {
-    background-color: var(--primary-color);
+    background-color: #4285f4;
     color: white;
     border: 1px solid #3a75d4;
 }
 
 .light-theme QListWidget::item:hover {
-    background-color: var(--hover-bg);
-    border: 1px solid var(--border-color);
-}
-
-.light-theme QToolButton {
-    background-color: var(--primary-color);
-}
-
-.light-theme QToolButton:hover {
-    background-color: #3a75d4;
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
 }
 
 .light-theme QWidget#SearchItemWidget {
-    background-color: var(--card-bg);
-    border: 1px solid var(--primary-color);
+    background-color: #ffffff;
+    border: 1px solid #4285f4;
 }
 
 .light-theme QWidget#SearchItemWidget:hover {
-    background-color: var(--hover-bg);
-}
-
-.light-theme SettingsScreen QLabel#versionLabel {
-    color: var(--version-color);
-}
-
-.light-theme WelcomeScreen {
     background-color: #f0f0f0;
-}
-
-.light-theme WelcomeScreen QLabel {
-    color: var(--primary-color);
-}
-
-/* ОБЩИЕ СТИЛИ ДЛЯ ВСЕХ ТЕМ */
-WelcomeScreen QLabel {
-    font-size: 80px;
-    font-weight: bold;
-    padding: 30px;
 }
