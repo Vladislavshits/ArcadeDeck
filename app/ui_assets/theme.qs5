@@ -32,6 +32,40 @@ QListWidget::item {
     margin: 8px 0;
 }
 
+/* СТИЛИ ДЛЯ ПЛИТОК ИГР И НАСТРОЕК */
+QFrame#GameTile, QFrame#SettingsTile {
+    border-radius: 12px;
+    text-align: center;
+}
+
+.dark-theme QFrame#GameTile,
+.dark-theme QFrame#SettingsTile {
+    background-color: #252525; /* Чуть светлее основного фона */
+    border: 1px solid #333; /* Стандартная рамка */
+}
+
+.dark-theme QFrame#GameTile:hover,
+.dark-theme QFrame#SettingsTile:hover,
+.dark-theme QFrame#GameTile:focus,
+.dark-theme QFrame#SettingsTile:focus {
+    background-color: #353535; /* Подсветка при наведении */
+    border: 1px solid #e0e0e0; /* Белая рамка при фокусе/наведении */
+}
+
+.light-theme QFrame#GameTile,
+.light-theme QFrame#SettingsTile {
+    background-color: #ffffff; /* Белый фон плиток */
+    border: 1px solid #ddd; /* Светлая рамка */
+}
+
+.light-theme QFrame#GameTile:hover,
+.light-theme QFrame#SettingsTile:hover,
+.light-theme QFrame#GameTile:focus,
+.light-theme QFrame#SettingsTile:focus {
+    background-color: #f8f8f8; /* Легкая подсветка */
+    border: 1px solid #333; /* Темная рамка при фокусе/наведении */
+}
+
 /* DARK THEME */
 .dark-theme QMainWindow,
 .dark-theme QDialog,
