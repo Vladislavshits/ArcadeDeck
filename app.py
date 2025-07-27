@@ -297,6 +297,9 @@ class MainWindow(QMainWindow):
         self.last_game_label = QLabel("The Witcher 3: Wild Hunt")
         self.last_game_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.last_game_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
+
+        self.last_game_label.setStyleSheet("background-color: transparent;")
+
         last_game_layout.addWidget(self.last_game_label)
 
         self.last_game_icon = QLabel()
@@ -312,6 +315,9 @@ class MainWindow(QMainWindow):
 
         self.last_game_time = QLabel("Последний запуск: 2 часа назад")
         self.last_game_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.last_game_time.setStyleSheet("background-color: transparent;")
+
         last_game_layout.addWidget(self.last_game_time)
 
         main_layout.addWidget(last_game_frame, 1)  # Растягиваем
@@ -350,11 +356,17 @@ class MainWindow(QMainWindow):
             name_label = QLabel(game["name"])
             name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             name_label.setFont(QFont("Arial", 10))
+
+            name_label.setStyleSheet("background-color: transparent;")
+
             game_layout.addWidget(name_label)
 
             system_label = QLabel(game["system"])
             system_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             system_label.setFont(QFont("Arial", 8))
+
+            system_label.setStyleSheet("background-color: transparent;")
+
             game_layout.addWidget(system_label)
 
             self.games_grid.addWidget(game_frame, row, col)
@@ -627,23 +639,27 @@ if __name__ == "__main__":
             show_style_error([THEME_FILE])
             sys.exit(1)
         
+        # Инициализация настроек ДО создания QApplication
+        app_settings._ensure_settings()
+        theme_name = app_settings.get_theme()
+        
+        # Создаем приложение ОДИН РАЗ
         app = QApplication(sys.argv)
         app.setStyle("Fusion")
+        
+        # Применяем стиль и тему
         app.setStyleSheet(global_stylesheet)
+        app.setProperty("class", f"{theme_name}-theme")
         
-        app_settings._ensure_settings()
+        # Инициализируем менеджер тем
+        theme_manager.set_theme(theme_name)
         
+        # Загружаем контент
         global GUIDES, GAMES
         GUIDES, GAMES = load_content()
         
         welcome_shown = app_settings.get_welcome_shown()
-        dark_theme = app_settings.get_theme() == 'dark'
-        
-        # Инициализируем менеджер тем с текущей настройкой
-        theme_manager.set_theme(app_settings.get_theme())
-
-        # Устанавливаем класс темы
-        app.setProperty("class", "dark-theme" if dark_theme else "light-theme")
+        dark_theme = (theme_name == 'dark')
         
         if not welcome_shown:
             logger.info("Показываем приветственное окно")
@@ -651,12 +667,14 @@ if __name__ == "__main__":
             welcome.center_on_screen()
             result = welcome.exec()
             
-            # Всегда устанавливаем флаг после показа
+            # Обновляем настройки после мастера
             app_settings.set_welcome_shown(True)
+            new_theme = app_settings.get_theme()
             
-            # Обновляем тему после мастера
-            dark_theme = app_settings.get_theme() == 'dark'
-            app.setProperty("class", "dark-theme" if dark_theme else "light-theme")
+            # Обновляем тему приложения
+            theme_manager.set_theme(new_theme)
+            app.setProperty("class", f"{new_theme}-theme")
+            dark_theme = (new_theme == 'dark')
         
         window = MainWindow()
         window.showMaximized()
