@@ -6,17 +6,9 @@ import re
 import json
 import shutil
 import tarfile
-import requests
 import subprocess
 import hashlib
-from packaging import version
 from datetime import datetime
-from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QLabel, QTextEdit, QPushButton, QHBoxLayout,
-    QApplication, QMessageBox, QProgressDialog
-)
-from PyQt6.QtGui import QFont
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
 # Активация окружения через venv_manager
 # Добавляем путь к корневой директории проекта
@@ -33,8 +25,14 @@ from venv_manager import enforce_virtualenv
 enforce_virtualenv()
 
 # ТОЛЬКО ПОСЛЕ АКТИВАЦИИ ОКРУЖЕНИЯ ИМПОРТИРУЕМ ЗАВИСИМОСТИ
-import requests
 from packaging import version
+from PyQt6.QtWidgets import (
+    QDialog, QVBoxLayout, QLabel, QTextEdit, QPushButton, QHBoxLayout,
+    QApplication, QMessageBox, QProgressDialog
+)
+from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
+import requests
 
 from core import APP_VERSION, STYLES_DIR, THEME_FILE
 from app.ui_assets.theme_manager import theme_manager
