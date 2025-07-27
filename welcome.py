@@ -24,6 +24,7 @@ class WelcomeWizard(QWizard):
         self.setButtonText(QWizard.WizardButton.BackButton, "Назад")
         self.setButtonText(QWizard.WizardButton.NextButton, "Далее")
         self.setButtonText(QWizard.WizardButton.FinishButton, "Готово")
+        self.setButtonText(QWizard.WizardButton.CancelButton, "Пропустить настройку")
         
         # Страница 1: Приветствие
         self.page1 = QWizardPage()
@@ -100,6 +101,20 @@ class WelcomeWizard(QWizard):
         
         # Важно: при завершении мастера принимаем его
         self.button(QWizard.WizardButton.FinishButton).clicked.connect(self.accept)
+
+        # Скрываем кнопку "Назад" на первом экране
+        self.button(QWizard.WizardButton.BackButton).hide()
+        
+        # Обработчик смены страниц для управления видимостью кнопки "Назад"
+        self.currentIdChanged.connect(self.handle_page_change)
+
+    def handle_page_change(self, page_id):
+        """Управляет видимостью кнопки 'Назад' в зависимости от страницы"""
+        back_button = self.button(QWizard.WizardButton.BackButton)
+        if page_id == 0:  # Первая страница (приветствие)
+            back_button.hide()
+        else:
+            back_button.show()
         
     def apply_theme(self, theme_name):
         """Применяет указанную тему к окну"""
@@ -122,6 +137,7 @@ class WelcomeWizard(QWizard):
             back_btn = self.button(QWizard.WizardButton.BackButton)
             next_btn = self.button(QWizard.WizardButton.NextButton)
             finish_btn = self.button(QWizard.WizardButton.FinishButton)
+            cancel_btn = self.button(QWizard.WizardButton.CancelButton)
             
             if back_btn:
                 back_btn.style().unpolish(back_btn)
@@ -137,6 +153,11 @@ class WelcomeWizard(QWizard):
                 finish_btn.style().unpolish(finish_btn)
                 finish_btn.style().polish(finish_btn)
                 finish_btn.update()
+                
+            if cancel_btn:
+                cancel_btn.style().unpolish(cancel_btn)
+                cancel_btn.style().polish(cancel_btn)
+                cancel_btn.update()
         except Exception as e:
             print(f"Ошибка применения темы: {e}")
 
