@@ -69,93 +69,98 @@ class Updater:
         
         return parts
     
-    def check_for_updates(self):
-        try:
-            skipped_versions = self.get_skip_config()
-            
-            # Для стабильной версии
-            if not self.is_beta:
-                latest_url = f"https://api.github.com/repos/{self.github_repo}/releases/latest"
-                response = requests.get(latest_url, timeout=15)
-                response.raise_for_status()
-                latest_release = response.json()
-                
-                latest_version = latest_release['tag_name']
-                
-                if latest_version in skipped_versions:
-                    print(f"[DEBUG] Версия {latest_version} пропущена пользователем")
-                    return None
-                
-                current_normalized = self.normalize_version(APP_VERSION)
-                latest_normalized = self.normalize_version(latest_version)
-                
-                print(f"[DEBUG] Стабильная версия: current={current_normalized}, latest={latest_normalized}")
-                
-                if latest_normalized > current_normalized:
-                    # Ищем архив с обновлением
-                    for asset in latest_release.get('assets', []):
-                        if asset['name'].endswith('.tar.gz'):
-                            return {
-                                'release': latest_release,
-                                'download_url': asset['browser_download_url'],
-                                'version': latest_version,
-                                'type': 'stable',
-                                'asset_name': asset['name']
-                            }
-                    print("[ERROR] Не найден архив обновления в релизе")
-            
-            # Для бета-версии
-            else:
-                releases_url = f"https://api.github.com/repos/{self.github_repo}/releases"
-                response = requests.get(releases_url, timeout=15)
-                response.raise_for_status()
-                releases = response.json()
-                
-                beta_releases = [r for r in releases if r['prerelease']]
-                
-                if not beta_releases:
-                    print("[DEBUG] Нет доступных бета-релизов")
-                    return None
-                    
-                # Сортируем бета-версии
-                sorted_releases = sorted(
-                    beta_releases,
-                    key=lambda r: self.normalize_version(r['tag_name']),
-                    reverse=True
-                )
-                
-                latest_beta = sorted_releases[0]
-                latest_version = latest_beta['tag_name']
-                
-                if latest_version in skipped_versions:
-                    print(f"[DEBUG] Бета-версия {latest_version} пропущена пользователем")
-                    return None
-                
-                # Сравниваем версии
-                current_normalized = self.normalize_version(APP_VERSION)
-                latest_normalized = self.normalize_version(latest_version)
-                
-                print(f"[DEBUG] Beta версия: current={current_normalized}, latest={latest_normalized}")
-                
-                if latest_normalized > current_normalized:
-                    # Ищем архив с обновлением
-                    for asset in latest_beta.get('assets', []):
-                        if asset['name'].endswith('.tar.gz'):
-                            return {
-                                'release': latest_beta,
-                                'download_url': asset['browser_download_url'],
-                                'version': latest_version,
-                                'type': 'beta',
-                                'asset_name': asset['name']
-                            }
-                    print("[ERROR] Не найден архив обновления в бета-релизе")
-                
-        except Exception as e:
-            print(f"Ошибка при проверке обновлений: {str(e)}")
+        def check_for_updates(self):
+            try:
+                skipped_versions = self.get_skip_config()
+        
+                # Для стабильной версии
+                if not self.is_beta:
+                    latest_url = f"https://api.github.com/repos/{self.github_repo}/releases/latest"
+                    response = requests.get(latest_url, timeout=15)
+                    response.raise_for_status()
+                    latest_release = response.json()
+        
+                    latest_version = latest_release['tag_name'].lstrip('v')
+        
+                    if latest_version in skipped_versions:
+                        print(f"[DEBUG] Версия {latest_version} пропущена пользователем")
+                        return None
+        
+                    if version.parse(latest_version) > version.parse(APP_VERSION.lstrip('v')):
+                        # Ищем архив с обновлением (сначала кастомный, потом автосгенерированный)
+                        for asset in latest_release.get('assets', []):
+                            if asset['name'].endswith('.tar.gz'):
+                                if "PixelDeck" in asset['name']:  # Наш кастомный архив
+                                    return {
+                                        'release': latest_release,
+                                        'download_url': asset['browser_download_url'],
+                                        'version': latest_version,
+                                        'type': 'stable',
+                                        'asset_name': asset['name']
+                                    }
+                                elif "Source code" in asset['name']:  # Автосгенерированный GitHub
+                                    return {
+                                        'release': latest_release,
+                                        'download_url': asset['browser_download_url'],
+                                        'version': latest_version,
+                                        'type': 'stable',
+                                        'asset_name': f"PixelDeck-{latest_version}.tar.gz"
+                                    }
+                        print("[ERROR] Не найден подходящий архив обновления в релизе")
+        
+                # Для бета-версии
+                else:
+                    releases_url = f"https://api.github.com/repos/{self.github_repo}/releases"
+                    response = requests.get(releases_url, timeout=15)
+                    response.raise_for_status()
+                    releases = response.json()
+        
+                    beta_releases = [r for r in releases if r['prerelease'] and 'beta' in r['tag_name'].lower()]
+        
+                    if not beta_releases:
+                        print("[DEBUG] Нет доступных бета-релизов")
+                        return None
+        
+                    sorted_releases = sorted(
+                        beta_releases,
+                        key=lambda r: version.parse(r['tag_name'].lstrip('v')),
+                        reverse=True
+                    )
+        
+                    latest_beta = sorted_releases[0]
+                    latest_version = latest_beta['tag_name'].lstrip('v')
+        
+                    if latest_version in skipped_versions:
+                        print(f"[DEBUG] Бета-версия {latest_version} пропущена пользователем")
+                        return None
+        
+                    if version.parse(latest_version) > version.parse(APP_VERSION.lstrip('v')):
+                        for asset in latest_beta.get('assets', []):
+                            if asset['name'].endswith('.tar.gz'):
+                                if "PixelDeck" in asset['name'] and 'beta' in asset['name'].lower():
+                                    return {
+                                        'release': latest_beta,
+                                        'download_url': asset['browser_download_url'],
+                                        'version': latest_version,
+                                        'type': 'beta',
+                                        'asset_name': asset['name']
+                                    }
+                                elif "Source code" in asset['name']:
+                                    return {
+                                        'release': latest_beta,
+                                        'download_url': asset['browser_download_url'],
+                                        'version': latest_version,
+                                        'type': 'beta',
+                                        'asset_name': f"PixelDeck-{latest_version}-beta.tar.gz"
+                                    }
+                        print("[ERROR] Не найден подходящий архив в бета-релизе")
+        
+            except Exception as e:
+                print(f"Ошибка при проверке обновлений: {str(e)}")
+                return None
+        
+            print("[DEBUG] Подходящих обновлений не найдено")
             return None
-            
-        print("[DEBUG] Подходящих обновлений не найдено")
-        return None
 
     def get_skip_config(self):
         """Возвращает список пропущенных версий из конфига"""
