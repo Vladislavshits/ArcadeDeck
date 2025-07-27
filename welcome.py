@@ -105,7 +105,6 @@ class WelcomeWizard(QWizard):
         """Применяет указанную тему к окну"""
         try:
             # Загружаем стили из файла
-            from core import THEME_FILE  # Импортируем путь
             with open(THEME_FILE, 'r', encoding='utf-8') as f:
                 stylesheet = f.read()
             
@@ -138,8 +137,8 @@ class WelcomeWizard(QWizard):
                 finish_btn.style().unpolish(finish_btn)
                 finish_btn.style().polish(finish_btn)
                 finish_btn.update()
-    except Exception as e:
-        print(f"Ошибка применения темы: {e}")
+        except Exception as e:
+            print(f"Ошибка применения темы: {e}")
 
     def toggle_theme(self, button, checked):
         if checked:
