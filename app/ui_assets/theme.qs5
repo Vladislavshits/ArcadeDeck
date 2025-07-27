@@ -213,3 +213,50 @@ QPushButton#themeButton {
 .light-theme QPushButton#themeButton:hover {
     background-color: #f0f0f0;
 }
+
+/* Стили для кнопок мастера (Назад, Далее, Готово) */
+QWizard QPushButton {
+    background-color: #4285f4;
+    color: white;
+    border-radius: 25px;
+    font-size: 20px;
+    min-width: 150px;
+    min-height: 50px;
+    padding: 10px 30px;
+}
+
+QWizard QPushButton:hover {
+    background-color: #3a75d4;
+}
+
+QWizard QPushButton:pressed {
+    background-color: #2a65c4;
+}
+
+/* Для темной темы */
+.dark-theme QWizard QPushButton {
+    background-color: #4285f4;
+    color: white;
+}
+
+.dark-theme QWizard QPushButton:hover {
+    background-color: #3a75d4;
+}
+
+.dark-theme QWizard QPushButton:pressed {
+    background-color: #2a65c4;
+}
+
+/* Для светлой темы */
+.light-theme QWizard QPushButton {
+    background-color: #4285f4;
+    color: white;
+}
+
+.light-theme QWizard QPushButton:hover {
+    background-color: #3a75d4;
+}
+
+.light-theme QWizard QPushButton:pressed {
+    background-color: #2a65c4;
+}
