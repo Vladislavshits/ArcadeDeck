@@ -20,8 +20,31 @@ class WelcomeWizard(QWizard):
         self.setWindowTitle("Добро пожаловать в PixelDeck!")
         self.setFixedSize(1000, 700)  # Увеличим размер для больших кнопок
         
-        # Важно: добавляем кнопку "Готово"
+        # Кнопки "Назад", "Далее" и "Готово"
+        self.setButtonText(QWizard.WizardButton.BackButton, "Назад")
+        self.setButtonText(QWizard.WizardButton.NextButton, "Далее")
         self.setButtonText(QWizard.WizardButton.FinishButton, "Готово")
+
+        # Применяем стили к кнопкам
+        self.setStyleSheet("""
+            QWizard QPushButton {
+                background-color: #4285f4;
+                color: white;
+                border-radius: 25px;
+                font-size: 20px;
+                min-width: 150px;
+                min-height: 50px;
+                padding: 10px 30px;
+            }
+            
+            QWizard QPushButton:hover {
+                background-color: #3a75d4;
+            }
+            
+            QWizard QPushButton:pressed {
+                background-color: #2a65c4;
+            }
+        """)
         
         # Страница 1: Приветствие
         self.page1 = QWizardPage()
