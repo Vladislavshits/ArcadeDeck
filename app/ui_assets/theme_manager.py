@@ -17,7 +17,8 @@ class ThemeManager(QObject):
     def set_theme(self, theme_name: str):
         """Устанавливает новую тему и оповещает подписчиков"""
         if theme_name not in ["dark", "light"]:
-            raise ValueError(f"Недопустимое имя темы: {theme_name}")
+            theme_name = "dark"  # Фолбэк на безопасную тему
+            logger.warning(f"Недопустимая тема {theme_name}, установлена dark")
         
         if theme_name != self._current_theme:
             self._current_theme = theme_name
