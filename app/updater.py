@@ -47,15 +47,15 @@ class Updater:
         self.github_repo = "Vladislavshits/PixelDeck"
         self.is_beta = "beta" in APP_VERSION.lower()
         self.install_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        
+
     def normalize_version(self, version_str):
         """Нормализует версию для корректного сравнения"""
         # Удаляем префикс 'v' и суффиксы beta
         clean_version = version_str.lstrip('v').lower()
-        
+
         # Заменяем различные написания beta на стандартное (регистронезависимо)
         clean_version = re.sub(r'[\s\-_]?beta[\s\-_]?', '', clean_version, flags=re.IGNORECASE)
-        
+
         # Разбиваем на части и преобразуем числа в int для корректного сравнения
         parts = []
         for part in clean_version.split('.'):
@@ -64,26 +64,26 @@ class Updater:
             else:
                 # Для нечисловых частей (например, суффиксов) оставляем строкой
                 parts.append(part)
-        
+
         return parts
-    
+
     def check_for_updates(self):
         try:
             skipped_versions = self.get_skip_config()
-    
+
             # Для стабильной версии
             if not self.is_beta:
                 latest_url = f"https://api.github.com/repos/{self.github_repo}/releases/latest"
                 response = requests.get(latest_url, timeout=15)
                 response.raise_for_status()
                 latest_release = response.json()
-    
+
                 latest_version = latest_release['tag_name'].lstrip('v')
-    
+
                 if latest_version in skipped_versions:
                     print(f"[DEBUG] Версия {latest_version} пропущена пользователем")
                     return None
-    
+
                 if version.parse(latest_version) > version.parse(APP_VERSION.lstrip('v')):
                     # Ищем архив с обновлением (сначала кастомный, потом автосгенерированный)
                     for asset in latest_release.get('assets', []):
@@ -105,33 +105,33 @@ class Updater:
                                     'asset_name': f"PixelDeck-{latest_version}.tar.gz"
                                 }
                     print("[ERROR] Не найден подходящий архив обновления в релизе")
-    
+
             # Для бета-версии
             else:
                 releases_url = f"https://api.github.com/repos/{self.github_repo}/releases"
                 response = requests.get(releases_url, timeout=15)
                 response.raise_for_status()
                 releases = response.json()
-    
+
                 beta_releases = [r for r in releases if r['prerelease'] and 'beta' in r['tag_name'].lower()]
-    
+
                 if not beta_releases:
                     print("[DEBUG] Нет доступных бета-релизов")
                     return None
-    
+
                 sorted_releases = sorted(
                     beta_releases,
                     key=lambda r: version.parse(r['tag_name'].lstrip('v')),
                     reverse=True
                 )
-    
+
                 latest_beta = sorted_releases[0]
                 latest_version = latest_beta['tag_name'].lstrip('v')
-    
+
                 if latest_version in skipped_versions:
                     print(f"[DEBUG] Бета-версия {latest_version} пропущена пользователем")
                     return None
-    
+
                 if version.parse(latest_version) > version.parse(APP_VERSION.lstrip('v')):
                     for asset in latest_beta.get('assets', []):
                         if asset['name'].endswith('.tar.gz'):
@@ -152,11 +152,11 @@ class Updater:
                                     'asset_name': f"PixelDeck-{latest_version}-beta.tar.gz"
                                 }
                     print("[ERROR] Не найден подходящий архив в бета-релизе")
-    
+
         except Exception as e:
             print(f"Ошибка при проверке обновлений: {str(e)}")
             return None
-    
+
         print("[DEBUG] Подходящих обновлений не найдено")
         return None
 
