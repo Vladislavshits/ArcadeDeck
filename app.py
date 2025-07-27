@@ -347,14 +347,6 @@ class MainWindow(QMainWindow):
             game_layout = QVBoxLayout(game_frame)
             game_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-            icon = QLabel()
-            pixmap = QPixmap()
-            if pixmap.isNull():
-                pixmap = QPixmap(80, 80)
-                pixmap.fill(Qt.GlobalColor.gray)
-            icon.setPixmap(pixmap.scaled(80, 80, Qt.AspectRatioMode.KeepAspectRatio))
-            game_layout.addWidget(icon)
-
             name_label = QLabel(game["name"])
             name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             name_label.setFont(QFont("Arial", 10))
@@ -412,14 +404,6 @@ class MainWindow(QMainWindow):
 
             item_layout = QVBoxLayout(item_frame)
             item_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-            icon = QLabel()
-            pixmap = QPixmap()
-            if pixmap.isNull():
-                pixmap = QPixmap(50, 50)
-                pixmap.fill(Qt.GlobalColor.gray)
-            icon.setPixmap(pixmap.scaled(50, 50, Qt.AspectRatioMode.KeepAspectRatio))
-            item_layout.addWidget(icon)
 
             name_label = QLabel(item["name"])
             name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
