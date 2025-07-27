@@ -443,58 +443,50 @@ class UpdateDialog(QDialog):
                 "Пожалуйста, перезапустите PixelDeck вручную для применения обновлений."
             )
 
-def run_updater():
+def run_updater(dark_theme=None, current_version=None):
     """Запуск процесса проверки и установки обновлений"""
     try:
         app = QApplication(sys.argv)
-        
+
         # Инициализируем менеджер тем с текущей настройкой
         from settings import app_settings
         app_settings._ensure_settings()
         current_theme = app_settings.get_theme()
         theme_manager.set_theme(current_theme)
-        
+
         # Применяем тему к приложению
         app.setProperty("class", f"{current_theme}-theme")
         from core import THEME_FILE
         with open(THEME_FILE, 'r', encoding='utf-8') as f:
             app.setStyleSheet(f.read())
-        
-        # Загружаем текущую тему из настроек
-        from settings import app_settings
-        app_settings._ensure_settings()
-        dark_theme = app_settings.get_theme() == 'dark'
-        
-        # Устанавливаем класс темы
-        app.setProperty("class", "dark-theme" if dark_theme else "light-theme")
-        
+
         # Если версия не передана, используем из common
         if current_version is None:
             current_version = APP_VERSION
-        
+
         # Диагностический вывод
         print(f"Запуск обновления с параметрами:")
         print(f"Тема: {'Тёмная' if dark_theme else 'Светлая'}")
         print(f"Текущая версия: {current_version}")
         print(f"Режим: {'BETA' if 'beta' in current_version.lower() else 'Стабильный'}")
-        
+
         # Определяем директорию установки
         install_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        
+
         updater = Updater()
         update_info = updater.check_for_updates()
-        
+
         if update_info:
             latest_version = update_info['version']
             changelog = update_info['release'].get("body", "Нет информации об изменениях")
             download_url = update_info['download_url']
             asset_name = update_info['asset_name']
-            
+
             print(f"[DEBUG] Найдено обновление: {latest_version}")
             dialog = UpdateDialog(
-                current_version, 
-                latest_version, 
-                changelog, 
+                current_version,
+                latest_version,
+                changelog,
                 download_url,
                 install_dir,
                 asset_name
