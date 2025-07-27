@@ -214,7 +214,7 @@ QPushButton#themeButton {
     background-color: #f0f0f0;
 }
 
-/* Стили для кнопок мастера (Назад, Далее, Готово) */
+/* Стили для кнопок мастера (Назад, Далее, Готово и Пропустить настройку) */
 QWizard QPushButton {
     background-color: #4285f4;
     color: white;
