@@ -3,7 +3,9 @@ QMainWindow, QDialog, QWidget {
     font-family: Arial;
 }
 
+/* Добавляем прозрачный фон для всех меток */
 QLabel {
+    background-color: transparent;
 }
 
 QLabel#title {
@@ -184,30 +186,32 @@ QPushButton#themeButton {
     min-width: 300px;
 }
 
+/* ТЕМНАЯ ТЕМА */
 .dark-theme QPushButton#themeButton {
     background-color: #252525;
-    color: white;
+    color: white;  /* Белый текст всегда для темной темы */
     border: 2px solid #64b5f6;
 }
 
 .dark-theme QPushButton#themeButton:checked {
     background-color: #64b5f6;
-    color: black;
+    color: white;  /* Черный текст для выделенной кнопки */
 }
 
 .dark-theme QPushButton#themeButton:hover {
     background-color: #353535;
 }
 
+/* СВЕТЛАЯ ТЕМА */
 .light-theme QPushButton#themeButton {
     background-color: #ffffff;
-    color: #333333;
+    color: #333333;  /* Темный текст всегда для светлой темы */
     border: 2px solid #4285f4;
 }
 
 .light-theme QPushButton#themeButton:checked {
     background-color: #4285f4;
-    color: white;
+    color: black;  /* Белый текст для выделенной кнопки */
 }
 
 .light-theme QPushButton#themeButton:hover {
