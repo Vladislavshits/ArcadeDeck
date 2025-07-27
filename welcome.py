@@ -118,8 +118,28 @@ class WelcomeWizard(QWizard):
             # Обновляем стили дочерних виджетов
             self.style().unpolish(self)
             self.style().polish(self)
-        except Exception as e:
-            print(f"Ошибка применения темы: {e}")
+
+            # Перерисовываем кнопки
+            back_btn = self.button(QWizard.WizardButton.BackButton)
+            next_btn = self.button(QWizard.WizardButton.NextButton)
+            finish_btn = self.button(QWizard.WizardButton.FinishButton)
+            
+            if back_btn:
+                back_btn.style().unpolish(back_btn)
+                back_btn.style().polish(back_btn)
+                back_btn.update()
+                
+            if next_btn:
+                next_btn.style().unpolish(next_btn)
+                next_btn.style().polish(next_btn)
+                next_btn.update()
+                
+            if finish_btn:
+                finish_btn.style().unpolish(finish_btn)
+                finish_btn.style().polish(finish_btn)
+                finish_btn.update()
+    except Exception as e:
+        print(f"Ошибка применения темы: {e}")
 
     def toggle_theme(self, button, checked):
         if checked:
