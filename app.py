@@ -9,11 +9,13 @@ import webbrowser
 import json
 import requests
 import subprocess
+import fcntl
+import atexit
+import signal
+import errno
+import pygame
 
-# Глобальная переменная для хранения стилей
-global_stylesheet = ""
-
-# Настройка логирования
+# Настройка логирования ДО проверки экземпляра
 log_dir = os.path.join(os.path.expanduser("~"), "PixelDeck", "logs")
 os.makedirs(log_dir, exist_ok=True)
 log_file = os.path.join(log_dir, "pixeldeck.log")
@@ -28,6 +30,81 @@ logging.basicConfig(
 )
 logger = logging.getLogger('PixelDeck')
 
+# Проверка на единственный экземпляр
+def enforce_single_instance():
+    """Обеспечивает запуск только одного экземпляра приложения"""
+    lock_file = os.path.join(os.path.expanduser("~"), ".pixeldeck.lock")
+    lock_fd = None
+    
+    try:
+        # Открываем файл блокировки
+        lock_fd = open(lock_file, 'w+')
+        
+        # Пытаемся установить эксклюзивную блокировку
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except (BlockingIOError, OSError) as e:
+            # Обрабатываем только ошибки блокировки
+            if e.errno not in (errno.EAGAIN, errno.EWOULDBLOCK):
+                raise
+                
+            # Читаем PID из файла
+            lock_fd.seek(0)
+            pid_str = lock_fd.read().strip()
+            
+            # Проверяем существование процесса
+            if pid_str and pid_str.isdigit():
+                pid = int(pid_str)
+                if is_process_running(pid):
+                    return False, pid
+            
+            # Если процесс не существует - продолжаем попытку
+            logger.warning("Обнаружен lock-файл от несуществующего процесса")
+        
+        # Записываем PID текущего процесса
+        lock_fd.seek(0)
+        lock_fd.truncate()
+        lock_fd.write(str(os.getpid()))
+        lock_fd.flush()
+        
+        # Регистрием очистку при выходе
+        def cleanup():
+            try:
+                if lock_fd:
+                    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                    lock_fd.close()
+                if os.path.exists(lock_file):
+                    os.unlink(lock_file)
+            except Exception as e:
+                logger.error(f"Ошибка очистки блокировки: {e}")
+        
+        atexit.register(cleanup)
+        return True, None
+        
+    except Exception as e:
+        logger.error(f"Ошибка установки блокировки: {e}")
+        if lock_fd:
+            try:
+                lock_fd.close()
+            except:
+                pass
+        return False, None
+
+# Проверка активности процесса по PID
+def is_process_running(pid):
+    try:
+        # Отправляем сигнал 0 (проверка существования процесса)
+        os.kill(pid, 0)
+    except OSError as err:
+        if err.errno == errno.ESRCH:  # Процесс не существует
+            return False
+        elif err.errno == errno.EPERM:  # Нет прав, но процесс существует
+            return True
+        else:
+            return False  # Другие ошибки считаем отсутствием процесса
+    else:
+        return True  # Процесс существует
+
 # Глобальный обработчик исключений
 def handle_exception(exc_type, exc_value, exc_traceback):
     if issubclass(exc_type, KeyboardInterrupt):
@@ -36,25 +113,33 @@ def handle_exception(exc_type, exc_value, exc_traceback):
     
     logger.error(
         "Неперехваченное исключение:",
-        exc_info=(exc_type, exc_value, exc_traceback)
-    )
+        exc_info=(exc_type, exc_value, exc_traceback))
     
     error_msg = f"{exc_type.__name__}: {exc_value}"
     
+    # Проверяем существование приложения
+    app = QApplication.instance()
+    if not app:
+        logger.error("QApplication не существует, невозможно показать ошибку")
+        return
+    
     # Попытка показать сообщение об ошибке
     try:
-        app = QApplication.instance()
-        if not app:
-            app = QApplication(sys.argv)
-            
+        # Ищем активное окно для родителя
+        parent = None
+        for widget in app.topLevelWidgets():
+            if widget.isVisible():
+                parent = widget
+                break
+                
         QMessageBox.critical(
-            None,
+            parent,
             "Критическая ошибка",
             f"Произошла непредвиденная ошибка:\n\n{error_msg}\n\n"
             f"Подробности в логах: {log_file}"
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Ошибка при показе сообщения об ошибке: {e}")
 
 sys.excepthook = handle_exception
 
@@ -75,16 +160,20 @@ sys.path.insert(0, BASE_DIR)
 from PyQt6.QtWidgets import (
     QApplication, QAbstractItemView, QMainWindow, QWidget, QDialog,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout,
-    QMessageBox, QStackedWidget, QFrame, QGridLayout, QHBoxLayout
+    QMessageBox, QStackedWidget, QFrame, QGridLayout, QHBoxLayout, QPushButton,
+    QSizePolicy, QScrollArea
 )
-from PyQt6.QtCore import Qt, QTimer, QEasingCurve, QPoint, QPropertyAnimation
-from PyQt6.QtGui import QIcon, QFont, QPixmap
+from PyQt6.QtCore import Qt, QTimer, QObject, pyqtSignal, QEvent
+from PyQt6.QtGui import QIcon, QFont, QPixmap, QKeyEvent
 
 # Импорт из нашего приложения
 from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, THEME_FILE, GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH
 from settings import app_settings
 from welcome import WelcomeWizard
 from app.ui_assets.theme_manager import theme_manager
+from updater import Updater, UpdateDialog  # Импортируем Updater и UpdateDialog
+from navigation import NavigationController  # Импортируем NavigationController
+from navigation import NavigationLayer
 
 # Безопасная загрузка JSON
 def safe_load_json(path, default):
@@ -124,9 +213,6 @@ def load_content():
     """Загружает контент из JSON-файлов с обработкой ошибок."""
 
     global GUIDES, GAMES
-
-    # Проверяем и создаем необходимые директории
-    os.makedirs(CONTENT_DIR, exist_ok=True)
     
     # Загрузка гайдов
     guides = safe_load_json(GUIDES_JSON_PATH, [])
@@ -189,29 +275,105 @@ def check_resources():
     
     return missing
 
-#!/usr/bin/env python3
-import sys
-import os
-import logging
-import traceback
-import shutil
-import time
-import webbrowser
-import json
-import requests
-import subprocess
+class GamepadManager(QObject):
+    """Менеджер обработки ввода геймпада через Pygame"""
+    button_pressed = pyqtSignal(str)  # Сигнал для нажатий кнопок
+    axis_moved = pyqtSignal(str, float)  # Сигнал для движения осей
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        pygame.init()
+        pygame.joystick.init()
+        self.joystick = None
+        self.last_button_press = {}  # Инициализируем словарь для отслеживания нажатий
+        self.button_cooldown = 5.0  # Задержка между нажатиями в секундах
+        self.axis_cooldown = 0.1   # Задержка для осей
+
+        # Инициализация геймпада
+        if pygame.joystick.get_count() > 0:
+            self.joystick = pygame.joystick.Joystick(0)
+            self.joystick.init()
+            logger.info(f"Геймпад подключен: {self.joystick.get_name()}")
+
+        # Таймер для опроса геймпада
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.poll_gamepad)
+        self.timer.start(30)  # ~33 FPS
+
+    def poll_gamepad(self):
+        """Опрос состояния геймпада с защитой от повторных нажатий"""
+        try:
+            pygame.event.pump()
+            if not self.joystick:
+                return
+
+            current_time = time.time()
+            button_map = {
+                0: 'A', 1: 'B', 2: 'X', 3: 'Y',
+                4: 'L1', 5: 'R1', 6: 'SELECT', 7: 'START'
+            }
+
+            # Обработка кнопок с антиспамом
+            for btn_index, btn_name in button_map.items():
+                if self.joystick.get_button(btn_index):
+                    last_press = self.last_button_press.get(btn_name, 0)
+                    if current_time - last_press > self.button_cooldown:
+                        self.last_button_press[btn_name] = current_time
+                        self.button_pressed.emit(btn_name)
+                        logger.debug(f"Кнопка {btn_name} нажата")
+                else:
+                    # Сбрасываем при отпускании кнопки
+                    if btn_name in self.last_button_press:
+                        del self.last_button_press[btn_name]
+
+            # Обработка осей с deadzone
+            axis_map = {
+                0: ('LEFT_X', 0.15),
+                1: ('LEFT_Y', 0.15),
+                2: ('RIGHT_X', 0.15),
+                3: ('RIGHT_Y', 0.15),
+                4: ('L2', 0.05),
+                5: ('R2', 0.05)
+            }
+
+            for axis_index, (axis_name, deadzone) in axis_map.items():
+                value = self.joystick.get_axis(axis_index)
+                if abs(value) > deadzone:
+                    self.axis_moved.emit(axis_name, value)
+
+            # Обработка D-PAD
+            if self.joystick.get_numhats() > 0:
+                hat = self.joystick.get_hat(0)
+                if hat[1] > 0: self.button_pressed.emit('DPAD_UP')
+                if hat[1] < 0: self.button_pressed.emit('DPAD_DOWN')
+                if hat[0] < 0: self.button_pressed.emit('DPAD_LEFT')
+                if hat[0] > 0: self.button_pressed.emit('DPAD_RIGHT')
+
+        except Exception as e:
+            logger.error(f"Ошибка в poll_gamepad: {str(e)}")
+
+    def stop(self):
+        """Остановка менеджера"""
+        self.timer.stop()
+        pygame.quit()
 
 class MainWindow(QMainWindow):
     """Главное окно приложения с двухслойным интерфейсом"""
 
     def __init__(self):
         super().__init__()
+        self.install_dir = BASE_DIR  # Определяем директорию установки
+
+        # Инициализация процесса обновления
+        self.updater_process = None
+        # Инициализируем список для плиток настроек
+        self.settings_tiles = []
+
         # Настройка окна
         self.setWindowTitle("PixelDeck")
         self.setGeometry(400, 300, 1280, 800)
         self.setMinimumSize(800, 600)
         self.current_layer = 0  # 0 = основной слой, 1 = слой настроек
-        self.animation_duration = 300  # мс
 
         # Устанавливаем иконку приложения
         self.setWindowIcon(QIcon.fromTheme("system-search"))
@@ -220,10 +382,10 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # Основной вертикальный лэйаут
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(10)
+        # Основной вертикальный layout (теперь это атрибут класса)
+        self.main_layout = QVBoxLayout(central_widget)
+        self.main_layout.setContentsMargins(15, 15, 15, 15)
+        self.main_layout.setSpacing(10)
 
         # --- ВЕРХНЯЯ ЧАСТЬ (поиск) ---
         search_layout = QHBoxLayout()
@@ -235,11 +397,11 @@ class MainWindow(QMainWindow):
         self.search_field.setMinimumHeight(40)
         search_layout.addWidget(self.search_field)
 
-        main_layout.addLayout(search_layout)
+        self.main_layout.addLayout(search_layout)
 
         # --- СТЕК СЛОЕВ ---
         self.stack = QStackedWidget()
-        main_layout.addWidget(self.stack, 1)
+        self.main_layout.addWidget(self.stack, 1)
 
         # --- НИЖНЯЯ ЧАСТЬ (подсказки) ---
         hints_layout = QHBoxLayout()
@@ -247,11 +409,11 @@ class MainWindow(QMainWindow):
         self.hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         hints_layout.addWidget(self.hint_label)
 
-        main_layout.addLayout(hints_layout)
+        self.main_layout.addLayout(hints_layout)
 
         # --- СОЗДАЕМ СЛОИ ---
-        self.create_main_layer()    # Слой 0: Основной
-        self.create_settings_layer() # Слой 1: Настройки
+        self.create_main_layer()  # Слой 0: Основной
+        self.create_settings_layer()  # Слой 1: Настройки
 
         # Начальное состояние
         self.stack.setCurrentIndex(0)
@@ -262,9 +424,6 @@ class MainWindow(QMainWindow):
 
         # Подписываемся на изменения темы
         theme_manager.theme_changed.connect(self.apply_theme)
-
-        # Устанавливаем фокус
-        self.search_field.setFocus()
 
         # Добавляем список для результатов поиска
         self.search_results_list = QListWidget()
@@ -277,6 +436,190 @@ class MainWindow(QMainWindow):
             border: 1px solid palette(mid);
             border-radius: 10px;
         """)
+
+        # Инициализируем Updater
+        self.updater = Updater(self)
+        self.updater.update_available.connect(self.on_update_available)
+
+        # Запускаем проверку обновлений
+        QTimer.singleShot(1000, self.updater.check_for_updates)  # Задержка для стабильности
+
+        # Инициализируем контроллер навигации
+        self.navigation_controller = NavigationController(self)
+        self.navigation_controller.layer_changed.connect(self.switch_layer)
+        
+        # Регистрируем виджеты для каждого слоя
+        self.register_navigation_widgets()
+
+    def apply_theme(self, theme_name):
+        """Применяет указанную тему к окну и всем дочерним виджетам"""
+        try:
+            # Загружаем стили из файла
+            with open(THEME_FILE, 'r', encoding='utf-8') as f:
+                stylesheet = f.read()
+
+            # Устанавливаем свойство класса
+            self.setProperty("class", f"{theme_name}-theme")
+
+            # Применяем стили
+            self.setStyleSheet(stylesheet)
+
+            # Обновляем стили всех виджетов
+            for widget in self.findChildren(QWidget):
+                widget.style().unpolish(widget)
+                widget.style().polish(widget)
+        except Exception as e:
+            logger.error(f"Ошибка применения темы: {e}")
+
+    def register_navigation_widgets(self):
+        """Регистрируем виджеты для управления в каждом слое"""
+        # Для главного слоя: все игровые плитки
+        main_widgets = []
+        for i in range(self.games_grid.count()):
+            widget = self.games_grid.itemAt(i).widget()
+            if widget:
+                widget.activated = lambda game=self.games[i]: self.launch_game(game)
+                main_widgets.append(widget)
+        
+        self.navigation_controller.register_widgets(
+            NavigationLayer.MAIN, 
+            main_widgets
+        )
+        
+        # Для слоя настроек: все плитки настроек
+        self.navigation_controller.register_widgets(
+            NavigationLayer.SETTINGS, 
+            self.settings_tiles
+        )
+        
+        # Для слоя поиска: поле поиска и список результатов
+        self.navigation_controller.register_widgets(
+            NavigationLayer.SEARCH, 
+            [self.search_field, self.search_results_list]
+        )
+        
+        # Устанавливаем действия для плиток настроек
+        for tile in self.settings_tiles:
+            if hasattr(tile, 'action'):
+                tile.activated = tile.action
+
+        # Инициализация менеджера геймпада
+        self.gamepad_manager = GamepadManager(self)
+        self.gamepad_manager.button_pressed.connect(self.handle_gamepad_input)
+        self.gamepad_manager.axis_moved.connect(self.handle_axis_movement)
+
+        # Настройки чувствительности
+        self.axis_threshold = 0.7
+        self.last_axis_event = time.time()
+
+    def handle_gamepad_input(self, button):
+        """Обработка нажатий кнопок геймпада"""
+        # Маппинг кнопок на действия
+        action_map = {
+            'A': 'A',
+            'B': 'B',
+            'X': 'X',
+            'Y': 'Y',
+            'DPAD_UP': 'UP',
+            'DPAD_DOWN': 'DOWN',
+            'DPAD_LEFT': 'LEFT',
+            'DPAD_RIGHT': 'RIGHT',
+            'SELECT': 'SELECT',
+            'START': 'START'
+        }
+
+        if button in action_map:
+            # Создаем искусственное событие клавиатуры
+            key = self.navigation_controller.key_mapping.get(action_map[button])
+            if key:
+                event = QKeyEvent(QEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier)
+                QApplication.postEvent(self, event)
+
+        # Специальные действия
+        if button == 'SELECT':
+            self.toggle_settings()
+        elif button == 'START' and self.current_layer == NavigationLayer.MAIN:
+            self.launch_selected_game()
+
+    def toggle_settings(self):
+        """Переключение между основным экраном и настройками"""
+        if self.current_layer == NavigationLayer.MAIN:
+            self.switch_layer(NavigationLayer.SETTINGS)
+        else:
+            self.switch_layer(NavigationLayer.MAIN)
+
+    def launch_selected_game(self):
+        """Запуск выбранной игры"""
+        if self.navigation_controller.current_layer == NavigationLayer.MAIN:
+            widgets = self.navigation_controller.layer_widgets[NavigationLayer.MAIN]
+            idx = self.navigation_controller.focus_index[NavigationLayer.MAIN]
+            if 0 <= idx < len(widgets):
+                self.launch_game(self.games[idx])
+
+    def handle_axis_movement(self, axis, value):
+        """Обработка движения осей (для навигации в меню)"""
+        # Защита от слишком частых событий
+        if time.time() - self.last_axis_event < 0.2:
+            return
+
+        action = None
+        if axis == 'LEFT_Y' and value < -self.axis_threshold: action = 'UP'
+        elif axis == 'LEFT_Y' and value > self.axis_threshold: action = 'DOWN'
+        elif axis == 'LEFT_X' and value < -self.axis_threshold: action = 'LEFT'
+        elif axis == 'LEFT_X' and value > self.axis_threshold: action = 'RIGHT'
+
+        if action:
+            key = self.navigation_controller.key_mapping.get(action)
+            if key:
+                event = QKeyEvent(QEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier)
+                QApplication.postEvent(self, event)
+                self.last_axis_event = time.time()
+
+    def closeEvent(self, event):
+        """Обработчик закрытия окна - завершаем все процессы"""
+        logger.info("Завершение приложения...")
+        try:
+            # Завершаем процесс обновления, если он запущен
+            if self.updater_process and self.updater_process.poll() is None:
+                try:
+                    # Отправляем SIGTERM для корректного завершения
+                    os.kill(self.updater_process.pid, signal.SIGTERM)
+                    logger.info("Отправлен SIGTERM процессу обновления")
+                    
+                    # Даем время на завершение
+                    time.sleep(0.5)
+                    
+                    # Если процесс все еще работает, отправляем SIGKILL
+                    if self.updater_process.poll() is None:
+                        os.kill(self.updater_process.pid, signal.SIGKILL)
+                        logger.warning("Отправлен SIGKILL процессу обновления")
+                except ProcessLookupError:
+                    pass  # Процесс уже завершен
+                except Exception as e:
+                    logger.error(f"Ошибка завершения процесса обновления: {e}")
+
+            # Останавливаем проверку обновлений
+            self.updater.stop_checking()
+            
+            # Отключаем все сигналы
+            try:
+                theme_manager.theme_changed.disconnect(self.apply_theme)
+                self.updater.update_available.disconnect(self.on_update_available)
+                self.navigation_controller.layer_changed.disconnect(self.switch_layer)
+            except TypeError:
+                pass
+            
+            # Уничтожаем дочерние объекты
+            self.updater.deleteLater()
+            self.navigation_controller.deleteLater()
+            
+        except Exception as e:
+            logger.error(f"Ошибка при завершении: {e}")
+        
+        # Принудительно завершаем приложение
+        logger.info("Принудительное завершение приложения")
+        if hasattr(self, 'gamepad_manager'):
+            self.gamepad_manager.stop()
 
     # ДОБАВЛЕННЫЕ МЕТОДЫ ДЛЯ СОЗДАНИЯ СЛОЕВ
     def create_main_layer(self):
@@ -304,6 +647,7 @@ class MainWindow(QMainWindow):
 
         self.last_game_icon = QLabel()
         self.last_game_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
         # Используем placeholder, если иконки нет
         pixmap = QPixmap()
         if pixmap.isNull():
@@ -327,10 +671,6 @@ class MainWindow(QMainWindow):
         games_label.setFont(QFont("Arial", 14))
         main_layout.addWidget(games_label)
 
-        # Сетка игр
-        self.games_grid = QGridLayout()
-        self.games_grid.setSpacing(15)
-
         # Заполняем демо-играми
         games = [
             {"name": "Cyberpunk 2077", "system": "PC"},
@@ -340,6 +680,13 @@ class MainWindow(QMainWindow):
             {"name": "Stardew Valley", "system": "PC"},
             {"name": "The Last of Us", "system": "PS4"}
         ]
+
+        # Сохраняем список игр для последующего использования
+        self.games = games
+
+        # Сетка игр
+        self.games_grid = QGridLayout()
+        self.games_grid.setSpacing(15)
 
         for i, game in enumerate(games):
             row = i // 3
@@ -378,57 +725,132 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(main_widget)
 
     def create_settings_layer(self):
-        """Создает слой настроек и инструментов"""
+        """Создает слой настроек в виде карусели плиток"""
         settings_widget = QWidget()
         settings_layout = QVBoxLayout(settings_widget)
-        settings_layout.setContentsMargins(50, 50, 50, 50)
-        settings_layout.setSpacing(30)
 
-        # Заголовок
-        settings_title = QLabel("Системные настройки")
-        settings_title.setFont(QFont("Arial", 20, QFont.Weight.Bold))
-        settings_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        settings_layout.addWidget(settings_title)
+        # Отступы и расстояние
+        settings_layout.setContentsMargins(15, 15, 15, 15)
+        settings_layout.setSpacing(15)
 
-        # Сетка настроек
-        settings_grid = QGridLayout()
-        settings_grid.setSpacing(20)
+        # Контейнер для карусели с фиксированной шириной
+        self.carousel_container = QWidget()
+        self.carousel_layout = QHBoxLayout(self.carousel_container)
+        self.carousel_layout.setContentsMargins(0, 0, 0, 0)
+        self.carousel_layout.setSpacing(15)  # Было 30 - уменьшили расстояние между плитками
 
         # Элементы настроек
         settings_items = [
-            {"name": "Настройки системы", "icon": "settings.png"},
-            {"name": "Управление эмуляторами", "icon": "emulator.png"},
-            {"name": "Внешний вид", "icon": "appearance.png"},
-            {"name": "Сетевое подключение", "icon": "network.png"},
-            {"name": "Обновления", "icon": "update.png"},
-            {"name": "О программе", "icon": "info.png"},
-            {"name": "Инструменты разработчика", "icon": "tools.png"},
-            {"name": "Выход", "icon": "exit.png"}
-        ]
+            {"name": "Общие", "icon": "settings.png", "action": self.open_system_settings},
+            {"name": "Управление эмуляторами", "icon": "emulator.png", "action": self.open_appearance_settings},
+            {"name": "Внешний вид", "icon": "appearance.png", "action": self.open_emulator_settings},
+            {"name": "Сетевое подключение", "icon": "network.png", "action": self.open_network_settings},
+            {"name": "Инструменты отладки", "icon": "update.png", "action": self.open_tools_settings},
+            {"name": "О PixelDeck", "icon": "tools.png", "action": self.open_about_settings},
+            {"name": "Выход", "icon": "exit.png", "action": self.close_app}
+            ]
 
+        # Сохраняем действия в плитках
         for i, item in enumerate(settings_items):
-            row = i // 4
-            col = i % 4
+            tile = self.create_settings_tile(item["name"], item["icon"], item["action"])
+            tile.action = item["action"]  # Сохраняем действие для активации
+            self.settings_tiles.append(tile)
+            self.carousel_layout.addWidget(tile)
 
-            item_frame = QFrame()
-            item_frame.setObjectName("SettingsTile")
-            item_frame.setMinimumSize(120, 120)
+        # Устанавливаем фиксированную ширину контейнера
+        self.carousel_container.setFixedWidth(len(settings_items) * 300)  # 270 + spacing
 
-            item_layout = QVBoxLayout(item_frame)
-            item_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-            name_label = QLabel(item["name"])
-            name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            name_label.setFont(QFont("Arial", 9))
-            item_layout.addWidget(name_label)
-
-            settings_grid.addWidget(item_frame, row, col)
-
-        settings_container = QWidget()
-        settings_container.setLayout(settings_grid)
-        settings_layout.addWidget(settings_container, 1)
-
+        # Настройка скролла
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(False)  # Отключаем автоматическое изменение размера
+        self.scroll_area.setWidget(self.carousel_container)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        
+        settings_layout.addWidget(self.scroll_area, 1)
         self.stack.addWidget(settings_widget)
+
+    def create_settings_tile(self, name, icon_path, action):
+        """Создает плитку настроек"""
+        tile = QFrame()
+        tile.setObjectName("SettingsTile")
+        tile.setMinimumSize(200, 150)
+        tile.setMaximumSize(400, 220)
+
+        tile_layout = QVBoxLayout(tile)
+        tile_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        icon_label = QLabel()
+        icon_pixmap = QPixmap(icon_path)
+        icon_label.setPixmap(icon_pixmap.scaled(50, 50, Qt.AspectRatioMode.KeepAspectRatio))
+        tile_layout.addWidget(icon_label)
+
+        name_label = QLabel(name)
+        name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        name_label.setFont(QFont("Arial", 10))
+        tile_layout.addWidget(name_label)
+
+        # Сохраняем действие для активации через навигацию
+        tile.action = action
+        tile.mousePressEvent = lambda event: action()
+
+        return tile
+
+        # Добавляем заглушки для всех плиток настроек
+    def open_emulator_settings(self):
+        QMessageBox.information(
+            self,
+            "Управление эмуляторами",
+            "Раздел управления эмуляторами в разработке",
+            QMessageBox.StandardButton.Ok
+        )
+
+    def open_appearance_settings(self):
+        QMessageBox.information(
+            self,
+            "Внешний вид",
+            "Раздел настроек внешнего вида в разработке",
+            QMessageBox.StandardButton.Ok
+        )
+
+    def open_network_settings(self):
+        QMessageBox.information(
+            self,
+            "Сетевое подключение",
+            "Раздел сетевых настроек в разработке",
+            QMessageBox.StandardButton.Ok
+        )
+
+    def open_tools_settings(self):
+        QMessageBox.information(
+            self,
+            "Инструменты отладки",
+            "Раздел инструментов отладки в разработке",
+            QMessageBox.StandardButton.Ok
+        )
+
+    def open_about_settings(self):
+        QMessageBox.information(
+            self,
+            "О PixelDeck",
+            "Версия програмыы — 0.1.75-beta",
+            QMessageBox.StandardButton.Ok
+        )
+
+    def open_system_settings(self):
+        """Открывает окно системных настроек"""
+        # Заменяем на временное решение
+        QMessageBox.information(
+            self,
+            "Общие",
+            "Раздел общих настроек в разработке",
+            QMessageBox.StandardButton.Ok
+        )
+
+    def close_app(self):
+        """Закрывает приложение (обработчик кнопки Выход)"""
+        self.close()  # Вызывает closeEvent
 
     # ДОБАВЛЕННЫЙ МЕТОД ДЛЯ ПОИСКА
     def search_content(self, text):
@@ -492,87 +914,77 @@ class MainWindow(QMainWindow):
         webbrowser.open(url)
         self.search_results_list.hide()
 
-    def apply_theme(self, theme_name):
-        """Применяет указанную тему к окну и всем дочерним виджетам"""
-        try:
-            # Загружаем стили из файла
-            from core import THEME_FILE
-            with open(THEME_FILE, 'r', encoding='utf-8') as f:
-                stylesheet = f.read()
-
-            # Устанавливаем свойство класса
-            self.setProperty("class", f"{theme_name}-theme")
-
-            # Применяем стили
-            self.setStyleSheet(stylesheet)
-
-            # Обновляем стили всех виджетов
-            for widget in self.findChildren(QWidget):
-                widget.style().unpolish(widget)
-                widget.style().polish(widget)
-        except Exception as e:
-            logger.error(f"Ошибка применения темы: {e}")
-
-    def switch_layer(self, direction):
-        """Переключает между слоями с анимацией"""
-        if direction == "down" and self.current_layer == 0:
-            target_layer = 1
-            self.animate_transition(target_layer, 0, -50)
-        elif direction == "up" and self.current_layer == 1:
-            target_layer = 0
-            self.animate_transition(target_layer, 0, 50)
-        else:
-            return
-
-    def animate_transition(self, target_layer, start_y, delta_y):
-        """Анимирует переход между слоями"""
-        # Сохраняем текущую позицию
-        current_pos = self.stack.pos()
-
-        # Создаем анимацию
-        self.animation = QPropertyAnimation(self.stack, b"pos")
-        self.animation.setDuration(self.animation_duration)
-        self.animation.setEasingCurve(QEasingCurve.Type.OutQuad)
-
-        # Начальное положение - смещение вниз/вверх
-        self.stack.move(current_pos.x(), current_pos.y() + delta_y)
-        self.animation.setStartValue(QPoint(current_pos.x(), current_pos.y() + delta_y))
-
-        # Конечное положение - исходное
-        self.animation.setEndValue(current_pos)
-
-        # Запускаем анимацию
-        self.animation.start()
-
-        # После завершения анимации переключаем слой
-        self.animation.finished.connect(lambda: self.finalize_layer_switch(target_layer))
-
-    def finalize_layer_switch(self, target_layer):
-        """Завершает переключение слоя"""
-        self.stack.setCurrentIndex(target_layer)
-        self.current_layer = target_layer
+    def switch_layer(self, new_layer):
+        """Переключает между слоями"""
+        if new_layer == NavigationLayer.MAIN:
+            self.stack.setCurrentIndex(0)
+        elif new_layer == NavigationLayer.SETTINGS:
+            self.stack.setCurrentIndex(1)
+        elif new_layer == NavigationLayer.SEARCH:
+            # Поиск поверх всех слоев
+            self.search_field.setFocus()
+            
         self.update_hints()
-        self.animation.deleteLater()
 
     def update_hints(self):
         """Обновляет подсказки в зависимости от текущего слоя"""
-        if self.current_layer == 0:
+        if self.current_layer == 0:  # MAIN
             hints = "↓: Настройки  |  A: Запустить  |  Y: Поиск  |  B: Назад"
-        else:
-            hints = "↑: Главный экран  |  A: Выбрать  |  B: Назад"
+        elif self.current_layer == 1:  # SETTINGS
+            hints = "↑: Главный экран  |  ←/→: Навигация  |  A: Выбрать  |  B: Назад"
+        else:  # SEARCH
+            hints = "B: Назад  |  Enter: Поиск  |  Стрелки: Навигация"
 
         self.hint_label.setText(hints)
 
     def keyPressEvent(self, event):
-        """Обрабатывает нажатия клавиш"""
-        if event.key() == Qt.Key.Key_Down:
-            self.switch_layer("down")
-            event.accept()
-        elif event.key() == Qt.Key.Key_Up:
-            self.switch_layer("up")
+        """Обработка клавиш через навигационный контроллер"""
+        if self.navigation_controller.handle_key_event(event):
             event.accept()
         else:
-            super().keyPressEvent(event)
+            # Передаем события ввода в поле поиска
+            if self.navigation_controller.current_layer == NavigationLayer.SEARCH:
+                self.search_field.keyPressEvent(event)
+            else:
+                super().keyPressEvent(event)
+
+    def launch_game(self, game):
+        """Запускает выбранную игру"""
+        logger.info(f"Запуск игры: {game['name']}")
+        QMessageBox.information(
+            self,
+            "Запуск игры",
+            f"Запускаем {game['name']} на {game['system']}",
+            QMessageBox.StandardButton.Ok
+        )
+
+    def on_update_available(self, update_info):
+        if not self.isVisible():
+            logger.warning("Главное окно закрыто, игнорируем обновление")
+            return
+
+        latest_version = update_info['version']
+        changelog = update_info['release'].get("body", "Нет информации об изменениях")
+        download_url = update_info['download_url']
+        asset_name = update_info['asset_name']
+        
+        try:
+            # Показываем диалог с обновлением
+            dialog = UpdateDialog(
+                APP_VERSION,
+                latest_version,
+                changelog,
+                download_url,
+                self.install_dir,
+                asset_name,
+                self  # Указываем родительское окно
+            )
+            dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            dialog.exec()
+        finally:
+            # Фокус возвращается на главное окно
+            self.activateWindow()
+            self.raise_()
 
 class SearchItemWidget(QWidget):
     """Кастомный виджет для отображения результата поиска"""
@@ -598,24 +1010,93 @@ class SearchItemWidget(QWidget):
         self.setMinimumHeight(100)
 
 def check_and_show_updates(dark_theme):
-    """Запускает внешний updater"""
+    """Запускает внешний updater и возвращает объект процесса"""
     try:
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        updater_path = os.path.join(current_dir, "Programm", "updater.py")
+        current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        updater_path = os.path.join(BASE_DIR, "app", "updater.py")
         theme_flag = "--dark" if dark_theme else "--light"
-        version_arg = f"--current-version={APP_VERSION}"
         
-        subprocess.Popen(
+        process = subprocess.Popen(  # Сохраняем объект процесса
             [sys.executable, updater_path, theme_flag],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True
         )
+        return process
     except Exception as e:
         logger.error(f"Ошибка запуска updater: {e}")
+        return None
 
 # Точка входа в приложение
 if __name__ == "__main__":
+
+    # Проверка на единственный экземпляр
+    lock_result, existing_pid = enforce_single_instance()
+    
+    if not lock_result:
+        if existing_pid:
+            # Создаем временное приложение для диалога
+            temp_app = QApplication(sys.argv)
+            
+            # Применяем текущую тему (если возможно)
+            try:
+                # Загружаем стили из файла темы
+                with open(THEME_FILE, 'r', encoding='utf-8') as f:
+                    stylesheet = f.read()
+                    temp_app.setStyleSheet(stylesheet)
+            except Exception as e:
+                logger.error(f"Ошибка загрузки стилей для диалога: {e}")
+            
+            # Создаем диалоговое окно
+            msg_box = QMessageBox()
+            msg_box.setWindowTitle("Программа уже запущена")
+            msg_box.setText(
+                "PixelDeck уже запущен! Проверьте панель задач.\n\n"
+                "Если программа не отвечает, вы можете принудительно перезапустить ее."
+            )
+            
+            # Добавляем кнопки
+            restart_button = msg_box.addButton("Перезапустить PixelDeck", QMessageBox.ButtonRole.ActionRole)
+            ok_button = msg_box.addButton("ОК", QMessageBox.ButtonRole.AcceptRole)
+            msg_box.setDefaultButton(ok_button)
+            
+            # Показываем диалог
+            msg_box.exec()
+            
+            # Обработка выбора
+            if msg_box.clickedButton() == restart_button:
+                logger.info(f"Пользователь выбрал перезапуск. Завершаем процесс {existing_pid}...")
+                try:
+                    # Посылаем сигнал SIGTERM для корректного завершения
+                    os.kill(existing_pid, signal.SIGTERM)
+                    # Ждем 2 секунды, чтобы процесс успел завершиться
+                    time.sleep(2)
+                except Exception as e:
+                    logger.error(f"Ошибка при завершении процесса: {e}")
+                
+                # Определяем путь к скрипту PixelDeck.sh (в корне проекта)
+                # BASE_DIR - это директория, в которой находится app.py (т.е. app/)
+                project_root = os.path.dirname(BASE_DIR)
+                script_path = os.path.join(project_root, "PixelDeck.sh")
+                
+                if not os.path.exists(script_path):
+                    logger.error(f"Скрипт запуска не найден: {script_path}")
+                    # Покажем сообщение об ошибке?
+                    error_msg = QMessageBox()
+                    error_msg.setIcon(QMessageBox.Icon.Critical)
+                    error_msg.setText("Ошибка перезапуска")
+                    error_msg.setInformativeText(f"Файл запуска не найден: {script_path}")
+                    error_msg.exec()
+                else:
+                    # Запускаем новый экземпляр программы через скрипт
+                    subprocess.Popen([script_path], start_new_session=True)
+            
+            # Завершаем временное приложение и выходим
+            sys.exit(0)
+        else:
+            logger.error("Ошибка блокировки без указания PID")
+            sys.exit(1)
+    
     logger.info("Запуск PixelDeck")
     logger.info(f"Версия: {APP_VERSION}")
     logger.info(f"Рабочая директория: {os.getcwd()}")
