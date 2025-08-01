@@ -72,12 +72,6 @@ QFrame#GameTile, QFrame#SettingsTile {
     border: 2px solid #333;
 }
 
-/* УБРАТЬ ИКОНКИ В ПЛИТКАХ */
-QFrame#GameTile QLabel:first-child,
-QFrame#SettingsTile QLabel:first-child {
-    display: none;
-}
-
 /* DARK THEME */
 .dark-theme QMainWindow,
 .dark-theme QDialog,
@@ -263,4 +257,157 @@ QWizard QPushButton:pressed {
 
 .light-theme QWizard QPushButton:pressed {
     background-color: #2a65c4;
+}
+
+/* Стиль для модуля обновления */
+QProgressDialog {
+    background-color: palette(window);
+    border: 2px solid palette(mid);
+    border-radius: 10px;
+}
+
+QProgressDialog QLabel {
+    font-size: 16px;
+    color: palette(text);
+}
+
+QProgressDialog QProgressBar {
+    min-height: 20px;
+    border-radius: 10px;
+    background-color: palette(base);
+    border: 1px solid palette(mid);
+}
+
+QProgressDialog QProgressBar::chunk {
+    background-color: palette(highlight);
+    border-radius: 10px;
+}
+
+.dark-theme QProgressDialog {
+    background-color: #252525;
+    border-color: #64b5f6;
+}
+
+.light-theme QProgressDialog {
+    background-color: #ffffff;
+    border-color: #4285f4;
+}
+
+QPushButton {
+    min-height: 40px;
+    min-width: 120px;
+    border-radius: 8px;
+    font-size: 16px;
+    padding: 8px 16px;
+}
+
+.dark-theme QPushButton {
+    background-color: #4285f4;
+    color: white;
+    border: 1px solid #64b5f6;
+}
+
+.light-theme QPushButton {
+    background-color: #4285f4;
+    color: white;
+    border: 1px solid #4285f4;
+}
+
+QPushButton:hover {
+    background-color: #3a75d4;
+}
+
+QPushButton:pressed {
+    background-color: #2a65c4;
+}
+
+QTextEdit {
+    border-radius: 8px;
+    font-size: 14px;
+    padding: 8px;
+}
+
+.dark-theme QTextEdit {
+    background-color: #252525;
+    color: white;
+}
+
+.light-theme QTextEdit {
+    background-color: white;
+    color: #333333;
+}
+
+/* Стили кнопок-плиток настроек */
+#SettingsTile {
+    background-color: rgba(50, 50, 50, 150);
+    border: 1px solid #555;
+    border-radius: 15px;
+    color: white;
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    padding: 0;
+    margin: 5px;
+}
+
+#SettingsTile:hover {
+    background-color: rgba(70, 70, 70, 200);
+    border-color: #777;
+}
+
+#SettingsTile:pressed {
+    background-color: rgba(100, 100, 100, 200);
+}
+
+.dark-theme #SettingsTile {
+    background-color: #252525;
+    border: 2px solid #64b5f6;
+    color: white;
+}
+
+.dark-theme #SettingsTile:hover {
+    background-color: #353535;
+    border: 2px solid #e0e0e0;
+}
+
+.light-theme #SettingsTile {
+    background-color: #ffffff;
+    border: 2px solid #4285f4;
+    color: #333333;
+}
+
+.light-theme #SettingsTile:hover {
+    background-color: #f8f8f8;
+    border: 2px solid #333;
+}
+
+/* Стили для фокусированных кнопок */
+QPushButton:focus {
+    border: 2px solid white;
+    outline: none;
+}
+
+.dark-theme QPushButton:focus {
+    border: 2px solid white;
+    background-color: #353535;
+}
+
+.light-theme QPushButton:focus {
+    border: 2px solid #4285f4;
+    background-color: #f8f8f8;
+}
+
+#SettingsTile:focus {
+    border: 2px solid white !important;
+    background-color: rgba(70, 70, 70, 200);
+}
+
+.dark-theme #SettingsTile:focus {
+    border: 2px solid white !important;
+    background-color: #353535;
+}
+
+.light-theme #SettingsTile:focus {
+    border: 2px solid #4285f4 !important;
+    background-color: #f8f8f8;
 }
