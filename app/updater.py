@@ -28,10 +28,10 @@ enforce_virtualenv()
 from packaging import version
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QTextEdit, QPushButton, QHBoxLayout,
-    QApplication, QMessageBox, QProgressDialog
+    QApplication, QMessageBox, QProgressDialog, QWidget
 )
 from PyQt6.QtGui import QFont
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QObject, QThread, pyqtSignal
 import requests
 
 from core import APP_VERSION, STYLES_DIR, THEME_FILE
@@ -41,8 +41,11 @@ from app.ui_assets.theme_manager import theme_manager
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), "PixelDeck")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "updater.json")
 
-class Updater:
+class Updater(QObject):
+    update_available = pyqtSignal(dict)
+
     def __init__(self, parent=None):
+        super().__init__(parent)
         self.parent = parent
         self.github_repo = "Vladislavshits/PixelDeck"
         self.is_beta = "beta" in APP_VERSION.lower()
@@ -152,6 +155,14 @@ class Updater:
                                     'asset_name': f"PixelDeck-{latest_version}-beta.tar.gz"
                                 }
                     print("[ERROR] Не найден подходящий архив в бета-релизе")
+
+            # Если найдено обновление - отправляем сигнал
+            if update_info:
+                self.update_available.emit(update_info)
+                return update_info
+            else:
+                print("[DEBUG] Подходящих обновлений не найдено")
+                return None
 
         except Exception as e:
             print(f"Ошибка при проверке обновлений: {str(e)}")
@@ -304,28 +315,18 @@ class UpdateDialog(QDialog):
 
         # Применяем текущую тему
         self.apply_theme(theme_manager.current_theme)
-        
-        # Подписываемся на изменения темы
-        theme_manager.theme_changed.connect(self.apply_theme)
 
     def apply_theme(self, theme_name):
         """Применяет указанную тему к диалогу"""
         try:
-            # Загружаем стили из файла
-            from core import THEME_FILE
-            with open(THEME_FILE, 'r', encoding='utf-8') as f:
-                stylesheet = f.read()
-            
-            # Устанавливаем свойство класса
+            # Устанавливаем свойство класса для самого диалога
             self.setProperty("class", f"{theme_name}-theme")
             
-            # Применяем стили
-            self.setStyleSheet(stylesheet)
-            
-            # Обновляем стили дочерних виджетов
+            # Применяем стили ко всем виджетам в диалоге
             for widget in self.findChildren(QWidget):
                 widget.style().unpolish(widget)
                 widget.style().polish(widget)
+                widget.update()
         except Exception as e:
             print(f"Ошибка применения темы в диалоге обновления: {e}")
         
@@ -444,21 +445,25 @@ class UpdateDialog(QDialog):
             )
 
 def run_updater(dark_theme=None, current_version=None):
-    """Запуск процесса проверки и установки обновлений"""
     try:
         app = QApplication(sys.argv)
-
-        # Инициализируем менеджер тем с текущей настройкой
+        
+        # Инициализация темы до загрузки стилей
         from settings import app_settings
         app_settings._ensure_settings()
         current_theme = app_settings.get_theme()
-        theme_manager.set_theme(current_theme)
-
+        
         # Применяем тему к приложению
         app.setProperty("class", f"{current_theme}-theme")
+        
+        # Загрузка и применение стилей
         from core import THEME_FILE
         with open(THEME_FILE, 'r', encoding='utf-8') as f:
-            app.setStyleSheet(f.read())
+            stylesheet = f.read()
+            app.setStyleSheet(stylesheet)
+        
+        # Инициализируем менеджер тем
+        theme_manager.set_theme(current_theme)
 
         # Если версия не передана, используем из common
         if current_version is None:
