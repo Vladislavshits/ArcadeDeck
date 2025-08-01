@@ -1,12 +1,10 @@
 from PyQt6.QtCore import QSettings
-from PyQt6.QtWidgets import QApplication
 import os
-from app.ui_assets.theme_manager import theme_manager
 
 class AppSettings:
     def __init__(self):
         self._settings = None
-        
+
     def _ensure_settings(self):
         if self._settings is None:
             # Создаем директорию для настроек, если ее нет
@@ -15,21 +13,21 @@ class AppSettings:
             config_path = os.path.join(config_dir, "settings.ini")
             # Инициализируем QSettings с указанием пути
             self._settings = QSettings(config_path, QSettings.Format.IniFormat)
-    
+
     def get_theme(self):
         self._ensure_settings()
         return self._settings.value("theme", "dark", type=str)
-    
+
     def set_theme(self, theme_name):
         self._ensure_settings()
         self._settings.setValue("theme", theme_name)
-    
+
     def get_welcome_shown(self):
         self._ensure_settings()
         # Используем строковое представление для совместимости
         value = self._settings.value("welcome_shown", "false")
         return value.lower() == "true"
-    
+
     def set_welcome_shown(self, shown):
         self._ensure_settings()
         self._settings.setValue("welcome_shown", "true" if shown else "false")
