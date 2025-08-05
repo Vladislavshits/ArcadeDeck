@@ -10,6 +10,7 @@ class NavigationLayer(Enum):
     MAIN = auto()        # Главный слой с играми
     SETTINGS = auto()    # Слой настроек
     SEARCH = auto()      # Слой поиска (поверх всех)
+    PLUGIN = 3  # Добавляем новый слой для плагинов
 
 class NavigationController(QObject):
     """Контроллер навигации для управления слоями и фокусом"""
@@ -29,7 +30,8 @@ class NavigationController(QObject):
         self.layer_widgets = {
             NavigationLayer.MAIN: [],
             NavigationLayer.SETTINGS: [],
-            NavigationLayer.SEARCH: []
+            NavigationLayer.SEARCH: [],
+            NavigationLayer.PLUGIN: []
         }
         
         # Индексы фокуса для каждого слоя
@@ -70,6 +72,10 @@ class NavigationController(QObject):
         # Установка начального фокуса
         if widgets and self.current_layer == layer:
             self.set_focus(layer, 0)
+        
+    def return_to_previous_layer(self):
+        if self.previous_layer:
+            self.switch_layer(self.previous_layer)
 
     def switch_layer(self, new_layer):
         """
@@ -100,6 +106,8 @@ class NavigationController(QObject):
             self.search_activated.emit()
         
         # Сигнализируем о смене слоя
+        self.previous_layer = self.current_layer
+        self.current_layer = new_layer
         self.layer_changed.emit(new_layer)
 
     def set_focus(self, layer, index):
@@ -226,25 +234,27 @@ class NavigationController(QObject):
         return False
 
     def activate_focused_widget(self):
-        """Активация текущего сфокусированного виджета"""
+        # Получаем текущий сфокусированный виджет
         layer = self.current_layer
+        idx = self.focus_index.get(layer, 0)
         widgets = self.layer_widgets.get(layer, [])
-        if not widgets:
+        if not widgets or idx < 0 or idx >= len(widgets):
+            logger.warning("Nothing to activate")
             return
-            
-        idx = self.focus_index[layer]
-        if 0 <= idx < len(widgets):
-            widget = widgets[idx]
-            
-            # Для кнопок - эмулируем клик
-            if isinstance(widget, QPushButton):
-                logger.debug(f"Activating button: {widget.text()}")
-                QTimer.singleShot(0, widget.click)
-            # Для других виджетов - активируем их стандартное действие
-            else:
-                logger.debug(f"Activating widget: {widget}")
-                widget.setFocus(Qt.FocusReason.TabFocusReason)
+        widget = widgets[idx]
 
-            if hasattr(widget, 'activated') and callable(widget.activated):
-                logger.debug(f"Activating widget: {widget}")
-                widget.activated()
+        # 1) QPushButton — эмулируем клик
+        if isinstance(widget, QPushButton):
+            logger.debug(f"Activating button: {widget.text()}")
+            QTimer.singleShot(0, widget.click)
+            return
+
+        # 2) Наши плитки с action()
+        if hasattr(widget, 'action') and callable(widget.action):
+            logger.debug(f"Activating custom action on widget: {widget}")
+            widget.action()
+            return
+
+        # 3) Всё остальное — просто фокусируем
+        logger.debug(f"Setting focus to widget: {widget}")
+        widget.setFocus(Qt.FocusReason.TabFocusReason)
