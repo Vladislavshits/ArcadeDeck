@@ -8,6 +8,8 @@ import shutil
 import tarfile
 import subprocess
 import hashlib
+import logging
+logger = logging.getLogger('PixelDeck')
 from datetime import datetime
 
 # Активация окружения через venv_manager
@@ -16,7 +18,7 @@ root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-# Явно добавляем путь к текущей папке Programm
+# Явно добавляем путь к текущей папке app
 programm_dir = os.path.dirname(os.path.abspath(__file__))
 if programm_dir not in sys.path:
     sys.path.insert(0, programm_dir)
@@ -51,6 +53,43 @@ class Updater(QObject):
         self.is_beta = "beta" in APP_VERSION.lower()
         self.install_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+        self.update_channel = "stable"  # По умолчанию стабильный канал
+
+    def set_update_channel(self, channel):
+        """Устанавливает канал обновлений (stable/beta)"""
+        self.update_channel = channel
+        logger.info(f"Установлен канал обновлений: {channel}")
+
+    def check_for_updates(self):
+        """Проверяет наличие обновлений с учетом выбранного канала"""
+        try:
+            # URL для API GitHub
+            api_url = "https://api.github.com/repos/Vladislavshits/PixelDeck/releases"
+
+            # Получаем список релизов
+            response = requests.get(api_url)
+            response.raise_for_status()
+            releases = response.json()
+
+            # Фильтруем релизы по каналу
+            if self.update_channel == "stable":
+                # Для стабильного канала берем только релизы без пре-релиза
+                releases = [r for r in releases if not r.get('prerelease', False)]
+            else:
+                # Для бета-канала берем все релизы, включая пре-релизы
+                releases = [r for r in releases]
+
+            if not releases:
+                self.show_no_updates_message()
+                return
+
+            # Берем последний релиз
+            latest_release = releases[0]
+
+        except Exception as e:
+            logger.error(f"Ошибка при проверке обновлений: {e}")
+            self.show_error_message()
+
     def normalize_version(self, version_str):
         """Нормализует версию для корректного сравнения"""
         # Удаляем префикс 'v' и суффиксы beta
@@ -71,8 +110,10 @@ class Updater(QObject):
         return parts
 
     def check_for_updates(self):
+        """Проверяет наличие обновлений с учетом выбранного канала"""
         try:
             skipped_versions = self.get_skip_config()
+            update_info = None  # Инициализируем переменную
 
             # Для стабильной версии
             if not self.is_beta:
@@ -84,30 +125,34 @@ class Updater(QObject):
                 latest_version = latest_release['tag_name'].lstrip('v')
 
                 if latest_version in skipped_versions:
-                    print(f"[DEBUG] Версия {latest_version} пропущена пользователем")
+                    logger.debug(f"Версия {latest_version} пропущена пользователем")
                     return None
 
                 if version.parse(latest_version) > version.parse(APP_VERSION.lstrip('v')):
-                    # Ищем архив с обновлением (сначала кастомный, потом автосгенерированный)
+                    # Ищем архив с обновлением
                     for asset in latest_release.get('assets', []):
                         if asset['name'].endswith('.tar.gz'):
-                            if "PixelDeck" in asset['name']:  # Наш кастомный архив
-                                return {
+                            if "PixelDeck" in asset['name']:  # Кастомный архив
+                                update_info = {
                                     'release': latest_release,
                                     'download_url': asset['browser_download_url'],
                                     'version': latest_version,
                                     'type': 'stable',
                                     'asset_name': asset['name']
                                 }
-                            elif "Source code" in asset['name']:  # Автосгенерированный GitHub
-                                return {
+                                break  # Выходим из цикла после нахождения
+                            elif "Source code" in asset['name']:  # Автосгенерированный архив
+                                update_info = {
                                     'release': latest_release,
                                     'download_url': asset['browser_download_url'],
                                     'version': latest_version,
                                     'type': 'stable',
                                     'asset_name': f"PixelDeck-{latest_version}.tar.gz"
                                 }
-                    print("[ERROR] Не найден подходящий архив обновления в релизе")
+                                break  # Выходим из цикла после нахождения
+                    
+                    if not update_info:
+                        logger.error("Не найден подходящий архив обновления в релизе")
 
             # Для бета-версии
             else:
@@ -119,7 +164,7 @@ class Updater(QObject):
                 beta_releases = [r for r in releases if r['prerelease'] and 'beta' in r['tag_name'].lower()]
 
                 if not beta_releases:
-                    print("[DEBUG] Нет доступных бета-релизов")
+                    logger.debug("Нет доступных бета-релизов")
                     return None
 
                 sorted_releases = sorted(
@@ -132,44 +177,49 @@ class Updater(QObject):
                 latest_version = latest_beta['tag_name'].lstrip('v')
 
                 if latest_version in skipped_versions:
-                    print(f"[DEBUG] Бета-версия {latest_version} пропущена пользователем")
+                    logger.debug(f"Бета-версия {latest_version} пропущена пользователем")
                     return None
 
                 if version.parse(latest_version) > version.parse(APP_VERSION.lstrip('v')):
                     for asset in latest_beta.get('assets', []):
                         if asset['name'].endswith('.tar.gz'):
                             if "PixelDeck" in asset['name'] and 'beta' in asset['name'].lower():
-                                return {
+                                update_info = {
                                     'release': latest_beta,
                                     'download_url': asset['browser_download_url'],
                                     'version': latest_version,
                                     'type': 'beta',
                                     'asset_name': asset['name']
                                 }
+                                break
                             elif "Source code" in asset['name']:
-                                return {
+                                update_info = {
                                     'release': latest_beta,
                                     'download_url': asset['browser_download_url'],
                                     'version': latest_version,
                                     'type': 'beta',
                                     'asset_name': f"PixelDeck-{latest_version}-beta.tar.gz"
                                 }
-                    print("[ERROR] Не найден подходящий архив в бета-релизе")
+                                break
+                    
+                    if not update_info:
+                        logger.error("Не найден подходящий архив в бета-релизе")
 
             # Если найдено обновление - отправляем сигнал
             if update_info:
+                logger.info(f"Найдено обновление: {update_info['version']}")
                 self.update_available.emit(update_info)
                 return update_info
-            else:
-                print("[DEBUG] Подходящих обновлений не найдено")
-                return None
-
-        except Exception as e:
-            print(f"Ошибка при проверке обновлений: {str(e)}")
+            
+            logger.debug("Подходящих обновлений не найдено")
             return None
 
-        print("[DEBUG] Подходящих обновлений не найдено")
-        return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Ошибка сети при проверке обновлений: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Неизвестная ошибка при проверке обновлений: {e}")
+            return None
 
     def get_skip_config(self):
         """Возвращает список пропущенных версий из конфига"""
@@ -182,6 +232,10 @@ class Updater(QObject):
             except:
                 pass
         return skipped_versions
+
+    def stop_checking(self):
+        if hasattr(self, 'timer') and self.timer.isActive():
+            self.timer.stop()
 
 class UpdateDownloaderThread(QThread):
     """Поток для скачивания и установки обновления"""
