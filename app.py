@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
-import sys
 import os
+import sys
+
+# Принудительная установка кеш-директории
+cache_root = os.path.join(os.path.expanduser("~"), "PixelDeck", "app", "caches")
+os.makedirs(cache_root, exist_ok=True)
+
+# Для Python 3.8+
+sys.pycache_prefix = cache_root
+
+# Отключаем кеширование байт-кода (если нужно)
+sys.dont_write_bytecode = True
+
 import logging
 import traceback
 import shutil
@@ -15,7 +26,7 @@ import signal
 import errno
 import pygame
 
-# Настройка логирования ДО проверки экземпляра
+# Настройка логирования до проверки экземпляра
 log_dir = os.path.join(os.path.expanduser("~"), "PixelDeck", "logs")
 os.makedirs(log_dir, exist_ok=True)
 log_file = os.path.join(log_dir, "pixeldeck.log")
@@ -161,7 +172,8 @@ from PyQt6.QtWidgets import (
     QApplication, QAbstractItemView, QMainWindow, QWidget, QDialog,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout,
     QMessageBox, QStackedWidget, QFrame, QGridLayout, QHBoxLayout, QPushButton,
-    QSizePolicy, QScrollArea
+    QSizePolicy, QScrollArea, QTabWidget, QDialogButtonBox, QVBoxLayout, QRadioButton,
+    QButtonGroup, QCheckBox, QComboBox
 )
 from PyQt6.QtCore import Qt, QTimer, QObject, pyqtSignal, QEvent
 from PyQt6.QtGui import QIcon, QFont, QPixmap, QKeyEvent
@@ -174,6 +186,11 @@ from app.ui_assets.theme_manager import theme_manager
 from updater import Updater, UpdateDialog  # Импортируем Updater и UpdateDialog
 from navigation import NavigationController  # Импортируем NavigationController
 from navigation import NavigationLayer
+
+# Модули настроек
+from app.modules.settings_plugins.about_settings import AboutPage
+from modules.settings_plugins.dev_settings import DevSettingsPage
+from modules.settings_plugins.appearance_settings import AppearanceSettingsPage
 
 # Безопасная загрузка JSON
 def safe_load_json(path, default):
@@ -451,8 +468,12 @@ class MainWindow(QMainWindow):
         # Регистрируем виджеты для каждого слоя
         self.register_navigation_widgets()
 
+        # Для интеграции плагинов в интерфейс
+        self.current_plugin = None  # Текущий открытый плагин
+        self.plugin_container = None  # Контейнер для плагина
+        self.plugin_title = None  # Заголовок плагина
+
     def apply_theme(self, theme_name):
-        """Применяет указанную тему к окну и всем дочерним виджетам"""
         try:
             # Загружаем стили из файла
             with open(THEME_FILE, 'r', encoding='utf-8') as f:
@@ -466,8 +487,10 @@ class MainWindow(QMainWindow):
 
             # Обновляем стили всех виджетов
             for widget in self.findChildren(QWidget):
-                widget.style().unpolish(widget)
-                widget.style().polish(widget)
+                if widget != self:  # Исключаем главное окно
+                    widget.style().unpolish(widget)
+                    widget.style().polish(widget)
+                    widget.update()
         except Exception as e:
             logger.error(f"Ошибка применения темы: {e}")
 
@@ -540,6 +563,15 @@ class MainWindow(QMainWindow):
             self.toggle_settings()
         elif button == 'START' and self.current_layer == NavigationLayer.MAIN:
             self.launch_selected_game()
+        elif button == 'B':
+            # Обработка кнопки "Назад"
+            if self.current_layer == NavigationLayer.SETTINGS:
+                self.switch_layer(NavigationLayer.MAIN)
+            elif self.current_layer == NavigationLayer.SEARCH:
+                self.search_results_list.hide()
+                self.switch_layer(NavigationLayer.MAIN)
+            elif self.current_layer == NavigationLayer.MAIN:
+                self.close()
 
     def toggle_settings(self):
         """Переключение между основным экраном и настройками"""
@@ -620,6 +652,20 @@ class MainWindow(QMainWindow):
         logger.info("Принудительное завершение приложения")
         if hasattr(self, 'gamepad_manager'):
             self.gamepad_manager.stop()
+
+    def confirm_exit(self, event=None):
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle("Выход")
+        dlg.setText("Вы хотите закрыть PixelDeck?")
+        # Убираем стандартные кнопки и добавляем свои
+        dlg.setStandardButtons(QMessageBox.StandardButton.NoButton)
+        yes_btn = dlg.addButton("Да", QMessageBox.ButtonRole.AcceptRole)
+        no_btn  = dlg.addButton("Нет", QMessageBox.ButtonRole.RejectRole)
+        dlg.exec()
+
+        if dlg.clickedButton() is yes_btn:
+            self.close()
+
 
     # ДОБАВЛЕННЫЕ МЕТОДЫ ДЛЯ СОЗДАНИЯ СЛОЕВ
     def create_main_layer(self):
@@ -725,51 +771,85 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(main_widget)
 
     def create_settings_layer(self):
-        """Создает слой настроек в виде карусели плиток"""
+        """Создаёт слой настроек с плитками и областью деталей"""
         settings_widget = QWidget()
         settings_layout = QVBoxLayout(settings_widget)
-
-        # Отступы и расстояние
         settings_layout.setContentsMargins(15, 15, 15, 15)
         settings_layout.setSpacing(15)
 
-        # Контейнер для карусели с фиксированной шириной
+        # Карусель плиток
         self.carousel_container = QWidget()
         self.carousel_layout = QHBoxLayout(self.carousel_container)
         self.carousel_layout.setContentsMargins(0, 0, 0, 0)
-        self.carousel_layout.setSpacing(15)  # Было 30 - уменьшили расстояние между плитками
+        self.carousel_layout.setSpacing(15)
 
-        # Элементы настроек
+        # Список разделов
         settings_items = [
-            {"name": "Общие", "icon": "settings.png", "action": self.open_system_settings},
-            {"name": "Управление эмуляторами", "icon": "emulator.png", "action": self.open_appearance_settings},
-            {"name": "Внешний вид", "icon": "appearance.png", "action": self.open_emulator_settings},
-            {"name": "Сетевое подключение", "icon": "network.png", "action": self.open_network_settings},
-            {"name": "Инструменты отладки", "icon": "update.png", "action": self.open_tools_settings},
-            {"name": "О PixelDeck", "icon": "tools.png", "action": self.open_about_settings},
-            {"name": "Выход", "icon": "exit.png", "action": self.close_app}
-            ]
+            {"name": "Общие",                  "icon": ""},
+            {"name": "Управление эмуляторами", "icon": ""},
+            {"name": "Внешний вид",           "icon": ""},
+            {"name": "Сетевое подключение",    "icon": ""},
+            {"name": "Инструменты отладки",    "icon": ""},
+            {"name": "О PixelDeck",            "icon": ""},
+            {"name": "Выход",                  "icon": ""}
+        ]
 
-        # Сохраняем действия в плитках
-        for i, item in enumerate(settings_items):
-            tile = self.create_settings_tile(item["name"], item["icon"], item["action"])
-            tile.action = item["action"]  # Сохраняем действие для активации
+        self._settings_index = {}
+        self.settings_detail_stack = QStackedWidget()
+
+        for idx, item in enumerate(settings_items):
+            name = item["name"]
+            icon = item.get("icon", "")
+
+            # 1) создаём страницу
+            if name == "Внешний вид":
+                page = AppearanceSettingsPage(self)
+            elif name == "Инструменты отладки":
+                page = DevSettingsPage(self, log_path=log_file)
+            elif name == "О PixelDeck":
+                page = AboutPage(self)
+            else:
+                # пустая заглушка для остальных (включая «Общие», «Управление эмуляторами», «Сетевое подключение» и «Выход»)
+                page = QWidget()
+                pl = QVBoxLayout(page)
+                lbl = QLabel(f"Раздел '{name}' в разработке")
+                lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                lbl.setFont(QFont("Arial", 12))
+                pl.addWidget(lbl)
+            self.settings_detail_stack.addWidget(page)
+
+            # 2) выбираем handler
+            if name == "Выход":
+                handler = self.confirm_exit
+            else:
+                handler = self._make_tile_click_handler(idx)
+
+            # 3) создаём и регистрируем плитку
+            tile = self.create_settings_tile(name, icon_path=icon, action=handler)
             self.settings_tiles.append(tile)
             self.carousel_layout.addWidget(tile)
+            self._settings_index[name] = idx
 
-        # Устанавливаем фиксированную ширину контейнера
-        self.carousel_container.setFixedWidth(len(settings_items) * 300)  # 270 + spacing
-
-        # Настройка скролла
+        # обёртка карусели
         self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(False)  # Отключаем автоматическое изменение размера
+        self.scroll_area.setWidgetResizable(False)
         self.scroll_area.setWidget(self.carousel_container)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
-        
-        settings_layout.addWidget(self.scroll_area, 1)
+        settings_layout.addWidget(self.scroll_area)
+
+        # область деталей
+        settings_layout.addWidget(self.settings_detail_stack, 1)
         self.stack.addWidget(settings_widget)
+
+
+    def _make_tile_click_handler(self, index):
+        """Возвращает функцию-обработчик клика, которая переключает стек"""
+        def handler(event=None):
+            # При клике на плитку переключаем детальную область
+            self.settings_detail_stack.setCurrentIndex(index)
+        return handler
 
     def create_settings_tile(self, name, icon_path, action):
         """Создает плитку настроек"""
@@ -781,19 +861,21 @@ class MainWindow(QMainWindow):
         tile_layout = QVBoxLayout(tile)
         tile_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        icon_label = QLabel()
-        icon_pixmap = QPixmap(icon_path)
-        icon_label.setPixmap(icon_pixmap.scaled(50, 50, Qt.AspectRatioMode.KeepAspectRatio))
-        tile_layout.addWidget(icon_label)
+        if icon_path:
+            icon_label = QLabel()
+            icon_pixmap = QPixmap(icon_path)
+            icon_label.setPixmap(icon_pixmap.scaled(50, 50, Qt.AspectRatioMode.KeepAspectRatio))
+            tile_layout.addWidget(icon_label)
 
         name_label = QLabel(name)
         name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         name_label.setFont(QFont("Arial", 10))
         tile_layout.addWidget(name_label)
 
-        # Сохраняем действие для активации через навигацию
-        tile.action = action
-        tile.mousePressEvent = lambda event: action()
+        # Привязываем действие по клику (если задано)
+        if action:
+            tile.action = action
+            tile.mousePressEvent = lambda event: action()
 
         return tile
 
@@ -822,25 +904,26 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.Ok
         )
 
-    def open_tools_settings(self):
-        QMessageBox.information(
-            self,
-            "Инструменты отладки",
-            "Раздел инструментов отладки в разработке",
-            QMessageBox.StandardButton.Ok
-        )
-
     def open_about_settings(self):
+        """Открывает раздел 'О программе'"""
         QMessageBox.information(
             self,
             "О PixelDeck",
-            "Версия програмыы — 0.1.75-beta",
+            "Раздел информации о программе в разработке",
+            QMessageBox.StandardButton.Ok
+        )
+
+    def open_tools_settings(self):
+        """Открывает раздел инструментов разработчика"""
+        QMessageBox.information(
+            self,
+            "Инструменты отладки",
+            "Раздел инструментов разработчика в разработке",
             QMessageBox.StandardButton.Ok
         )
 
     def open_system_settings(self):
         """Открывает окно системных настроек"""
-        # Заменяем на временное решение
         QMessageBox.information(
             self,
             "Общие",
@@ -928,9 +1011,9 @@ class MainWindow(QMainWindow):
 
     def update_hints(self):
         """Обновляет подсказки в зависимости от текущего слоя"""
-        if self.current_layer == 0:  # MAIN
+        if self.current_layer == NavigationLayer.MAIN:
             hints = "↓: Настройки  |  A: Запустить  |  Y: Поиск  |  B: Назад"
-        elif self.current_layer == 1:  # SETTINGS
+        elif self.current_layer == NavigationLayer.SETTINGS:
             hints = "↑: Главный экран  |  ←/→: Навигация  |  A: Выбрать  |  B: Назад"
         else:  # SEARCH
             hints = "B: Назад  |  Enter: Поиск  |  Стрелки: Навигация"
