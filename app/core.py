@@ -3,7 +3,7 @@ import os
 import sys
 from PyQt6.QtWidgets import QApplication
 
-APP_VERSION = "0.1.80-beta"
+APP_VERSION = "0.1.82-beta"
 USER_HOME = os.path.expanduser("~")
 
 # Определяем базовые пути
