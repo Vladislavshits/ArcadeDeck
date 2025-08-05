@@ -3,103 +3,69 @@ QMainWindow, QDialog, QWidget {
     font-family: Arial;
 }
 
-/* Добавляем прозрачный фон для всех меток */
 QLabel {
     background-color: transparent;
 }
 
-QLabel#title {
-    font-weight: bold;
-    font-size: 28px;
-}
-
-QLineEdit {
-    padding: 10px 30px;
-    font-size: 24px;
-    border-radius: 35px;
-    min-height: 70px;
-    min-width: 0;
-}
-
-QListWidget {
+/* ОБЩИЕ СТИЛИ ДЛЯ ОКОН И ДИАЛОГОВ */
+QMainWindow, QDialog {
     border-radius: 12px;
-    padding: 10px;
-    font-size: 18px;
-    min-width: 0;
+    padding: 15px;
 }
 
-QListWidget::item {
-    padding: 20px;
-    border-radius: 10px;
-    margin: 8px 0;
-}
-
-/* СТИЛИ ДЛЯ КНОПКО-ПЛИТОК В ОСНОВНОМ ПРИЛОЖЕНИИ */
-QFrame#GameTile, QFrame#SettingsTile {
-    border-radius: 12px;
-    text-align: center;
-    font-size: 18px;
-    min-height: 120px;
-}
-
-.dark-theme QFrame#GameTile,
-.dark-theme QFrame#SettingsTile {
-    background-color: #252525;
-    color: white;
-    border: 2px solid #64b5f6;
-}
-
-.dark-theme QFrame#GameTile:hover,
-.dark-theme QFrame#SettingsTile:hover,
-.dark-theme QFrame#GameTile:focus,
-.dark-theme QFrame#SettingsTile:focus {
-    background-color: #353535;
-    border: 2px solid #e0e0e0;
-}
-
-.light-theme QFrame#GameTile,
-.light-theme QFrame#SettingsTile {
-    background-color: #ffffff;
-    color: #333333;
-    border: 2px solid #4285f4;
-}
-
-.light-theme QFrame#GameTile:hover,
-.light-theme QFrame#SettingsTile:hover,
-.light-theme QFrame#GameTile:focus,
-.light-theme QFrame#SettingsTile:focus {
-    background-color: #f8f8f8;
-    border: 2px solid #333;
-}
-
-/* DARK THEME */
+/* ФОНЫ ДЛЯ ТЕМНОЙ ТЕМЫ */
 .dark-theme QMainWindow,
 .dark-theme QDialog,
 .dark-theme QWidget {
-    background-color: #1b1b1b;
+    background-color: #18181A;
     color: #e0e0e0;
 }
 
-.dark-theme QLabel {
-    color: #e0e0e0;
+/* ФОНЫ ДЛЯ СВЕТЛОЙ ТЕМЫ */
+.light-theme QMainWindow,
+.light-theme QDialog,
+.light-theme QWidget {
+    background-color: #f3f3f3;
+    color: #333333;
 }
 
+/* СТИЛЬ ПОИСКОВОГО ПОЛЯ ДЛЯ ТЕМНОЙ ТЕМЫ */
 .dark-theme QLineEdit {
-    background-color: #252525;
+    background-color: #27282B;
     color: white;
-    border: 2px solid #64b5f6;
+    border: none;
+    border-radius: 16px;
+    padding: 10px 20px;
+    font-size: 24px;
 }
 
+/* СТИЛЬ ПОИСКОВОГО ПОЛЯ ДЛЯ СВЕТЛОЙ ТЕМЫ */
+.light-theme QLineEdit {
+    background-color: #ffffff;
+    color: #333333;
+    border: none;
+    border-radius: 16px;
+    padding: 10px 20px;
+    font-size: 24px;
+}
+
+/* СПИСКИ ДЛЯ ТЕМНОЙ ТЕМЫ */
 .dark-theme QListWidget {
     background-color: #252525;
     color: white;
     border: 1px solid #333;
+    border-radius: 12px;
+    padding: 10px;
+    font-size: 18px;
 }
 
 .dark-theme QListWidget::item {
     background-color: #333;
     color: white;
     border: 1px solid #444;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 8px 0;
 }
 
 .dark-theme QListWidget::item:selected {
@@ -113,43 +79,23 @@ QFrame#GameTile, QFrame#SettingsTile {
     border: 1px solid #555;
 }
 
-.dark-theme QWidget#SearchItemWidget {
-    background-color: #252525;
-    border: 1px solid #64b5f6;
-}
-
-.dark-theme QWidget#SearchItemWidget:hover {
-    background-color: #353535;
-}
-
-/* LIGHT THEME */
-.light-theme QMainWindow,
-.light-theme QDialog,
-.light-theme QWidget {
-    background-color: #f3f3f3;
-    color: #333333;
-}
-
-.light-theme QLabel {
-    color: #333333;
-}
-
-.light-theme QLineEdit {
-    background-color: #ffffff;
-    color: #333333;
-    border: 2px solid #4285f4;
-}
-
+/* СПИСКИ ДЛЯ СВЕТЛОЙ ТЕМЫ */
 .light-theme QListWidget {
     background-color: #ffffff;
     color: #333333;
     border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 10px;
+    font-size: 18px;
 }
 
 .light-theme QListWidget::item {
     background-color: #ffffff;
     color: #333333;
     border: 1px solid #eee;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 8px 0;
 }
 
 .light-theme QListWidget::item:selected {
@@ -163,56 +109,67 @@ QFrame#GameTile, QFrame#SettingsTile {
     border: 1px solid #ddd;
 }
 
-.light-theme QWidget#SearchItemWidget {
+/* ПЛИТКИ ДЛЯ ТЕМНОЙ ТЕМЫ */
+.dark-theme QFrame#GameTile,
+.dark-theme QFrame#SettingsTile {
+    border-radius: 12px;
+    text-align: center;
+    font-size: 18px;
+    min-height: 120px;
+    background-color: #252525;
+    color: white;
+    border: 2px solid #64b5f6;
+}
+
+.dark-theme QFrame#GameTile:hover, 
+.dark-theme QFrame#SettingsTile:hover,
+.dark-theme QFrame#GameTile:focus, 
+.dark-theme QFrame#SettingsTile:focus {
+    background-color: #353535;
+    border: 2px solid #e0e0e0;
+}
+
+/* ПЛИТКИ ДЛЯ СВЕТЛОЙ ТЕМЫ */
+.light-theme QFrame#GameTile,
+.light-theme QFrame#SettingsTile {
+    border-radius: 12px;
+    text-align: center;
+    font-size: 18px;
+    min-height: 120px;
     background-color: #ffffff;
-    border: 1px solid #4285f4;
+    color: #333333;
+    border: 2px solid #4285f4;
 }
 
-.light-theme QWidget#SearchItemWidget:hover {
-    background-color: #f0f0f0;
+.light-theme QFrame#GameTile:hover, 
+.light-theme QFrame#SettingsTile:hover,
+.light-theme QFrame#GameTile:focus, 
+.light-theme QFrame#SettingsTile:focus {
+    background-color: #f8f8f8;
+    border: 2px solid #333;
 }
 
-/* Стили для кнопок выбора темы в приветственном окне */
+/* СТИЛИ ДЛЯ КНОПОК ВЫБОРА ТЕМЫ */
 QPushButton#themeButton {
     border-radius: 10px;
     font-size: 18px;
     min-height: 200px;
     min-width: 300px;
-}
-
-/* ТЕМНАЯ ТЕМА */
-.dark-theme QPushButton#themeButton {
     background-color: #252525;
-    color: white;  /* Белый текст всегда для темной темы */
+    color: white;
     border: 2px solid #64b5f6;
 }
 
-.dark-theme QPushButton#themeButton:checked {
+QPushButton#themeButton:checked {
     background-color: #64b5f6;
-    color: white;  /* Черный текст для выделенной кнопки */
+    color: white;
 }
 
-.dark-theme QPushButton#themeButton:hover {
+QPushButton#themeButton:hover {
     background-color: #353535;
 }
 
-/* СВЕТЛАЯ ТЕМА */
-.light-theme QPushButton#themeButton {
-    background-color: #ffffff;
-    color: #333333;  /* Темный текст всегда для светлой темы */
-    border: 2px solid #4285f4;
-}
-
-.light-theme QPushButton#themeButton:checked {
-    background-color: #4285f4;
-    color: black;  /* Белый текст для выделенной кнопки */
-}
-
-.light-theme QPushButton#themeButton:hover {
-    background-color: #f0f0f0;
-}
-
-/* Стили для кнопок мастера (Назад, Далее, Готово и Пропустить настройку) */
+/* СТИЛИ ДЛЯ КНОПОК МАСТЕРА */
 QWizard QPushButton {
     background-color: #4285f4;
     color: white;
@@ -231,86 +188,40 @@ QWizard QPushButton:pressed {
     background-color: #2a65c4;
 }
 
-/* Для темной темы */
-.dark-theme QWizard QPushButton {
-    background-color: #4285f4;
-    color: white;
-}
-
-.dark-theme QWizard QPushButton:hover {
-    background-color: #3a75d4;
-}
-
-.dark-theme QWizard QPushButton:pressed {
-    background-color: #2a65c4;
-}
-
-/* Для светлой темы */
-.light-theme QWizard QPushButton {
-    background-color: #4285f4;
-    color: white;
-}
-
-.light-theme QWizard QPushButton:hover {
-    background-color: #3a75d4;
-}
-
-.light-theme QWizard QPushButton:pressed {
-    background-color: #2a65c4;
-}
-
-/* Стиль для модуля обновления */
+/* СТИЛИ ДЛЯ ПРОГРЕСС-БАРА */
 QProgressDialog {
-    background-color: palette(window);
-    border: 2px solid palette(mid);
+    background-color: #252525;
+    border: 2px solid #64b5f6;
     border-radius: 10px;
 }
 
 QProgressDialog QLabel {
     font-size: 16px;
-    color: palette(text);
+    color: #e0e0e0;
 }
 
 QProgressDialog QProgressBar {
     min-height: 20px;
     border-radius: 10px;
-    background-color: palette(base);
-    border: 1px solid palette(mid);
+    background-color: #1b1b1b;
+    border: 1px solid #333;
 }
 
 QProgressDialog QProgressBar::chunk {
-    background-color: palette(highlight);
+    background-color: #64b5f6;
     border-radius: 10px;
 }
 
-.dark-theme QProgressDialog {
-    background-color: #252525;
-    border-color: #64b5f6;
-}
-
-.light-theme QProgressDialog {
-    background-color: #ffffff;
-    border-color: #4285f4;
-}
-
+/* СТИЛИ ДЛЯ ОБЫЧНЫХ КНОПОК */
 QPushButton {
     min-height: 40px;
     min-width: 120px;
     border-radius: 8px;
     font-size: 16px;
     padding: 8px 16px;
-}
-
-.dark-theme QPushButton {
     background-color: #4285f4;
     color: white;
     border: 1px solid #64b5f6;
-}
-
-.light-theme QPushButton {
-    background-color: #4285f4;
-    color: white;
-    border: 1px solid #4285f4;
 }
 
 QPushButton:hover {
@@ -321,93 +232,116 @@ QPushButton:pressed {
     background-color: #2a65c4;
 }
 
+/* СТИЛИ ДЛЯ ТЕКСТОВЫХ ПОЛЕЙ */
 QTextEdit {
     border-radius: 8px;
     font-size: 14px;
     padding: 8px;
-}
-
-.dark-theme QTextEdit {
     background-color: #252525;
     color: white;
 }
 
-.light-theme QTextEdit {
-    background-color: white;
-    color: #333333;
+/* СПЕЦИФИЧЕСКИЕ СТИЛИ ДЛЯ РЕЗУЛЬТАТОВ ПОИСКА */
+#searchResultsList {
+    background-color: #252525;
+    border: 1px solid #333;
+    border-radius: 10px;
 }
 
-/* Стили кнопок-плиток настроек */
-#SettingsTile {
-    background-color: rgba(50, 50, 50, 150);
-    border: 1px solid #555;
+/* СТИЛИ ДЛЯ ПЛАГИНОВ НАСТРОЕК */
+#PluginContainer {
     border-radius: 15px;
-    color: white;
-    text-align: center;
-    font-size: 18px;
-    font-weight: bold;
-    padding: 0;
-    margin: 5px;
+    padding: 20px;
 }
 
-#SettingsTile:hover {
-    background-color: rgba(70, 70, 70, 200);
-    border-color: #777;
-}
-
-#SettingsTile:pressed {
-    background-color: rgba(100, 100, 100, 200);
-}
-
-.dark-theme #SettingsTile {
+.dark-theme #PluginContainer {
     background-color: #252525;
     border: 2px solid #64b5f6;
-    color: white;
 }
 
-.dark-theme #SettingsTile:hover {
-    background-color: #353535;
-    border: 2px solid #e0e0e0;
-}
-
-.light-theme #SettingsTile {
+.light-theme #PluginContainer {
     background-color: #ffffff;
     border: 2px solid #4285f4;
+}
+
+/* Стили для заголовка плагина */
+#PluginTitle {
+    font-size: 24px;
+    font-weight: bold;
+    padding: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid palette(mid);
+}
+
+.dark-theme #PluginTitle {
+    color: #e0e0e0;
+}
+
+.light-theme #PluginTitle {
     color: #333333;
 }
 
-.light-theme #SettingsTile:hover {
-    background-color: #f8f8f8;
-    border: 2px solid #333;
+/* Стили для кнопки "Назад" */
+#BackButton {
+    font-size: 18px;
+    padding: 10px 20px;
+    border-radius: 10px;
 }
 
-/* Стили для фокусированных кнопок */
-QPushButton:focus {
-    border: 2px solid white;
-    outline: none;
+.dark-theme #BackButton {
+    background-color: #4285f4;
+    color: white;
+    border: 1px solid #64b5f6;
 }
 
-.dark-theme QPushButton:focus {
-    border: 2px solid white;
-    background-color: #353535;
+.light-theme #BackButton {
+    background-color: #4285f4;
+    color: white;
+    border: 1px solid #4285f4;
 }
 
-.light-theme QPushButton:focus {
-    border: 2px solid #4285f4;
-    background-color: #f8f8f8;
+.dark-theme #BackButton:hover {
+    background-color: #3a75d4;
 }
 
-#SettingsTile:focus {
-    border: 2px solid white !important;
-    background-color: rgba(70, 70, 70, 200);
+.light-theme #BackButton:hover {
+    background-color: #3a75d4;
 }
 
-.dark-theme #SettingsTile:focus {
-    border: 2px solid white !important;
-    background-color: #353535;
+/* Общие стили для плагинов */
+#PluginContainer QWidget {
+    font-size: 16px;
 }
 
-.light-theme #SettingsTile:focus {
-    border: 2px solid #4285f4 !important;
-    background-color: #f8f8f8;
+#PluginContainer QLabel {
+    padding: 5px;
+}
+
+#PluginContainer QRadioButton {
+    padding: 8px;
+    spacing: 10px;
+}
+
+#PluginContainer QPushButton {
+    padding: 10px 20px;
+    font-weight: bold;
+    border-radius: 5px;
+    background-color: palette(button);
+    min-height: 40px;
+}
+
+#PluginContainer QPushButton:hover {
+    background-color: palette(light);
+}
+
+#PluginContainer QProgressBar {
+    text-align: center;
+    border: 1px solid palette(mid);
+    border-radius: 5px;
+    background: palette(window);
+}
+
+#PluginContainer QProgressBar::chunk {
+    background-color: palette(highlight);
+    border-radius: 4px;
 }
