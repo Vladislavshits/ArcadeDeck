@@ -345,3 +345,9 @@ QTextEdit {
     background-color: palette(highlight);
     border-radius: 4px;
 }
+
+QFrame#ThemeButtonsFrame {
+    background-color: transparent;
+    border-radius: 10px;
+    padding: 10px;
+}
