@@ -54,6 +54,7 @@ class Updater(QObject):
         self.install_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
         self.update_channel = "stable"  # По умолчанию стабильный канал
+        self.latest_info = None
 
     def set_update_channel(self, channel):
         """Устанавливает канал обновлений (stable/beta)"""
@@ -208,11 +209,14 @@ class Updater(QObject):
             # Если найдено обновление - отправляем сигнал
             if update_info:
                 logger.info(f"Найдено обновление: {update_info['version']}")
+                self.latest_info = update_info
                 self.update_available.emit(update_info)
                 return update_info
-            
-            logger.debug("Подходящих обновлений не найдено")
-            return None
+            else:
+                self.latest_info = None
+                
+                logger.debug("Подходящих обновлений не найдено")
+                return None
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Ошибка сети при проверке обновлений: {e}")
