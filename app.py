@@ -180,7 +180,7 @@ from PyQt6.QtGui import QIcon, QFont, QPixmap, QKeyEvent
 # Импорт из нашего приложения
 from modules.ui.game_library import GameLibraryPage
 from modules.ui.game_info_page import GameInfoPage
-from app.modules.module_logic.game_scanner import is_game_installed
+from modules.module_logic.game_scanner import is_game_installed
 
 from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, THEME_FILE, GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH
 from settings import app_settings
