@@ -19,7 +19,7 @@ class AboutPage(QWidget):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
 
-        title = QLabel("О PixelDeck")
+        title = QLabel("О ArcadeDeck")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         layout.addWidget(title)

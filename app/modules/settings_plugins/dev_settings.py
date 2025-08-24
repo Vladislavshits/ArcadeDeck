@@ -2,13 +2,15 @@
 
 import time
 import platform
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QComboBox, QDialog, QTextEdit, QScrollArea
-)
-from PyQt6.QtCore import Qt, QTimer
 import logging
 import os
+from pathlib import Path
+
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout,
+    QLabel, QPushButton, QComboBox, QDialog, QTextEdit, QScrollArea, QRadioButton
+)
+from PyQt6.QtCore import Qt, QTimer, QProcess
 try:
     import psutil
 except ImportError:
@@ -16,8 +18,9 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 class LogViewerDialog(QDialog):
-    """Окно просмотра лог-файла."""
+    """Окно просмотра лог-файла (статическое, обновляется таймером)."""
     def __init__(self, log_path: str, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Просмотр логов")
@@ -43,8 +46,65 @@ class LogViewerDialog(QDialog):
         # скроллим вниз
         self.text.verticalScrollBar().setValue(self.text.verticalScrollBar().maximum())
 
+
+class InstallerLogDialog(QDialog):
+    """Окно, показывающее stdout/stderr процесса установки в реальном времени."""
+    def __init__(self, cmd_args: list, workdir: str = None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Установка — лог в реальном времени")
+        self.resize(900, 600)
+        self.workdir = workdir
+
+        layout = QVBoxLayout(self)
+        self.text = QTextEdit()
+        self.text.setReadOnly(True)
+        layout.addWidget(self.text)
+
+        # Процесс
+        self.proc = QProcess(self)
+        if workdir:
+            self.proc.setWorkingDirectory(workdir)
+        self.proc.readyReadStandardOutput.connect(self._on_stdout)
+        self.proc.readyReadStandardError.connect(self._on_stderr)
+        self.proc.finished.connect(self._on_finished)
+
+        try:
+            # cmd_args = ["python3", "app/modules/installer/auto_installer.py", "--mode=test"]
+            program = cmd_args[0]
+            args = cmd_args[1:]
+            self.append_line(f"[CMD] {program} {' '.join(args)}\n")
+            self.proc.start(program, args)
+        except Exception as e:
+            self.append_line(f"[ERROR] Не удалось запустить процесс: {e}")
+
+    def append_line(self, txt: str):
+        # добавляем текст и скроллим вниз
+        self.text.append(txt)
+        self.text.verticalScrollBar().setValue(self.text.verticalScrollBar().maximum())
+
+    def _on_stdout(self):
+        try:
+            out = bytes(self.proc.readAllStandardOutput()).decode('utf-8', errors='replace')
+        except Exception:
+            out = "<не удалось прочитать stdout>"
+        if out:
+            self.append_line(out)
+
+    def _on_stderr(self):
+        try:
+            err = bytes(self.proc.readAllStandardError()).decode('utf-8', errors='replace')
+        except Exception:
+            err = "<не удалось прочитать stderr>"
+        if err:
+            # выделяем ошибки красным (HTML), QTextEdit может отобразить их
+            self.append_line(f"<span style='color:red'>{err}</span>")
+
+    def _on_finished(self):
+        self.append_line("\n=== Процесс завершён ===")
+
+
 class DevSettingsPage(QWidget):
-    """Страница «Инструменты отладки»."""
+    """Страница «Инструменты отладки» с запуском инсталлятора."""
     def __init__(self, parent=None, log_path: str = "app.log"):
         super().__init__(parent)
         from datetime import datetime
@@ -54,7 +114,7 @@ class DevSettingsPage(QWidget):
 
     def init_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20,20,20,20)
+        layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
 
         # 1) Уровень логирования
@@ -62,7 +122,7 @@ class DevSettingsPage(QWidget):
         hl.addWidget(QLabel("Log Level:"))
         self.combo = QComboBox()
         self.combo.addItems(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
-        
+
         # Правильно: получаем текстовое имя уровня из целочисленного кода
         level_int = logging.getLogger().getEffectiveLevel()
         level_name = logging.getLevelName(level_int)
@@ -85,20 +145,42 @@ class DevSettingsPage(QWidget):
         self.hw_container = QWidget()
         self.hw_container.hide()
         hw_layout = QVBoxLayout(self.hw_container)
-        hw_layout.setContentsMargins(10,5,10,5)
+        hw_layout.setContentsMargins(10, 5, 10, 5)
 
         # Информация о системе
         self.lbl_steam_model = QLabel()
-        self.lbl_steamos     = QLabel()
-        self.lbl_free        = QLabel()
-        self.lbl_launch      = QLabel()
-        self.lbl_cpu         = QLabel()
-        self.lbl_mem         = QLabel()
+        self.lbl_steamos = QLabel()
+        self.lbl_free = QLabel()
+        self.lbl_launch = QLabel()
+        self.lbl_cpu = QLabel()
+        self.lbl_mem = QLabel()
         for lbl in (self.lbl_steam_model, self.lbl_steamos, self.lbl_free,
-                self.lbl_launch, self.lbl_cpu, self.lbl_mem):
+                    self.lbl_launch, self.lbl_cpu, self.lbl_mem):
             hw_layout.addWidget(lbl)
 
         layout.addWidget(self.hw_container)
+
+        # 4) --- НОВЫЙ БЛОК: запуск инсталлятора (тест/боевой) ---
+        blk = QHBoxLayout()
+        self.radio_test = QRadioButton("Тестовый режим")
+        self.radio_live = QRadioButton("Боевой режим")
+        self.radio_test.setChecked(True)
+        blk.addWidget(QLabel("Режим установки:"))
+        blk.addWidget(self.radio_test)
+        blk.addWidget(self.radio_live)
+        layout.addLayout(blk)
+
+        run_layout = QHBoxLayout()
+        self.run_btn = QPushButton("Запустить установку")
+        self.run_btn.clicked.connect(self.on_run_installer)
+        run_layout.addWidget(self.run_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        # кнопка для открытия отдельного диалога логов (несколько вариантов)
+        self.open_installer_log_btn = QPushButton("Открыть текущий лог установки")
+        self.open_installer_log_btn.clicked.connect(self.open_auto_install_log)
+        run_layout.addWidget(self.open_installer_log_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        layout.addLayout(run_layout)
 
         # Таймер для обновления stats
         self.hw_timer = QTimer(self)
@@ -121,7 +203,7 @@ class DevSettingsPage(QWidget):
         self.hw_btn.setText(f"Оборудование {'▼' if on else '▲'}")
         if on:
             self.update_hw_info()
-    
+
     def update_hw_info(self):
         # 1) Читаем кодовое название модели
         model = "неизвестна"
@@ -132,7 +214,6 @@ class DevSettingsPage(QWidget):
         ):
             if os.path.isfile(path):
                 try:
-                    # многие device-tree файлы содержат нулевой байт в конце
                     raw = open(path, "rb").read()
                     model = raw.decode('ascii', errors='ignore').rstrip('\x00').strip()
                     break
@@ -180,3 +261,24 @@ class DevSettingsPage(QWidget):
         else:
             self.lbl_cpu.setText("CPU: psutil не установлен")
             self.lbl_mem.setText("Память: psutil не установлен")
+
+    # --- Новые методы для запуска инсталлятора и логов ---
+    def on_run_installer(self):
+        """
+        Запуск автоинсталлятора в выбранном режиме.
+        Открываем окно InstallerLogDialog, который подхватывает stdout/stderr.
+        """
+        mode = "test" if self.radio_test.isChecked() else "live"
+        # передаём команду: python3 app/modules/installer/auto_installer.py --mode=test
+        cmd = ["python3", "app/modules/installer/auto_installer.py", f"--mode={mode}"]
+        workdir = str(Path(__file__).resolve().parents[3])  # корень проекта
+        dlg = InstallerLogDialog(cmd, workdir=workdir, parent=self.window())
+        dlg.exec()
+
+    def open_auto_install_log(self):
+        """
+        Открывает статическое окно просмотра файла logs/auto_install.log (в реальном времени обновляет содержимое).
+        """
+        logpath = str(Path(__file__).resolve().parents[3] / "logs" / "auto_install.log")
+        dlg = LogViewerDialog(logpath, parent=self.window())
+        dlg.exec()
