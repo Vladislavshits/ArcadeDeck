@@ -1,14 +1,17 @@
 import os
 import sys
+
 from PyQt6.QtWidgets import (
     QWizard, QWizardPage, QLabel, QVBoxLayout, QPushButton,
     QHBoxLayout, QButtonGroup, QFrame, QApplication
 )
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
+
 from settings import app_settings
 from app.ui_assets.theme_manager import theme_manager
 from core import THEME_FILE
+
 
 class WelcomeWizard(QWizard):
     def __init__(self, parent=None):
@@ -95,7 +98,9 @@ class WelcomeWizard(QWizard):
         success.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout3.addWidget(success)
 
-        wish = QLabel("Теперь вы готовы к простой эмуляции игр на Steam Deck. Удачных игр!")
+        wish = QLabel(
+                    "Теперь вы готовы к простой эмуляции игр на Steam Deck. \
+                    Удачных игр!")
         wish.setFont(QFont("Arial", 20))
         wish.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout3.addWidget(wish)

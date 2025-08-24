@@ -4,6 +4,9 @@ import sys
 import subprocess
 import traceback
 
+# Импорт модулей
+from core import VENV_PATH
+
 # Глобальный флаг для отслеживания активации
 _venv_activated = False
 
@@ -23,16 +26,9 @@ def activate_venv_in_current_process() -> None:
     """
     global _venv_activated
     try:
-        # Определяем базовую директорию проекта
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        venv_path = os.path.join(base_dir, "venv")
-        
-        if not os.path.exists(venv_path):
-            raise RuntimeError(f"Виртуальное окружение не найдено по адресу {venv_path}.")
-        
         # Для Linux (Steam Deck)
-        bin_path = os.path.join(venv_path, "bin")
-        site_packages = os.path.join(venv_path, "lib", 
+        bin_path = os.path.join(VENV_PATH, "bin")
+        site_packages = os.path.join(VENV_PATH, "lib", 
                                     f"python{sys.version_info.major}.{sys.version_info.minor}",
                                     "site-packages")
         
@@ -42,7 +38,7 @@ def activate_venv_in_current_process() -> None:
         
         # Обновляем PATH
         os.environ["PATH"] = bin_path + os.pathsep + os.environ.get("PATH", "")
-        os.environ["VIRTUAL_ENV"] = venv_path
+        os.environ["VIRTUAL_ENV"] = VENV_PATH
         
         # Устанавливаем флаг активации
         _venv_activated = True
@@ -66,9 +62,7 @@ def get_venv_python() -> str:
     """
     Возвращает полный путь к интерпретатору Python внутри виртуального окружения.
     """
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    venv_path = os.path.join(base_dir, "venv")
-    return os.path.join(venv_path, "bin", "python")
+    return os.path.join(VENV_PATH, "bin", "python")
 
 def run_in_venv(script_path: str, *args) -> None:
     """

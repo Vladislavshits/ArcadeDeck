@@ -3,7 +3,7 @@ import os
 import sys
 from PyQt6.QtWidgets import QApplication
 
-APP_VERSION = "0.1.90-beta"
+APP_VERSION = "0.1.91-beta"
 USER_HOME = os.path.expanduser("~")
 
 # Определяем базовые пути
@@ -14,7 +14,13 @@ else:
     # Для запуска из исходников
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Пути к компонентам программы
+# Пути к корню проекта
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Определяем путь к виртуальному окружению
+VENV_PATH = os.path.join(BASE_DIR, "app", "venv")
+
+# Пути к модулям программы
 CONTENT_DIR = os.path.join(BASE_DIR, "Content")
 STYLES_DIR = os.path.join(BASE_DIR, "app", "ui_assets")
 THEME_FILE = os.path.join(STYLES_DIR, "theme.qs5")
