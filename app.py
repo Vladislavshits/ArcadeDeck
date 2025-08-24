@@ -45,11 +45,11 @@ def enforce_single_instance():
     """Обеспечивает запуск только одного экземпляра приложения"""
     lock_file = os.path.join(os.path.expanduser("~"), ".pixeldeck.lock")
     lock_fd = None
-    
+
     try:
         # Открываем файл блокировки
         lock_fd = open(lock_file, 'w+')
-        
+
         # Пытаемся установить эксклюзивную блокировку
         try:
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -57,26 +57,26 @@ def enforce_single_instance():
             # Обрабатываем только ошибки блокировки
             if e.errno not in (errno.EAGAIN, errno.EWOULDBLOCK):
                 raise
-                
+
             # Читаем PID из файла
             lock_fd.seek(0)
             pid_str = lock_fd.read().strip()
-            
+
             # Проверяем существование процесса
             if pid_str and pid_str.isdigit():
                 pid = int(pid_str)
                 if is_process_running(pid):
                     return False, pid
-            
+
             # Если процесс не существует - продолжаем попытку
             logger.warning("Обнаружен lock-файл от несуществующего процесса")
-        
+
         # Записываем PID текущего процесса
         lock_fd.seek(0)
         lock_fd.truncate()
         lock_fd.write(str(os.getpid()))
         lock_fd.flush()
-        
+
         # Регистрием очистку при выходе
         def cleanup():
             try:
@@ -87,10 +87,10 @@ def enforce_single_instance():
                     os.unlink(lock_file)
             except Exception as e:
                 logger.error(f"Ошибка очистки блокировки: {e}")
-        
+
         atexit.register(cleanup)
         return True, None
-        
+
     except Exception as e:
         logger.error(f"Ошибка установки блокировки: {e}")
         if lock_fd:
@@ -120,19 +120,19 @@ def handle_exception(exc_type, exc_value, exc_traceback):
     if issubclass(exc_type, KeyboardInterrupt):
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
         return
-    
+
     logger.error(
         "Неперехваченное исключение:",
         exc_info=(exc_type, exc_value, exc_traceback))
-    
+
     error_msg = f"{exc_type.__name__}: {exc_value}"
-    
+
     # Проверяем существование приложения
     app = QApplication.instance()
     if not app:
         logger.error("QApplication не существует, невозможно показать ошибку")
         return
-    
+
     # Попытка показать сообщение об ошибке
     try:
         # Ищем активное окно для родителя
@@ -141,7 +141,7 @@ def handle_exception(exc_type, exc_value, exc_traceback):
             if widget.isVisible():
                 parent = widget
                 break
-                
+
         QMessageBox.critical(
             parent,
             "Критическая ошибка",
@@ -155,7 +155,7 @@ sys.excepthook = handle_exception
 
 # Проверка виртуального окружения
 def is_venv_active():
-    return (hasattr(sys, 'real_prefix') or 
+    return (hasattr(sys, 'real_prefix') or
             (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix))
 
 if not is_venv_active():
@@ -176,11 +176,13 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, QObject, pyqtSignal, QEvent
 from PyQt6.QtGui import QIcon, QFont, QPixmap, QKeyEvent
+from pathlib import Path
 
-# Импорт из нашего приложения
-from modules.ui.game_library import GameLibraryPage
-from modules.ui.game_info_page import GameInfoPage
-from modules.module_logic.game_scanner import is_game_installed
+# Импорт из наших модулей установки
+from app.modules.installer.auto_installer import AutoInstaller
+from app.modules.installer.install_ui import InstallUI
+from app.modules.installer.install import InstallDialog
+from app.modules.installer.game_downloader import GameDownloader
 
 from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, THEME_FILE, GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH
 from settings import app_settings
@@ -189,6 +191,8 @@ from app.ui_assets.theme_manager import theme_manager
 from updater import Updater, UpdateDialog  # Импортируем Updater и UpdateDialog
 from navigation import NavigationController  # Импортируем NavigationController
 from navigation import NavigationLayer
+from app.modules.ui.game_info_page import GameInfoPage
+from modules.module_logic.game_scanner import is_game_installed
 
 # Модули настроек
 from app.modules.settings_plugins.about_settings import AboutPage
@@ -201,30 +205,30 @@ def safe_load_json(path, default):
         if not os.path.exists(path):
             logger.warning(f"Файл не найден: {path}")
             return default
-            
+
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read().strip()
-            
+
         if not content:
             logger.info(f"Файл пуст: {path}")
             return default
-            
+
         return json.loads(content)
-        
+
     except json.JSONDecodeError as e:
         logger.error(f"Ошибка декодирования JSON в {path}: {e}")
         # Создаем резервную копию битого файла
         backup_path = f"{path}.corrupted.{int(time.time())}"
         shutil.copyfile(path, backup_path)
         logger.info(f"Создана резервная копия: {backup_path}")
-        
+
         # Восстанавливаем исходный файл
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(default, f, ensure_ascii=False, indent=2)
-            
+
         logger.info(f"Восстановлен исходный файл: {path}")
         return default
-        
+
     except Exception as e:
         logger.error(f"Критическая ошибка при загрузке {path}: {e}")
         return default
@@ -233,13 +237,13 @@ def load_content():
     """Загружает контент из JSON-файлов с обработкой ошибок."""
 
     global GUIDES, GAMES
-    
+
     # Загрузка гайдов
     guides = safe_load_json(GUIDES_JSON_PATH, [])
-    
+
     # Загрузка игр
     games = safe_load_json(GAME_LIST_GUIDE_JSON_PATH, [])
-    
+
     logger.info(f"Загружено гайдов: {len(guides)}, игр: {len(games)}")
     return guides, games
 
@@ -249,7 +253,7 @@ def show_style_error(missing_resources):
     app = QApplication.instance()
     if not app:
         app = QApplication([])
-    
+
     error_dialog = QMessageBox()
     error_dialog.setWindowTitle("Ошибка запуска! Код #1!")
     error_dialog.setIcon(QMessageBox.Icon.Critical)
@@ -272,28 +276,29 @@ def show_style_error(missing_resources):
 def check_resources():
     """Проверяет наличие всех критических ресурсов"""
     missing = []
-    
+
     # Список обязательных файлов
     required_files = [
         THEME_FILE,
         GUIDES_JSON_PATH,
         GAME_LIST_GUIDE_JSON_PATH
     ]
-    
+
     # Проверяем каждый файл
     for path in required_files:
         if not os.path.exists(path):
             missing.append(os.path.basename(path))
             logger.error(f"Отсутствует обязательный файл: {path}")
-    
+
     # Проверяем директории
     required_dirs = [STYLES_DIR, CONTENT_DIR]
     for dir_path in required_dirs:
         if not os.path.isdir(dir_path):
             missing.append(os.path.basename(dir_path))
             logger.error(f"Отсутствует обязательная директория: {dir_path}")
-    
+
     return missing
+
 
 class MainWindow(QMainWindow):
     """Главное окно приложения с двухслойным интерфейсом"""
@@ -363,9 +368,12 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(1000, self.updater.check_for_updates)
 
     def init_ui(self):
-        from modules.ui.game_library import GameLibraryPage
+        from modules.ui.game_library import GameLibrary
         games_dir = os.path.join(BASE_DIR, "users", "games")
-        self.library_page = GameLibraryPage(games_dir, parent=self)
+        self.library_page = GameLibrary(
+            games_dir=games_dir,
+            parent=self
+        )
         self.stack.addWidget(self.library_page)
 
         # Регистрируем виджеты для каждого слоя
@@ -404,18 +412,18 @@ class MainWindow(QMainWindow):
             self.library_page.search_input_ph,
             self.library_page.add_btn_ph
         ]
-                
+
         self.navigation_controller.register_widgets(
-            NavigationLayer.MAIN, 
+            NavigationLayer.MAIN,
             main_widgets
         )
-        
+
         # Для слоя настроек: все плитки настроек
         self.navigation_controller.register_widgets(
-            NavigationLayer.SETTINGS, 
+            NavigationLayer.SETTINGS,
             self.settings_tiles
         )
-        
+
         # Устанавливаем действия для плиток настроек
         for tile in self.settings_tiles:
             if hasattr(tile, 'action'):
@@ -504,10 +512,10 @@ class MainWindow(QMainWindow):
                     # Отправляем SIGTERM для корректного завершения
                     os.kill(self.updater_process.pid, signal.SIGTERM)
                     logger.info("Отправлен SIGTERM процессу обновления")
-                    
+
                     # Даем время на завершение
                     time.sleep(0.5)
-                    
+
                     # Если процесс все еще работает, отправляем SIGKILL
                     if self.updater_process.poll() is None:
                         os.kill(self.updater_process.pid, signal.SIGKILL)
@@ -519,22 +527,24 @@ class MainWindow(QMainWindow):
 
             # Останавливаем проверку обновлений
             self.updater.stop_checking()
-            
+
             # Отключаем все сигналы
             try:
                 theme_manager.theme_changed.disconnect(self.apply_theme)
-                self.updater.update_available.disconnect(self.on_update_available)
-                self.navigation_controller.layer_changed.disconnect(self.switch_layer)
+                self.updater.update_available.disconnect(
+                    self.on_update_available)
+                self.navigation_controller.layer_changed.disconnect(
+                    self.switch_layer)
             except TypeError:
                 pass
-            
+
             # Уничтожаем дочерние объекты
             self.updater.deleteLater()
             self.navigation_controller.deleteLater()
-            
+
         except Exception as e:
             logger.error(f"Ошибка при завершении: {e}")
-        
+
         # Принудительно завершаем приложение
         logger.info("Принудительное завершение приложения")
         if hasattr(self, 'gamepad_manager'):
@@ -552,7 +562,6 @@ class MainWindow(QMainWindow):
 
         if dlg.clickedButton() is yes_btn:
             self.close()
-    #РАЗ
 
     def create_settings_layer(self):
         """Создаёт слой настроек с плитками и областью деталей"""
@@ -627,7 +636,6 @@ class MainWindow(QMainWindow):
         settings_layout.addWidget(self.settings_detail_stack, 1)
         self.stack.addWidget(settings_widget)
 
-
     def _make_tile_click_handler(self, index):
         """Возвращает функцию-обработчик клика, которая переключает стек"""
         def handler(event=None):
@@ -667,11 +675,10 @@ class MainWindow(QMainWindow):
         """Переключает между слоями"""
         self.current_layer = new_layer
 
-
         if new_layer == NavigationLayer.MAIN:
             self.stack.setCurrentIndex(0)
         elif new_layer == NavigationLayer.SETTINGS:
-            self.stack.setCurrentIndex(1)   
+            self.stack.setCurrentIndex(1)
             self.update_hints()
 
     def update_hints(self):
@@ -702,37 +709,178 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.Ok
         )
 
-    def show_game_info(self, game_data):
-        from app.modules.module_logic.game_scanner import is_game_installed
-        from modules.ui.game_info_page import GameInfoPage
+    def show_game_info(self, game):
+        """
+        Показать страницу с информацией об игре.
+        Поддерживает аргумент:
+        - dict (game_data) — используется напрямую
+        - str  (title или id) — ищется сначала в registry, затем в отсканированных играх
+        Гарантированно создаёт self.game_info_page, если его ещё нет.
+        """
+        try:
+            # --- СБРОС ПОИСКА: очистить все поисковые виджеты перед показом info-страницы ---
+            try:
+                # 1) Попытка получить ссылку на библиотечную страницу
+                lib_page = getattr(self, "library_page", None) or getattr(self, "game_library_page", None)
+                if lib_page:
+                    for attr in ("search_input_grid", "search_input_ph"):
+                        sb = getattr(lib_page, attr, None)
+                        if sb and hasattr(sb, "reset_search"):
+                            try:
+                                sb.reset_search()
+                            except Exception:
+                                pass
+                else:
+                    # 2) Фоллбек: найти все SearchBar в дереве виджетов и сбросить их
+                    try:
+                        from app.modules.ui.search_bar import SearchBar
+                        for sb in self.findChildren(SearchBar):
+                            if sb and hasattr(sb, "reset_search"):
+                                try:
+                                    sb.reset_search()
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+            except Exception:
+                # Любая ошибка при очистке поиска не должна ломать показ страницы
+                pass
 
-        if not hasattr(self, 'game_info_page'):
-            self.game_info_page = GameInfoPage(self)
-            self.game_info_page.back_callback = lambda: self.stack.setCurrentIndex(0)
-            self.game_info_page.action_callback = self.on_game_action
-            self.stack.addWidget(self.game_info_page)
+            # Быстрая валидация
+            if not game:
+                QMessageBox.warning(self, "Ошибка", "Нет данных об игре.")
+                return
 
-        installed = is_game_installed(game_data)
-        self.game_info_page.set_game(game_data, is_installed=installed)
-        self.stack.setCurrentWidget(self.game_info_page)
+            # Если пришёл словарь — используем его как есть
+            game_data = None
+            if isinstance(game, dict):
+                game_data = game
+            else:
+                # Ищем по названию/ID в registry (если он есть) — используем safe_load_json
+                registry_path = os.path.join(BASE_DIR, "registry", "registry_games.json")
+                registry = safe_load_json(registry_path, [])
+                # registry может быть dict {"games": [...]} или list
+                if isinstance(registry, dict):
+                    reg_list = registry.get("games", [])
+                else:
+                    reg_list = registry or []
+
+                # Ищем по title или по id
+                game_data = next(
+                    (g for g in reg_list if (g.get("title") == game) or (g.get("id") == game)),
+                    None
+                )
+
+                # Если не нашли в реестре — попробуем скан локальных игр (scan_games)
+                if not game_data:
+                    try:
+                        from app.modules.module_logic.game_scanner import scan_games
+                        scanned = scan_games()
+                        game_data = next(
+                            (g for g in scanned if (g.get("title") == game) or (g.get("id") == game)),
+                            None
+                        )
+                    except Exception:
+                        # если сканирование упало — просто продолжаем с None
+                        logger.debug("scan_games не удался при поиске игры по названию/ID")
+
+            # Если всё ещё ничего не найдено
+            if not game_data:
+                # если же пользователь передал словарь, всё равно попытаемся использовать его
+                if isinstance(game, dict):
+                    game_data = game
+                else:
+                    QMessageBox.warning(self, "Ошибка", f"Игра '{game}' не найдена.")
+                    return
+
+            # Убедимся, что есть экземпляр game_info_page
+            if not hasattr(self, "game_info_page") or self.game_info_page is None:
+                try:
+                    # Создаем экземпляр с передачей данных
+                    self.game_info_page = GameInfoPage(game_data=game_data, parent=self)
+
+                    # Настройка колбэков
+                    self.game_info_page.back_callback = lambda: self.stack.setCurrentIndex(0)
+                    self.game_info_page.action_callback = lambda gd, installed: self.on_game_action(gd, installed)
+
+                    # Добавляем в стек виджетов
+                    if hasattr(self, "stack"):
+                        self.stack.addWidget(self.game_info_page)
+
+                except Exception:
+                    logger.exception("Не удалось создать GameInfoPage")
+                    QMessageBox.critical(self, "Ошибка", "Не удалось создать страницу информации об игре.")
+                    return
+
+            # Проверим, установлена ли игра (is_game_installed защищённый)
+            installed = False
+            try:
+                installed = bool(is_game_installed(game_data))
+            except Exception:
+                logger.exception("Ошибка при проверке установки игры")
+
+            # Установим данные в страницу (защита на случай несовместимого API)
+            try:
+                self.game_info_page.set_game(game_data, is_installed=installed)
+            except TypeError:
+                try:
+                    self.game_info_page.set_game(game_data)
+                except Exception:
+                    logger.exception("Не удалось вызвать set_game у game_info_page")
+            except Exception:
+                logger.exception("Ошибка при установке данных в game_info_page")
+
+            # Покажем страницу
+            try:
+                if hasattr(self, "stack"):
+                    self.stack.setCurrentWidget(self.game_info_page)
+                else:
+                    self.game_info_page.show()
+            except Exception:
+                logger.exception("Ошибка при отображении game_info_page")
+
+        except Exception:
+            logger.exception("Unhandled exception in MainWindow.show_game_info")
 
     def on_game_action(self, game_data, is_installed):
         if is_installed:
             self.launch_game(game_data)
         else:
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.information(self, "Установка", f"Устанавливаем {game_data['title']}")
+            self.install_game(game_data)
+
+    def install_game(self, game_data):
+        """Установка выбранной игры"""
+        logger.info(f"Начало установки игры: {game_data['title']}")
+
+        # Создаем и показываем диалог установки
+        try:
+            self.installer_dialog = InstallDialog(
+                game_data=game_data,
+                project_root=Path(BASE_DIR),
+                parent=self
+            )
+            self.installer_dialog.show()
+        except Exception as e:
+            logger.error(f"Не удалось запустить диалог установки: {e}")
+            QMessageBox.critical(self, "Ошибка установки", f"Не удалось начать установку: {e}")
 
     def on_update_available(self, update_info):
         if not self.isVisible():
             logger.warning("Главное окно закрыто, игнорируем обновление")
             return
 
-        latest_version = update_info['version']
-        changelog = update_info['release'].get("body", "Нет информации об изменениях")
-        download_url = update_info['download_url']
-        asset_name = update_info['asset_name']
-        
+        # Защита от отсутствия ключей в словаре
+        latest_version = update_info.get('version')
+        changelog = update_info.get('release', {}).get("body", "Нет информации об изменениях")
+        download_url = update_info.get('download_url')
+        asset_name = update_info.get('asset_name')
+
+        # Проверяем, что все данные для обновления получены
+        if not all([latest_version, download_url, asset_name]):
+            logger.error(f"Неполные данные об обновлении: {update_info}")
+            QMessageBox.warning(self, "Ошибка обновления", "Не удалось получить полную информацию о последней версии.")
+            return
+
         try:
             # Показываем диалог с обновлением
             dialog = UpdateDialog(
@@ -751,13 +899,15 @@ class MainWindow(QMainWindow):
             self.activateWindow()
             self.raise_()
 
+
 def check_and_show_updates(dark_theme):
     """Запускает внешний updater и возвращает объект процесса"""
     try:
-        current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        current_dir = os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__)))
         updater_path = os.path.join(BASE_DIR, "app", "updater.py")
         theme_flag = "--dark" if dark_theme else "--light"
-        
+
         process = subprocess.Popen(  # Сохраняем объект процесса
             [sys.executable, updater_path, theme_flag],
             stdout=subprocess.DEVNULL,
@@ -769,17 +919,18 @@ def check_and_show_updates(dark_theme):
         logger.error(f"Ошибка запуска updater: {e}")
         return None
 
+
 # Точка входа в приложение
 if __name__ == "__main__":
 
     # Проверка на единственный экземпляр
     lock_result, existing_pid = enforce_single_instance()
-    
+
     if not lock_result:
         if existing_pid:
             # Создаем временное приложение для диалога
             temp_app = QApplication(sys.argv)
-            
+
             # Применяем текущую тему (если возможно)
             try:
                 # Загружаем стили из файла темы
@@ -788,7 +939,7 @@ if __name__ == "__main__":
                     temp_app.setStyleSheet(stylesheet)
             except Exception as e:
                 logger.error(f"Ошибка загрузки стилей для диалога: {e}")
-            
+
             # Создаем диалоговое окно
             msg_box = QMessageBox()
             msg_box.setWindowTitle("Программа уже запущена")
@@ -796,15 +947,15 @@ if __name__ == "__main__":
                 "PixelDeck уже запущен! Проверьте панель задач.\n\n"
                 "Если программа не отвечает, вы можете принудительно перезапустить ее."
             )
-            
+
             # Добавляем кнопки
             restart_button = msg_box.addButton("Перезапустить PixelDeck", QMessageBox.ButtonRole.ActionRole)
             ok_button = msg_box.addButton("ОК", QMessageBox.ButtonRole.AcceptRole)
             msg_box.setDefaultButton(ok_button)
-            
+
             # Показываем диалог
             msg_box.exec()
-            
+
             # Обработка выбора
             if msg_box.clickedButton() == restart_button:
                 logger.info(f"Пользователь выбрал перезапуск. Завершаем процесс {existing_pid}...")
@@ -815,12 +966,12 @@ if __name__ == "__main__":
                     time.sleep(2)
                 except Exception as e:
                     logger.error(f"Ошибка при завершении процесса: {e}")
-                
+
                 # Определяем путь к скрипту PixelDeck.sh (в корне проекта)
-                # BASE_DIR - это директория, в которой находится app.py (т.е. app/)
+                # BASE_DIR - это директория проекта
                 project_root = os.path.dirname(BASE_DIR)
                 script_path = os.path.join(project_root, "PixelDeck.sh")
-                
+
                 if not os.path.exists(script_path):
                     logger.error(f"Скрипт запуска не найден: {script_path}")
                     # Покажем сообщение об ошибке?
@@ -832,27 +983,27 @@ if __name__ == "__main__":
                 else:
                     # Запускаем новый экземпляр программы через скрипт
                     subprocess.Popen([script_path], start_new_session=True)
-            
+
             # Завершаем временное приложение и выходим
             sys.exit(0)
         else:
             logger.error("Ошибка блокировки без указания PID")
             sys.exit(1)
-    
+
     logger.info("Запуск PixelDeck")
     logger.info(f"Версия: {APP_VERSION}")
     logger.info(f"Рабочая директория: {os.getcwd()}")
-    
+
     try:
         os.makedirs(STYLES_DIR, exist_ok=True)
         os.makedirs(CONTENT_DIR, exist_ok=True)
-        
+
         missing_resources = check_resources()
         if missing_resources:
             logger.critical("Отсутствуют критические ресурсы")
             show_style_error(missing_resources)
             sys.exit(1)
-        
+
         # Загружаем глобальный стиль
         try:
             with open(THEME_FILE, 'r', encoding='utf-8') as f:
@@ -861,51 +1012,51 @@ if __name__ == "__main__":
             logger.error(f"Ошибка загрузки стилей: {e}")
             show_style_error([THEME_FILE])
             sys.exit(1)
-        
+
         # Инициализация настроек ДО создания QApplication
         app_settings._ensure_settings()
         theme_name = app_settings.get_theme()
-        
+
         # Создаем приложение ОДИН РАЗ
         app = QApplication(sys.argv)
         app.setStyle("Fusion")
-        
+
         # Применяем стиль и тему
         app.setStyleSheet(global_stylesheet)
         app.setProperty("class", f"{theme_name}-theme")
-        
+
         # Инициализируем менеджер тем
         theme_manager.set_theme(theme_name)
-        
+
         # Загружаем контент
         global GUIDES, GAMES
         GUIDES, GAMES = load_content()
-        
+
         welcome_shown = app_settings.get_welcome_shown()
         dark_theme = (theme_name == 'dark')
-        
+
         if not welcome_shown:
             logger.info("Показываем приветственное окно")
             welcome = WelcomeWizard()
             welcome.center_on_screen()
             result = welcome.exec()
-            
+
             # Обновляем настройки после мастера
             app_settings.set_welcome_shown(True)
             new_theme = app_settings.get_theme()
-            
+
             # Обновляем тему приложения
             theme_manager.set_theme(new_theme)
             app.setProperty("class", f"{new_theme}-theme")
             dark_theme = (new_theme == 'dark')
-        
+
         window = MainWindow()
         window.showMaximized()
-        
+
         QTimer.singleShot(1000, lambda: check_and_show_updates(dark_theme))
-        
+
         sys.exit(app.exec())
-        
+
     except Exception as e:
         logger.exception("Критическая ошибка при запуске")
         try:
