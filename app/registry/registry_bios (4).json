@@ -1,0 +1,16 @@
+{
+  "ppsspp": {
+    "name": "PPSSPP",
+    "bios_files": [],
+    "bios_url": null,
+    "description": "Эмулятор PPSSPP не требует BIOS-файлов. Эта запись оставлена для единообразия и будущих нужд."
+  },
+  "PS2": {
+    "name": "PlayStation 2",
+    "bios_files": [
+      "SCPH-70004_BIOS_V12_PAL_20040301.bin",
+      "SCPH-70004_BIOS_V12_NTSC_20040301.bin"
+    ],
+    "bios_url": "https://example.com/ps2_bios.zip"
+  }
+}
