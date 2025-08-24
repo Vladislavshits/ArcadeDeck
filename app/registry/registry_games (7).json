@@ -1,0 +1,55 @@
+[
+  {
+    "id": "god_of_war",
+    "title": "God of War: Chains of Olympus",
+    "platform": "PSP",
+    "preferred_emulator": "ppsspp",
+    "image_path": "images/system_placeholder.png",
+    "description": "Спартанский воин Кратос в новой эпической миссии на PSP.",
+    "torrent_url": "magnet:?xt=urn:btih:XYOOPANGQAY755BUZSUIX6NEANS3HYUY&dn=God_of_War_Chain_of_Olympus_rus.rar&xl=1227017198&tr=http%3A%2F%2Fbt.allfon.net%3A2710%2F00000001bede029f43885652fc4c552b%2Fannounce",
+    "preset": "god_of_war.json",
+    "size_bytes": 1800000000
+  },
+    {
+    "id": "god_of_war_ghost_of_sparta",
+    "title": "God of War: Ghost of Sparta",
+    "platform": "PSP",
+    "preferred_emulator": "ppsspp",
+    "image_path": "images/system_placeholder.png",
+    "description": "Кратос — спартанский генерал, герой Олимпа, победитель Ареса, новый бог войны… В PSP-продолжении самого зрелищного экшена Кратоса ждут новые битвы и долгожданный ответ на самый важный вопрос: «В чем причина кошмаров, которые мучают Призрака Спарты?»",
+    "torrent_url": "magnet:?xt=urn:btih:413194e830af6050df0533ef0cf4ccad013b11dd&dn=God_of_War_Ghost_of_Sparta_rus.rar&tr=http%3A%2F%2Fbt.allfon.net%3A2710%2F0000000117a2eb0c3f5cf8250a06c4ff%2Fannounce&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F",
+    "preset": "god_of_war_ghost_of_sparta.json",
+    "size_bytes": 1800000000
+  },
+    {
+    "id": "birnout_legends",
+    "title": "Birnout: Legends",
+    "platform": "PSP",
+    "preferred_emulator": "ppsspp",
+    "image_path": "images/system_placeholder.png",
+    "description": "Забудь о плавных гонках — здесь главное не прийти первым, а как можно эффектнее разнести соперников! Игра насыщена режимами, от классических гонок и испытаний на время до фирменного Crash Mode, где тебе нужно устроить самую масштабную аварию.",
+    "torrent_url": "magnet:?xt=urn:btih:02217ce072bd94492c6370286d3896fdad4c068c&dn=Burnout_Legends.rar&tr=http%3A%2F%2Fbt.allfon.net%3A2710%2F00000001e9c36733ed083cbd58052bc7%2Fannounce&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F",
+    "preset": "god_of_war.json",
+    "size_bytes": 1800000000
+  },
+    {
+    "id": "nfs_carbon_OTC",
+    "title": "Need for Speed Carbon: Own the City",
+    "platform": "PSP",
+    "preferred_emulator": "ppsspp",
+    "image_path": "images/system_placeholder.png",
+    "description": "Стальные красавицы сверкают хромом у стартовой черты. Моторы соревнуются в громкости. Гитарными струнами натянуты нервы. Взмах изящной женской ручки — и все участники с бешеной скоростью срываются в стремительный полет, оставляя лишь дымный след от раскаленных шин. Молнией проскакивая квартал за кварталом, забудьте неуверенность и страх. В вашей власти нечеловеческая мощь, сотни лошадей под блестящим капотом! С их помощью вы докажете свое право именоваться королем дорог в новом эпизоде автомобильной саги Need for Speed.",
+    "torrent_url": "magnet:?xt=urn:btih:04ba50b3ea1aafeaf91cb709923288d87025ac3c&dn=Need_for_Speed_Carbon_Own_the_City.rar&tr=http%3A%2F%2Fbt.allfon.net%3A2710%2F00000001fda3ab57db6cb74d5b0cd95f%2Fannounce&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F",
+    "preset": "god_of_war.json",
+    "size_bytes": 1800000000
+  },
+  {
+    "id": "uncharted_golden_abyss",
+    "title": "Uncharted: Golden Abyss",
+    "platform": "PS_Vita",
+    "preferred_emulator": "vita3k",
+    "torrent_url": "https://example.com/uncharted.torrent",
+    "description": "на фоне революционных событий в Центральной Америке главный герой Нейтан Дрейк оказывается втянут в загадочную историю о таинственной гибели испанской исследовательской экспедиции. Герой начинает расследование и открывает секреты древней испанской секты, приближаясь к нахождению легендарного затерянного города, находящегося на краю Золотой Бездны.",
+    "size_bytes": 234567890
+  }
+]
