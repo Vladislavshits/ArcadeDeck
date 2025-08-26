@@ -100,6 +100,7 @@ def enforce_single_instance():
                 pass
         return False, None
 
+
 # Проверка активности процесса по PID
 def is_process_running(pid):
     try:
@@ -199,6 +200,7 @@ from app.modules.settings_plugins.about_settings import AboutPage
 from modules.settings_plugins.dev_settings import DevSettingsPage
 from modules.settings_plugins.appearance_settings import AppearanceSettingsPage
 
+
 # Безопасная загрузка JSON
 def safe_load_json(path, default):
     try:
@@ -233,6 +235,7 @@ def safe_load_json(path, default):
         logger.error(f"Критическая ошибка при загрузке {path}: {e}")
         return default
 
+
 def load_content():
     """Загружает контент из JSON-файлов с обработкой ошибок."""
 
@@ -246,6 +249,7 @@ def load_content():
 
     logger.info(f"Загружено гайдов: {len(guides)}, игр: {len(games)}")
     return guides, games
+
 
 def show_style_error(missing_resources):
     """Показывает диалоговое окно с ошибкой отсутствия ресурсов."""
@@ -272,6 +276,7 @@ def show_style_error(missing_resources):
 
     if error_dialog.clickedButton() == download_button:
         webbrowser.open("https://github.com/Vladislavshits/PixelDeck/releases/download/v0.1.5/install.pixeldeck.sh")
+
 
 def check_resources():
     """Проверяет наличие всех критических ресурсов"""
@@ -356,7 +361,6 @@ class MainWindow(QMainWindow):
         self.current_layer = NavigationLayer.MAIN
         self.navigation_controller.switch_layer(NavigationLayer.MAIN)
         self.switch_layer(NavigationLayer.MAIN)
-
 
         # --- Темизация ---
         self.apply_theme(theme_manager.current_theme)
@@ -553,7 +557,7 @@ class MainWindow(QMainWindow):
     def confirm_exit(self, event=None):
         dlg = QMessageBox(self)
         dlg.setWindowTitle("Выход")
-        dlg.setText("Вы хотите закрыть PixelDeck?")
+        dlg.setText("Вы хотите закрыть ArcadeDeck?")
         # Убираем стандартные кнопки и добавляем свои
         dlg.setStandardButtons(QMessageBox.StandardButton.NoButton)
         yes_btn = dlg.addButton("Да", QMessageBox.ButtonRole.AcceptRole)
@@ -854,12 +858,21 @@ class MainWindow(QMainWindow):
 
         # Создаем и показываем диалог установки
         try:
-            self.installer_dialog = InstallDialog(
+            # Используем локальную переменную, чтобы избежать конфликта.
+            # Это более безопасный подход.
+            dialog = InstallDialog(
                 game_data=game_data,
                 project_root=Path(BASE_DIR),
                 parent=self
             )
-            self.installer_dialog.show()
+
+            # Запускаем диалог в модальном режиме и ждем его закрытия
+            dialog.exec() 
+
+            # ✅ Важно: после закрытия диалога безопасно удаляем его.
+            # Это предотвратит конфликт при следующем запуске.
+            dialog.deleteLater() 
+
         except Exception as e:
             logger.error(f"Не удалось запустить диалог установки: {e}")
             QMessageBox.critical(self, "Ошибка установки", f"Не удалось начать установку: {e}")
