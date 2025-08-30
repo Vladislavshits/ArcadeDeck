@@ -100,7 +100,6 @@ def enforce_single_instance():
                 pass
         return False, None
 
-
 # Проверка активности процесса по PID
 def is_process_running(pid):
     try:
@@ -181,7 +180,6 @@ from pathlib import Path
 
 # Импорт из наших модулей установки
 from app.modules.installer.auto_installer import AutoInstaller
-from app.modules.installer.install_ui import InstallUI
 from app.modules.installer.install import InstallDialog
 from app.modules.installer.game_downloader import GameDownloader
 
@@ -199,7 +197,6 @@ from modules.module_logic.game_scanner import is_game_installed
 from app.modules.settings_plugins.about_settings import AboutPage
 from modules.settings_plugins.dev_settings import DevSettingsPage
 from modules.settings_plugins.appearance_settings import AppearanceSettingsPage
-
 
 # Безопасная загрузка JSON
 def safe_load_json(path, default):
@@ -235,7 +232,6 @@ def safe_load_json(path, default):
         logger.error(f"Критическая ошибка при загрузке {path}: {e}")
         return default
 
-
 def load_content():
     """Загружает контент из JSON-файлов с обработкой ошибок."""
 
@@ -249,7 +245,6 @@ def load_content():
 
     logger.info(f"Загружено гайдов: {len(guides)}, игр: {len(games)}")
     return guides, games
-
 
 def show_style_error(missing_resources):
     """Показывает диалоговое окно с ошибкой отсутствия ресурсов."""
@@ -276,7 +271,6 @@ def show_style_error(missing_resources):
 
     if error_dialog.clickedButton() == download_button:
         webbrowser.open("https://github.com/Vladislavshits/PixelDeck/releases/download/v0.1.5/install.pixeldeck.sh")
-
 
 def check_resources():
     """Проверяет наличие всех критических ресурсов"""
@@ -362,6 +356,7 @@ class MainWindow(QMainWindow):
         self.navigation_controller.switch_layer(NavigationLayer.MAIN)
         self.switch_layer(NavigationLayer.MAIN)
 
+
         # --- Темизация ---
         self.apply_theme(theme_manager.current_theme)
         theme_manager.theme_changed.connect(self.apply_theme)
@@ -372,7 +367,21 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(1000, self.updater.check_for_updates)
 
     def init_ui(self):
-        from modules.ui.game_library import GameLibrary
+        # Проверьте правильность импорта
+        try:
+            from app.modules.ui.game_library import GameLibrary
+        except ImportError:
+            from modules.ui.game_library import GameLibrary
+        
+        games_dir = os.path.join(BASE_DIR, "users", "games")
+        print(f"[MAIN] Games directory: {games_dir}")
+        print(f"[MAIN] Directory exists: {os.path.exists(games_dir)}")
+        
+        self.library_page = GameLibrary(
+            games_dir=games_dir,
+            parent=self
+        )
+        self.stack.addWidget(self.library_page)
         games_dir = os.path.join(BASE_DIR, "users", "games")
         self.library_page = GameLibrary(
             games_dir=games_dir,
@@ -557,7 +566,7 @@ class MainWindow(QMainWindow):
     def confirm_exit(self, event=None):
         dlg = QMessageBox(self)
         dlg.setWindowTitle("Выход")
-        dlg.setText("Вы хотите закрыть ArcadeDeck?")
+        dlg.setText("Вы хотите закрыть PixelDeck?")
         # Убираем стандартные кнопки и добавляем свои
         dlg.setStandardButtons(QMessageBox.StandardButton.NoButton)
         yes_btn = dlg.addButton("Да", QMessageBox.ButtonRole.AcceptRole)
@@ -858,21 +867,12 @@ class MainWindow(QMainWindow):
 
         # Создаем и показываем диалог установки
         try:
-            # Используем локальную переменную, чтобы избежать конфликта.
-            # Это более безопасный подход.
-            dialog = InstallDialog(
+            self.installer_dialog = InstallDialog(
                 game_data=game_data,
                 project_root=Path(BASE_DIR),
                 parent=self
             )
-
-            # Запускаем диалог в модальном режиме и ждем его закрытия
-            dialog.exec() 
-
-            # ✅ Важно: после закрытия диалога безопасно удаляем его.
-            # Это предотвратит конфликт при следующем запуске.
-            dialog.deleteLater() 
-
+            self.installer_dialog.show()
         except Exception as e:
             logger.error(f"Не удалось запустить диалог установки: {e}")
             QMessageBox.critical(self, "Ошибка установки", f"Не удалось начать установку: {e}")
