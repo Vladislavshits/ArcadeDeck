@@ -44,7 +44,7 @@ from settings import app_settings
 from app.ui_assets.theme_manager import theme_manager
 
 # Настройки пользователя
-CONFIG_DIR = os.path.join(os.path.expanduser("~"), "PixelDeck")
+CONFIG_DIR = os.path.join(os.path.expanduser("~"), "ArcadeDeck")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "updater.json")
 
 
@@ -54,7 +54,7 @@ class Updater(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent = parent
-        self.github_repo = "Vladislavshits/PixelDeck"
+        self.github_repo = "Vladislavshits/ArcadeDeck"
         self.is_beta = "beta" in APP_VERSION.lower()
         self.install_dir = os.path.dirname(
             os.path.dirname(os.path.abspath(__file__)))
@@ -122,7 +122,7 @@ class Updater(QObject):
                     if not asset['name'].endswith('.tar.gz'):
                         continue
 
-                    if "PixelDeck" in asset['name']:
+                    if "ArcadeDeck" in asset['name']:
                         # Кастомный архив
                         update_info = {
                             'release': latest_release,
