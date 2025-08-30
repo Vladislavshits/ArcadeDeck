@@ -3,7 +3,7 @@ import os
 import sys
 
 # Принудительная установка кеш-директории
-cache_root = os.path.join(os.path.expanduser("~"), "PixelDeck", "app", "caches")
+cache_root = os.path.join(os.path.expanduser("~"), "ArcadeDeck", "app", "caches")
 os.makedirs(cache_root, exist_ok=True)
 
 # Для Python 3.8+
@@ -26,7 +26,7 @@ import signal
 import errno
 
 # Настройка логирования до проверки экземпляра
-log_dir = os.path.join(os.path.expanduser("~"), "PixelDeck", "logs")
+log_dir = os.path.join(os.path.expanduser("~"), "ArcadeDeck", "logs")
 os.makedirs(log_dir, exist_ok=True)
 log_file = os.path.join(log_dir, "arcadedeck.log")
 
