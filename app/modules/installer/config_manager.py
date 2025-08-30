@@ -9,6 +9,7 @@ class ConfigManager:
         self.project_root = project_root
         self.logs_callback = logs_callback or (lambda msg: print(msg))
         self.test_mode = test_mode
+        self._cancelled = False
 
     def _log(self, message: str):
         ts = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
@@ -16,11 +17,17 @@ class ConfigManager:
         self.logs_callback(line)
 
     def apply_config(self, game_id: str, platform: str):
+        if self._cancelled:
+            return False
+            
         platform_dir = self.project_root / 'app' / 'emulators' / platform
         game_cfg = platform_dir / 'games' / f"{game_id}.json"
         default_cfg = platform_dir / 'preset_default.json'
         target_dir = self.project_root / 'users' / 'configs' / platform
         target_file = target_dir / f"{game_id}.json"
+
+        if self._cancelled:
+            return False
 
         if game_cfg.exists():
             self._log(f"📄 Найден игровой конфиг: {game_cfg}")
@@ -31,6 +38,9 @@ class ConfigManager:
             else:
                 self._log("[TEST MODE] Симуляция копирования игрового конфига")
             return True
+
+        if self._cancelled:
+            return False
 
         if default_cfg.exists():
             self._log(f"📄 Использую дефолтный конфиг: {default_cfg}")
@@ -44,3 +54,6 @@ class ConfigManager:
 
         self._log(f"⚠️ Не найден ни игровой, ни дефолтный конфиг для {platform}")
         return False
+
+    def cancel(self):
+        self._cancelled = True
