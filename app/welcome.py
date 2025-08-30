@@ -16,7 +16,7 @@ from core import THEME_FILE
 class WelcomeWizard(QWizard):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Добро пожаловать в PixelDeck!")
+        self.setWindowTitle("Добро пожаловать в ArcadeDeck!")
         self.showMaximized()
 
         # Тексты кнопок мастера
@@ -32,7 +32,7 @@ class WelcomeWizard(QWizard):
         self.page1 = QWizardPage()
         self.page1.setTitle("Добро пожаловать")
         layout1 = QVBoxLayout()
-        title = QLabel("PixelDeck")
+        title = QLabel("ArcadeDeck")
         title.setFont(QFont("Arial", 48, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout1.addWidget(title)
