@@ -1,213 +1,435 @@
 import sys
 import json
-import os
+import logging
 import time
-from typing import Dict, Optional
 from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QDialog, QVBoxLayout, QLabel,
-                           QProgressBar, QPushButton, QHBoxLayout, QMessageBox)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-import logging
+                           QProgressBar, QPushButton, QHBoxLayout, QMessageBox,
+                           QTextEdit)
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 
 # Импорты системы установки
-from .auto_installer import AutoInstaller
 from .emulator_manager import EmulatorManager
 from .bios_manager import BIOSManager
 from .config_manager import ConfigManager
 from .game_downloader import GameDownloader
+from .archive_extractor import ArchiveExtractor
+from .launch_manager import LaunchManager  # Добавляем импорт LaunchManager
 
 # Создаем основной логгер приложения
 logger = logging.getLogger('PixelDeck')
 
-
 class InstallThread(QThread):
-    """
-    Класс потока для выполнения установки в фоновом режиме.
-    """
-    # Сигналы для связи с основным потоком GUI
     progress_updated = pyqtSignal(int, str)
     finished = pyqtSignal()
     error_occurred = pyqtSignal(str)
-    stopped = pyqtSignal()
+    cancelled = pyqtSignal()
+    set_indeterminate = pyqtSignal(bool)
 
     def __init__(self, game_data: dict, install_dir: Path, project_root: Path, parent=None):
         super().__init__(parent)
         self.game_data = game_data
         self.install_dir = install_dir
         self.project_root = project_root
+        self._cancelled = False
+        self._was_cancelled = False
+        self.installed_games_file = project_root / 'users' / 'installed_games.json'
 
-        # Создаем экземпляр AutoInstaller, отключая тестовый режим
-        self.installer = AutoInstaller(
-            game_data=self.game_data,
-            install_dir=self.install_dir,
-            project_root=self.project_root,
-            test_mode=False
-        )
-        # Подключаем сигналы от installer напрямую к сигналам потока
-        self.installer.progress_updated.connect(self.progress_updated.emit)
-        self.installer.finished.connect(self.finished.emit)
-        self.installer.error_occurred.connect(self.error_occurred.emit)
+        self.emulator_manager = EmulatorManager(self.project_root, test_mode=False)
+        self.bios_manager = BIOSManager(self.project_root)
+        self.game_downloader = GameDownloader(self.game_data, self.install_dir)
+        self.archive_extractor = ArchiveExtractor(self.game_data, self.install_dir)
+        self.config_manager = ConfigManager(self.project_root)
+        self.launch_manager = LaunchManager(self.project_root)  # Создаем экземпляр LaunchManager
+
+    def get_installed_games(self):
+        """Возвращает словарь установленных игр"""
+        if self.installed_games_file.exists():
+            try:
+                with open(self.installed_games_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
 
     def run(self):
-        """Выполняет основную работу в потоке."""
         try:
-            self.installer.run()
+            # Шаг 1: Проверка и установка эмулятора
+            self.progress_updated.emit(5, "Этап 1: Проверка и установка эмулятора...")
+            if self._cancelled:
+                self._was_cancelled = True
+                return
+
+            if not self.emulator_manager.ensure_emulator(self.game_data.get('preferred_emulator')):
+                self.error_occurred.emit("Ошибка при установке эмулятора.")
+                return
+
+            if self._cancelled:
+                self._was_cancelled = True
+                return
+
+            # Шаг 2: Проверка и установка BIOS
+            self.progress_updated.emit(30, "Этап 2: Проверка и установка BIOS...")
+            if self._cancelled:
+                self._was_cancelled = True
+                return
+
+            if not self.bios_manager.ensure_bios_for_platform(self.game_data.get('platform')):
+                self.error_occurred.emit("Ошибка при установке BIOS.")
+                return
+
+            if self._cancelled:
+                self._was_cancelled = True
+                return
+
+            # Шаг 3: Скачивание игры
+            self.progress_updated.emit(50, "Этап 3: Подготовка к загрузке игры...")
+            self.set_indeterminate.emit(True)
+
+            # Подключаем сигналы game_downloader
+            self.game_downloader.progress_updated.connect(self.progress_updated)
+            self.game_downloader.finished.connect(self.on_download_finished)
+            self.game_downloader.error_occurred.connect(self.on_download_error)
+
+            # Запускаем загрузку в отдельном потоке
+            self.game_downloader.start()
+
+            # Ждем завершения загрузки
+            while self.game_downloader.isRunning() and not self._cancelled:
+                self.msleep(100)
+
+            if self._cancelled:
+                self.game_downloader.cancel()
+                self.game_downloader.wait()
+                self._was_cancelled = True
+                return
+
+            # Отключаем сигналы
+            self.game_downloader.progress_updated.disconnect(self.progress_updated)
+            self.game_downloader.finished.disconnect(self.on_download_finished)
+            self.game_downloader.error_occurred.disconnect(self.on_download_error)
+
+            if self._cancelled:
+                self._was_cancelled = True
+                return
+
+            # Шаг 4: Обработка файлов (распаковка если нужно)
+            self.set_indeterminate.emit(False)
+            self.progress_updated.emit(75, "Этап 4: Обработка скачанных файлов...")
+            if self._cancelled:
+                self._was_cancelled = True
+                return
+
+            # Подключаем сигналы archive_extractor
+            self.archive_extractor.progress_updated.connect(self.progress_updated)
+            self.archive_extractor.finished.connect(self.on_extraction_finished)
+            self.archive_extractor.error_occurred.connect(self.on_extraction_error)
+
+            # Запускаем обработку файлов
+            self.archive_extractor.start()
+
+            # Ждем завершения
+            while self.archive_extractor.isRunning() and not self._cancelled:
+                self.msleep(100)
+
+            if self._cancelled:
+                self.archive_extractor.cancel()
+                self.archive_extractor.wait()
+                self._was_cancelled = True
+                return
+
+            # Отключаем сигналы
+            self.archive_extractor.progress_updated.disconnect(self.progress_updated)
+            self.archive_extractor.finished.disconnect(self.on_extraction_finished)
+            self.archive_extractor.error_occurred.disconnect(self.on_extraction_error)
+
+            if self._cancelled:
+                self._was_cancelled = True
+                return
+
+            # Шаг 5: Конфиги
+            self.progress_updated.emit(85, "Этап 5: Установка конфигов...")
+            if self._cancelled:
+                self._was_cancelled = True
+                return
+
+            self.config_manager.apply_config(
+                self.game_data.get('id'),
+                self.game_data.get('platform')
+            )
+
+            if self._cancelled:
+                self._was_cancelled = True
+                return
+
+            # Шаг 6: Создание лаунчера и регистрация игры через LaunchManager
+            self.progress_updated.emit(90, "Этап 6: Создание ярлыка для запуска...")
+            if self._cancelled:
+                self._was_cancelled = True
+                return
+
+            # Находим файл игры
+            game_file = self.find_game_file()
+
+            if game_file and game_file.is_file():
+                # Используем LaunchManager для создания лаунчера
+                success = self.launch_manager.create_launcher(self.game_data, game_file)
+                
+                if success:
+                    # Получаем путь к созданному лаунчеру
+                    launcher_path = self.launch_manager.scripts_dir / f"{self.game_data.get('id')}.sh"
+                    
+                    # Регистрируем игру
+                    installed_games = self.get_installed_games()
+                    installed_games[self.game_data.get('id')] = {
+                        'title': self.game_data.get('title'),
+                        'platform': self.game_data.get('platform'),
+                        'install_path': str(game_file.absolute()),
+                        'launcher_path': str(launcher_path.absolute()),
+                        'install_date': time.time()
+                    }
+                    
+                    # Сохраняем реестр
+                    with open(self.installed_games_file, 'w', encoding='utf-8') as f:
+                        json.dump(installed_games, f, ensure_ascii=False, indent=2)
+                    
+                    self.progress_updated.emit(95, "✅ Лаунчер создан и игра зарегистрирована!")
+                else:
+                    self.error_occurred.emit("Не удалось создать лаунчер для игры")
+
         except Exception as e:
-            self.error_occurred.emit(str(e))
+            if not self._was_cancelled:
+                self.error_occurred.emit(f"Установка прервана из-за ошибки: {e}")
         finally:
-            self.stopped.emit()
+            self.set_indeterminate.emit(False)
+            if self._was_cancelled:
+                self.cancelled.emit()
+            self.finished.emit()
 
-    def stop(self):
-        """Метод для безопасной остановки потока."""
-        if self.installer:
-            self.installer.stop()
-
-
-class InstallValidator:
-    """Класс для валидации данных перед установкой."""
-    @staticmethod
-    def validate_game_data(game_data: Dict) -> Optional[str]:
-        required_fields = ['id', 'title', 'platform', 'torrent_url']
-        missing = [f for f in required_fields if f not in game_data]
-        if missing:
-            return f"Отсутствуют обязательные поля: {', '.join(missing)}"
-        if not isinstance(game_data['torrent_url'], str):
-            return "Некорректный формат torrent_url"
-        if not game_data['torrent_url'].startswith(('magnet:', 'http://', 'https://')):
-            return "Неподдерживаемый тип ссылки для скачивания"
-        return None
-
-    @staticmethod
-    def prepare_install_dir(platform: str, base_path: Path) -> Path:
-        install_dir = base_path / "users" / "games" / platform
+    def find_game_file(self):
+        """Находит файл игры по поддерживаемым расширениям платформы"""
         try:
-            install_dir.mkdir(parents=True, exist_ok=True)
-            if not os.access(install_dir, os.W_OK):
-                raise PermissionError("Нет прав на запись в директорию")
-            return install_dir
+            # Загружаем информацию о поддерживаемых форматах
+            registry_path = self.project_root / 'app' / 'registry' / 'registry_platforms.json'
+            with open(registry_path, 'r', encoding='utf-8') as f:
+                platforms_data = json.load(f)
+
+            platform_id = self.game_data.get('platform')
+            supported_formats = platforms_data.get(platform_id, {}).get('supported_formats', [])
+
+            logger.info(f"🔍 Поиск файлов игры для платформы {platform_id}, форматы: {supported_formats}")
+
+            # Ищем файлы с поддерживаемыми расширениями
+            game_files = []
+            for file_path in self.install_dir.iterdir():
+                if file_path.is_file() and file_path.suffix.lower() in supported_formats:
+                    game_files.append(file_path)
+                    logger.info(f"📁 Найден подходящий файл: {file_path.name}")
+
+            if game_files:
+                # Возвращаем самый большой файл (скорее всего, это образ игры)
+                result = max(game_files, key=lambda f: f.stat().st_size)
+                logger.info(f"✅ Выбран файл игры: {result.name}")
+                return result
+
+            # Если не нашли по расширениям, попробуем найти любой файл
+            all_files = [f for f in self.install_dir.iterdir() if f.is_file()]
+            if all_files:
+                result = max(all_files, key=lambda f: f.stat().st_size)
+                logger.warning(f"⚠️ Файл не по формату, но выбран: {result.name}")
+                return result
+
+            logger.error("❌ Не найдено ни одного файла в директории установки")
+            return None
+
         except Exception as e:
-            raise RuntimeError(f"Ошибка подготовки директории: {str(e)}")
+            logger.error(f"❌ Ошибка при поиске файла игры: {e}")
+            return None
+
+    def on_download_finished(self):
+        self.progress_updated.emit(70, "✅ Загрузка игры завершена!")
+
+    def on_download_error(self, error_msg):
+        self.error_occurred.emit(f"Ошибка загрузки: {error_msg}")
+
+    def on_extraction_finished(self):
+        """Обработка завершения обработки файлов"""
+        self.progress_updated.emit(80, "✅ Обработка файлов завершена!")
+
+    def on_extraction_error(self, error_msg):
+        """Обработка ошибки обработки файлов"""
+        self.error_occurred.emit(f"Ошибка обработки файлов: {error_msg}")
+
+    def cancel(self):
+        self._cancelled = True
+        self._was_cancelled = True
+        self.game_downloader.cancel()
+        self.archive_extractor.cancel()
+        self.emulator_manager.cancel()
+        self.bios_manager.cancel()
+        self.config_manager.cancel()
 
 
 class InstallDialog(QDialog):
-    """Диалог установки с индикатором прогресса."""
-
-    def __init__(self, game_data: Dict, project_root: Path, parent=None):
+    """
+    Основной диалог для отображения процесса установки.
+    """
+    def __init__(self, game_data: dict, project_root: Path, parent=None):
         super().__init__(parent)
         self.game_data = game_data
         self.project_root = project_root
+        self.dialog_is_finished = False
+        self.installation_cancelled = False
+
+        self.install_dir = self.project_root / 'users' / 'games' / self.game_data.get('platform')
+        self.install_dir.mkdir(parents=True, exist_ok=True)
+
         self.thread = None
+        self.animation_timer = QTimer()
+        self.animation_timer.timeout.connect(self.update_animation)
+        self.animation_value = 0
+        self.is_indeterminate = False
+        
+        self.init_ui()
+        self.start_installation()
+
+    def init_ui(self):
         self.setWindowTitle("Установка игры")
-        self.resize(500, 350)
-        self._init_ui()
-        self.validate_and_start()
+        self.setFixedWidth(650)
 
-    def _init_ui(self):
-        main_layout = QVBoxLayout(self)
+        layout = QVBoxLayout()
+
+        self.title_label = QLabel(f"<b>{self.game_data.get('title')}</b>", self)
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.title_label)
+
         self.status_label = QLabel("Подготовка к установке...", self)
-        main_layout.addWidget(self.status_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.status_label)
+
         self.progress_bar = QProgressBar(self)
-        self.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(self.progress_bar)
+        self.progress_bar.setValue(0)
+        layout.addWidget(self.progress_bar)
 
-        self.pause_button = QPushButton("Пауза", self)
+        self.log_output = QTextEdit(self)
+        self.log_output.setReadOnly(True)
+        # Скрываем лог-окно по умолчанию
+        self.log_output.hide()
+        layout.addWidget(self.log_output)
+
+        button_layout = QHBoxLayout()
+        # Новая кнопка для отображения/скрытия логов
+        self.show_log_button = QPushButton("Лог установки", self)
+        self.show_log_button.clicked.connect(self.toggle_log_visibility)
+        button_layout.addWidget(self.show_log_button)
+
         self.cancel_button = QPushButton("Отмена", self)
+        self.cancel_button.clicked.connect(self.on_cancel_button_clicked)
+        button_layout.addWidget(self.cancel_button)
+        layout.addLayout(button_layout)
 
-        buttons_layout = QHBoxLayout()
-        buttons_layout.addStretch(1)
-        buttons_layout.addWidget(self.pause_button)
-        buttons_layout.addWidget(self.cancel_button)
-        buttons_layout.addStretch(1)
+        self.setLayout(layout)
 
-        main_layout.addLayout(buttons_layout)
-        self.pause_button.clicked.connect(self.toggle_pause)
-        self.cancel_button.clicked.connect(self.cancel_install)
+    def start_installation(self):
+        self.thread = InstallThread(self.game_data, self.install_dir, self.project_root)
+        self.thread.progress_updated.connect(self.update_progress)
+        self.thread.error_occurred.connect(self.handle_error)
+        self.thread.finished.connect(self.on_thread_finished)
+        self.thread.cancelled.connect(self.on_thread_cancelled)
+        self.thread.set_indeterminate.connect(self.set_progress_indeterminate)
+        self.thread.start()
 
-    def on_progress_updated(self, progress: int, status: str):
-        """Обрабатывает сигнал обновления прогресса и статуса."""
-        self.progress_bar.setValue(progress)
-        self.status_label.setText(status)
+    def update_progress(self, percentage: int, message: str):
+        if not self.is_indeterminate:
+            self.progress_bar.setValue(percentage)
+        self.status_label.setText(message)
+        self.log_output.append(message)
 
-    def _handle_installation_end(self, status: str, message: str = ""):
-        """Единый метод для обработки завершения потока установки."""
-        if self.thread and self.thread.isRunning():
-            self.thread.quit()
-            self.thread.wait()
+    def set_progress_indeterminate(self, indeterminate: bool):
+        self.is_indeterminate = indeterminate
+        if indeterminate:
+            self.animation_timer.start(100)  # Обновление анимации каждые 100мс
+        else:
+            self.animation_timer.stop()
+            self.progress_bar.setValue(self.progress_bar.value())
 
-        if status == "error":
-            QMessageBox.warning(self, "Ошибка установки", f"Произошла ошибка: {message}")
-            self.show_retry_option()
-        elif status == "finished":
-            QMessageBox.information(self, "Установка завершена", "Игра успешно установлена.")
-            self.close()
-        elif status == "stopped":
-            QMessageBox.information(self, "Установка отменена", "Установка была отменена пользователем.")
-            self.close()
+    def update_animation(self):
+        # Анимация "пульсации" для неопределенного прогресса
+        self.animation_value = (self.animation_value + 5) % 100
+        self.progress_bar.setValue(self.animation_value)
 
-    def show_retry_option(self):
-        """Показывает диалог с предложением о повторной попытке."""
-        reply = QMessageBox.question(self, 'Установка завершена с ошибкой',
-                                     "Хотите попробовать еще раз?",
+    def handle_error(self, message: str):
+        self.status_label.setText("Ошибка: " + message)
+        self.log_output.append("ОШИБКА: " + message)
+        QMessageBox.critical(self, "Ошибка установки", message)
+        self.cancel_button.setEnabled(False)
+        self.show_log_button.setEnabled(False)
+        # Показываем лог при ошибке, чтобы пользователь сразу увидел детали
+        self.log_output.show()
+
+    def toggle_log_visibility(self):
+        """
+        Показывает или скрывает окно логов и подстраивает размер окна.
+        """
+        if self.log_output.isVisible():
+            self.log_output.hide()
+            self.show_log_button.setText("Показать лог")
+        else:
+            self.log_output.show()
+            self.show_log_button.setText("Скрыть лог")
+        self.adjustSize()
+
+    def on_thread_finished(self):
+        if self.installation_cancelled:
+            self.progress_bar.setValue(0)
+            self.status_label.setText("Установка отменена ❌")
+        else:
+            self.progress_bar.setValue(100)
+            self.status_label.setText("Установка завершена! ✅")
+
+        # Меняем кнопку "Отмена" на "Закрыть"
+        self.cancel_button.setText("Закрыть")
+        self.cancel_button.setEnabled(True)
+        self.dialog_is_finished = True
+        self.animation_timer.stop()
+
+    def on_thread_cancelled(self):
+        self.installation_cancelled = True
+        self.status_label.setText("Установка отменена ❌")
+        self.log_output.append("❌ Установка отменена пользователем.")
+        self.cancel_button.setText("Закрыть")
+        self.cancel_button.setEnabled(True)
+        self.dialog_is_finished = True
+        self.animation_timer.stop()
+
+    def on_cancel_button_clicked(self):
+        # Проверяем, завершена ли установка
+        if self.dialog_is_finished:
+            # Если завершена, закрываем диалог
+            self.accept()
+            return
+
+        reply = QMessageBox.question(self, "Отмена установки", "Вы уверены, что хотите отменить установку?",
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                      QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
-            self.validate_and_start()
-        else:
-            self.close()
+            self.cancel_installation()
 
-    def validate_and_start(self):
-        """Валидация и запуск установки."""
-        try:
-            if error := InstallValidator.validate_game_data(self.game_data):
-                raise ValueError(error)
-
-            install_dir = InstallValidator.prepare_install_dir(
-                self.game_data['platform'],
-                self.project_root
-            )
-
-            self.status_label.setText("Запуск установки...")
-            self.progress_bar.setValue(0)
-            self.progress_bar.setHidden(False)
-            self.cancel_button.setHidden(False)
-
-            self.thread = InstallThread(self.game_data, install_dir, self.project_root)
-
-            # Подключение сигналов потока к методам диалога.
-            self.thread.progress_updated.connect(self.on_progress_updated)
-            self.thread.finished.connect(lambda: self._handle_installation_end("finished"))
-            self.thread.error_occurred.connect(lambda msg: self._handle_installation_end("error", msg))
-            self.thread.stopped.connect(lambda: self._handle_installation_end("stopped"))
-
-            self.thread.start()
-
-        except Exception as e:
-            QMessageBox.critical(self, "Ошибка", f"Не удалось начать установку: {e}")
-            self.close()
-
-    def cancel_install(self):
-        """Безопасная отмена установки по запросу пользователя."""
+    def cancel_installation(self):
+        self.installation_cancelled = True
+        self.status_label.setText("Отмена установки...")
         if self.thread and self.thread.isRunning():
-            reply = QMessageBox.question(self, 'Отмена установки',
-                                         "Вы уверены, что хотите отменить установку?",
-                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                         QMessageBox.StandardButton.No)
-            if reply == QMessageBox.StandardButton.Yes:
-                self.status_label.setText("Отмена установки...")
-                self.thread.stop()
-                self.cancel_button.setEnabled(False)
-
-    def toggle_pause(self):
-        # Метод для паузы/возобновления установки
-        pass
+            self.thread.cancel()
+        self.cancel_button.setEnabled(False)
+        self.show_log_button.setEnabled(False)
+        self.log_output.append("❌ Запрос на отмену установки...")
+        self.animation_timer.stop()
 
     def closeEvent(self, event):
-        """Переопределяем closeEvent для обработки закрытия окна."""
         if self.thread and self.thread.isRunning():
-            reply = QMessageBox.question(self, "Отмена установки", "Вы уверены, что хотите отменить установку?",
+            reply = QMessageBox.question(self, "Отмена установки", "Установка еще выполняется. Вы уверены, что хотите выйти и отменить её?",
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.Yes:
-                self.thread.stop()
+                self.cancel_installation()
                 event.accept()
             else:
                 event.ignore()
@@ -227,5 +449,5 @@ if __name__ == "__main__":
         dialog = InstallDialog(game_data, Path(sys.argv[2]))
         dialog.exec()
     except Exception as e:
-        print(f"Ошибка: {str(e)}")
+        logger.error(f"Непредвиденная ошибка в главном приложении: {e}")
         sys.exit(1)
