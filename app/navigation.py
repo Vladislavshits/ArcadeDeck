@@ -5,7 +5,7 @@ from enum import Enum, auto
 import sdl2
 print(f"[DEBUG] Используется SDL2 версия: {sdl2.version.SDL_VERSIONNUM(2, 0, 0)}")
 
-logger = logging.getLogger('PixelDeck.Navigation')
+logger = logging.getLogger('ArcadeDeck.Navigation')
 
 class NavigationLayer(Enum):
     MAIN = auto()
