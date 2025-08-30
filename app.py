@@ -28,7 +28,7 @@ import errno
 # Настройка логирования до проверки экземпляра
 log_dir = os.path.join(os.path.expanduser("~"), "PixelDeck", "logs")
 os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, "pixeldeck.log")
+log_file = os.path.join(log_dir, "arcadedeck.log")
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -38,12 +38,12 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
-logger = logging.getLogger('PixelDeck')
+logger = logging.getLogger('ArcadeDeck')
 
 # Проверка на единственный экземпляр
 def enforce_single_instance():
     """Обеспечивает запуск только одного экземпляра приложения"""
-    lock_file = os.path.join(os.path.expanduser("~"), ".pixeldeck.lock")
+    lock_file = os.path.join(os.path.expanduser("~"), ".arcadedeck.lock")
     lock_fd = None
 
     try:
