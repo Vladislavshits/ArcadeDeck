@@ -19,6 +19,7 @@ class BIOSManager:
     def __init__(self, project_root: Path):
         self.project_root = project_root
         self.registry_path = self.project_root / 'app' / 'registry' / 'registry_bios.json'
+        self._cancelled = False
 
     def ensure_bios_for_platform(self, platform: str):
         """
@@ -31,6 +32,9 @@ class BIOSManager:
             bool: True, если BIOS не требуется или все файлы найдены.
                   False, если произошла ошибка или файлы отсутствуют.
         """
+        if self._cancelled:
+            return False
+            
         logger.info(f"🔍 Проверяю BIOS для платформы: {platform}")
 
         # Шаг 1: Проверка наличия файла реестра BIOS
@@ -83,3 +87,6 @@ class BIOSManager:
             # Здесь должна быть логика скачивания файлов
             # Пока что мы возвращаем False, чтобы сигнализировать о необходимости установки
             return False
+
+    def cancel(self):
+        self._cancelled = True
