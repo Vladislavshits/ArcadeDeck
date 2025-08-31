@@ -45,14 +45,26 @@ class GameInfoPage(QWidget):
         # Action buttons
         button_layout = QHBoxLayout()
         self.action_button = QPushButton("Играть")
+        self.delete_button = QPushButton("Удалить")
         self.back_button = QPushButton("Назад")
         button_layout.addWidget(self.action_button)
+        button_layout.addWidget(self.delete_button)
         button_layout.addWidget(self.back_button)
         layout.addLayout(button_layout)
 
         # Connect signals
         self.back_button.clicked.connect(self.on_back)
         self.action_button.clicked.connect(self.on_action)
+        self.delete_button.clicked.connect(self.on_delete)  # Подключаем удаление
+
+        # Изначально скрываем кнопку удаления
+        self.delete_button.setVisible(False)
+
+    def update_installation_status(self, is_installed):
+        """Update button based on installation status"""
+        self.is_installed = is_installed
+        self.action_button.setText("Играть" if self.is_installed else "Установить")
+        self.delete_button.setVisible(self.is_installed)
 
     def set_game(self, game_data, is_installed=False):
         """Set game data to display"""
@@ -80,10 +92,9 @@ class GameInfoPage(QWidget):
         else:
             self.cover_label.clear()
 
-        # Update action button
-        self.action_button.setText(
-            "Играть" if self.is_installed else "Установить"
-        )
+        # Update buttons
+        self.action_button.setText("Играть" if self.is_installed else "Установить")
+        self.delete_button.setVisible(self.is_installed)
 
     def on_back(self):
         """Handle back button click"""
@@ -94,6 +105,11 @@ class GameInfoPage(QWidget):
         """Handle action button click"""
         if self.action_callback:
             self.action_callback(self.game_data, self.is_installed)
+
+    def on_delete(self):
+        """Handle delete button click"""
+        if self.delete_callback:
+            self.delete_callback(self.game_data)
 
     # Properties for callbacks
     @property
@@ -111,3 +127,11 @@ class GameInfoPage(QWidget):
     @action_callback.setter
     def action_callback(self, callback):
         self._action_callback = callback
+
+    @property
+    def delete_callback(self):
+        return self._delete_callback
+
+    @delete_callback.setter
+    def delete_callback(self, callback):
+        self._delete_callback = callback
