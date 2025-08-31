@@ -3,12 +3,8 @@
     "name": "PPSSPP",
     "install_method": "flatpak",
     "flatpak_id": "org.ppsspp.PPSSPP",
-    "supported_formats": [".iso", ".cso", ".pbp", ".zip", ".7z", ".rar"]
-  },
-   "vita3k": {
-    "name": "Vita3k",
-    "install_method": "flatpak",
-    "flatpak_id": "org.vita3k.VITA3K",
-    "supported_formats": [".iso", ".cso", ".pbp", ".zip", ".7z", ".rar"]
+    "install_command": ["flatpak", "install", "--user", "-y", "org.ppsspp.PPSSPP"],
+    "supported_formats": [".iso", ".cso", ".pbp", ".zip", ".7z", ".rar"],
+    "needs_extraction": true
   }
 }
