@@ -19,9 +19,13 @@ from .launch_manager import LaunchManager  # Добавляем импорт Lau
 # Создаем основной логгер приложения
 logger = logging.getLogger('PixelDeck')
 
+
 class InstallThread(QThread):
-    progress_updated = pyqtSignal(int, str)
+
     finished = pyqtSignal()
+
+    progress_updated = pyqtSignal(int, str)
+    finished = pyqtSignal(dict)
     error_occurred = pyqtSignal(str)
     cancelled = pyqtSignal()
     set_indeterminate = pyqtSignal(bool)
@@ -178,7 +182,8 @@ class InstallThread(QThread):
                 if success:
                     # Получаем путь к созданному лаунчеру
                     launcher_path = self.launch_manager.scripts_dir / f"{self.game_data.get('id')}.sh"
-                    
+                    self.finished.emit(self.game_data)
+
                     # Регистрируем игру
                     installed_games = self.get_installed_games()
                     installed_games[self.game_data.get('id')] = {
@@ -204,7 +209,6 @@ class InstallThread(QThread):
             self.set_indeterminate.emit(False)
             if self._was_cancelled:
                 self.cancelled.emit()
-            self.finished.emit()
 
     def find_game_file(self):
         """Находит файл игры по поддерживаемым расширениям платформы"""
@@ -274,6 +278,7 @@ class InstallDialog(QDialog):
     """
     Основной диалог для отображения процесса установки.
     """
+
     def __init__(self, game_data: dict, project_root: Path, parent=None):
         super().__init__(parent)
         self.game_data = game_data
@@ -378,7 +383,7 @@ class InstallDialog(QDialog):
             self.show_log_button.setText("Скрыть лог")
         self.adjustSize()
 
-    def on_thread_finished(self):
+    def on_thread_finished(self, game_data):
         if self.installation_cancelled:
             self.progress_bar.setValue(0)
             self.status_label.setText("Установка отменена ❌")
