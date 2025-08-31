@@ -383,11 +383,6 @@ class MainWindow(QMainWindow):
         )
         self.stack.addWidget(self.library_page)
         games_dir = os.path.join(BASE_DIR, "users", "games")
-        self.library_page = GameLibrary(
-            games_dir=games_dir,
-            parent=self
-        )
-        self.stack.addWidget(self.library_page)
 
         # Регистрируем виджеты для каждого слоя
         self.register_navigation_widgets()
@@ -712,15 +707,40 @@ class MainWindow(QMainWindow):
         else:
             super().keyPressEvent(event)
 
-    def launch_game(self, game):
-        """Запускает выбранную игру"""
-        logger.info(f"Запуск игры: {game['name']}")
-        QMessageBox.information(
-            self,
-            "Запуск игры",
-            f"Запускаем {game['name']} на {game['system']}",
-            QMessageBox.StandardButton.Ok
-        )
+    def launch_game(self, game_data):
+        """Запускает выбранную игру через launcher_path"""
+        try:
+            logger.info(f"Запуск игры: {game_data.get('title', 'Unknown')}")
+            
+            # Загружаем информацию об установленных играх
+            installed_games_file = Path(BASE_DIR) / 'users' / 'installed_games.json'
+            if not installed_games_file.exists():
+                QMessageBox.warning(self, "Ошибка", "Файл installed_games.json не найден")
+                return
+                
+            with open(installed_games_file, 'r', encoding='utf-8') as f:
+                installed_games = json.load(f)
+            
+            game_id = game_data.get('id')
+            if game_id not in installed_games:
+                QMessageBox.warning(self, "Ошибка", "Игра не установлена")
+                return
+                
+            game_info = installed_games[game_id]
+            launcher_path = game_info.get('launcher_path')
+            
+            if not launcher_path or not os.path.exists(launcher_path):
+                QMessageBox.warning(self, "Ошибка", f"Лаунчер не найден: {launcher_path}")
+                return
+                
+            # Запускаем скрипт
+            import subprocess
+            subprocess.Popen(['bash', launcher_path], start_new_session=True)
+            logger.info(f"✅ Запущена игра: {game_data.get('title')}")
+            
+        except Exception as e:
+            logger.error(f"Ошибка запуска игры: {e}")
+            QMessageBox.critical(self, "Ошибка", f"Не удалось запустить игру: {e}")
 
     def show_game_info(self, game):
         """
@@ -867,15 +887,80 @@ class MainWindow(QMainWindow):
 
         # Создаем и показываем диалог установки
         try:
-            self.installer_dialog = InstallDialog(
+            installer_dialog = InstallDialog(
                 game_data=game_data,
                 project_root=Path(BASE_DIR),
                 parent=self
             )
-            self.installer_dialog.show()
+            # Просто показываем диалог, не подключаем никаких сигналов
+            installer_dialog.exec()
+            
+            # После закрытия диалога обновляем статус
+            self._update_game_status_after_installation(game_data)
+            
         except Exception as e:
             logger.error(f"Не удалось запустить диалог установки: {e}")
             QMessageBox.critical(self, "Ошибка установки", f"Не удалось начать установку: {e}")
+
+    def _update_game_status_after_installation(self, game_data):
+        """Обновляет статус игры после установки"""
+        try:
+            game_id = game_data.get('id')
+            
+            # Проверяем, установлена ли игра
+            installed_games_file = Path(BASE_DIR) / 'users' / 'installed_games.json'
+            is_installed = False
+            
+            if installed_games_file.exists():
+                with open(installed_games_file, 'r', encoding='utf-8') as f:
+                    installed_games = json.load(f)
+                    is_installed = game_id in installed_games
+            
+            # Обновляем GameInfoPage если она открыта для этой игры
+            if (hasattr(self, 'game_info_page') and 
+                self.game_info_page and 
+                self.game_info_page.game_data.get('id') == game_id):
+                self.game_info_page.update_installation_status(is_installed)
+            
+            # Обновляем библиотеку
+            if hasattr(self, 'library_page') and self.library_page:
+                self.library_page.load_games()
+                
+        except Exception as e:
+            logger.error(f"Ошибка при обновлении статуса игры: {e}")
+
+    def on_installation_complete(self, game_data):
+        """Обработчик завершения установки игры"""
+        try:
+            game_id = game_data.get('id')
+            logger.info(f"Установка завершена для игры: {game_data.get('title')}")
+            
+            # Обновляем статус игры в GameInfoPage если она открыта
+            if (hasattr(self, 'game_info_page') and 
+                self.game_info_page.game_data.get('id') == game_id):
+                self.game_info_page.update_installation_status(True)
+            
+            # Обновляем библиотеку игр
+            if hasattr(self, 'library_page'):
+                self.library_page.load_games()
+                logger.info("Библиотека игр обновлена")
+            
+            # Показываем сообщение об успехе
+            QMessageBox.information(
+                self,
+                "Установка завершена",
+                f"Игра '{game_data.get('title')}' успешно установлена!",
+                QMessageBox.StandardButton.Ok
+            )
+            
+        except Exception as e:
+            logger.error(f"Ошибка при обработке завершения установки: {e}")
+            QMessageBox.warning(
+                self,
+                "Ошибка",
+                f"Игра установлена, но произошла ошибка при обновлении интерфейса: {e}",
+                QMessageBox.StandardButton.Ok
+            )
 
     def on_update_available(self, update_info):
         if not self.isVisible():
