@@ -86,38 +86,36 @@ class EmulatorManager(QObject):
                 return True
             else:
                 self.progress_updated.emit(10, f"🔄 Установка {name} через Flatpak...")
-                install_command = emu_info.get('install_command')
-                if install_command:
-                    process = subprocess.Popen(
-                        install_command,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        text=True,
-                        bufsize=1
-                    )
+                # Добавляем флаг --noninteractive для автоматического подтверждения
+                install_command = ["flatpak", "install", "--noninteractive", "flathub", flatpak_id, "-y"]
+                
+                process = subprocess.Popen(
+                    install_command,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1
+                )
 
-                    # Чтение и отправка вывода
-                    for line in process.stdout:
-                        if self._cancelled:
-                            process.terminate()
-                            return False
-                        self.progress_updated.emit(50, line.strip())
-
-                    process.wait(timeout=300)  # Таймаут 5 минут
-                    
+                # Чтение и отправка вывода
+                for line in process.stdout:
                     if self._cancelled:
+                        process.terminate()
                         return False
-                        
-                    if process.returncode == 0:
-                        self.progress_updated.emit(100, f"✅ {name} успешно установлен.")
-                        return True
-                    else:
-                        error_msg = f"Ошибка при установке Flatpak: процесс завершился с кодом {process.returncode}"
-                        self.progress_updated.emit(0, error_msg)
-                        logger.error(error_msg)
-                        return False
+                    self.progress_updated.emit(50, line.strip())
+
+                process.wait(timeout=300)  # Таймаут 5 минут
+                
+                if self._cancelled:
+                    return False
+                    
+                if process.returncode == 0:
+                    self.progress_updated.emit(100, f"✅ {name} успешно установлен.")
+                    return True
                 else:
-                    logger.error(f"❌ Команда установки не найдена для эмулятора: {flatpak_id}")
+                    error_msg = f"Ошибка при установке Flatpak: процесс завершился с кодом {process.returncode}"
+                    self.progress_updated.emit(0, error_msg)
+                    logger.error(error_msg)
                     return False
         except subprocess.CalledProcessError as e:
             error_msg = f"❌ Ошибка при установке Flatpak: {e.stderr}"
