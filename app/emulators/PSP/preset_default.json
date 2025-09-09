@@ -1,0 +1,9 @@
+{
+  "graphics": {
+    "rendering_mode": "Buffered",
+    "frame_skip": 0
+  },
+  "audio": {
+    "volume": 100
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "graphics": {
+    "renderer": "Vulkan",
+    "resolution_scale": 2
+  },
+  "audio": {
+    "volume": 90
+  }
+}
