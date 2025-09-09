@@ -48,7 +48,7 @@ class AboutPage(QWidget):
                 QMessageBox.information(
                     self,
                     "Обновлений нет",
-                    "У вас уже установлена самая последняя версия PixelDeck."
+                    "У вас уже установлена самая последняя версия ArcadeDeck."
                 )
 
         QTimer.singleShot(0, handle_result)
