@@ -1,0 +1,6 @@
+{
+  "platform_aliases": {
+    "ppsspp": "PSP",
+    "PSP": "ppsspp"
+  }
+}
