@@ -43,6 +43,7 @@ class InstallThread(QThread):
         self.bios_manager = BIOSManager(self.project_root)
         self.game_downloader = GameDownloader(self.game_data, self.install_dir)
         self.archive_extractor = ArchiveExtractor(self.game_data, self.install_dir)
+        self.extracted_files = []
         self.config_manager = ConfigManager(self.project_root)
         self.launch_manager = LaunchManager(self.project_root)  # Создаем экземпляр LaunchManager
 
@@ -128,6 +129,7 @@ class InstallThread(QThread):
             self.archive_extractor.progress_updated.connect(self.progress_updated)
             self.archive_extractor.finished.connect(self.on_extraction_finished)
             self.archive_extractor.error_occurred.connect(self.on_extraction_error)
+            self.archive_extractor.files_extracted.connect(self.on_files_extracted)  # Новый сигнал
 
             # Запускаем обработку файлов
             self.archive_extractor.start()
@@ -146,6 +148,7 @@ class InstallThread(QThread):
             self.archive_extractor.progress_updated.disconnect(self.progress_updated)
             self.archive_extractor.finished.disconnect(self.on_extraction_finished)
             self.archive_extractor.error_occurred.disconnect(self.on_extraction_error)
+            self.archive_extractor.files_extracted.disconnect(self.on_files_extracted)
 
             if self._cancelled:
                 self._was_cancelled = True
@@ -197,6 +200,16 @@ class InstallThread(QThread):
                     # Сохраняем реестр
                     with open(self.installed_games_file, 'w', encoding='utf-8') as f:
                         json.dump(installed_games, f, ensure_ascii=False, indent=2)
+
+                    # Добавьте обновление централизованного менеджера
+                    try:
+                        from app.modules.module_logic.game_data_manager import get_game_data_manager
+                        manager = get_game_data_manager()
+                        if manager:
+                            manager.refresh()
+                            logger.info("✅ Централизованный менеджер данных обновлен")
+                    except Exception as e:
+                        logger.error(f"❌ Ошибка обновления менеджера данных: {e}")
                     
                     self.progress_updated.emit(95, "✅ Лаунчер создан и игра зарегистрирована!")
                 else:
@@ -210,6 +223,11 @@ class InstallThread(QThread):
             if self._was_cancelled:
                 self.cancelled.emit()
 
+    def on_files_extracted(self, files_list):
+        """Сохраняем список распакованных файлов"""
+        self.extracted_files = files_list
+        logger.info(f"📋 Получен список распакованных файлов: {[f.name for f in files_list]}")
+
     def find_game_file(self):
         """Находит файл игры по поддерживаемым расширениям платформы"""
         try:
@@ -219,28 +237,91 @@ class InstallThread(QThread):
                 platforms_data = json.load(f)
 
             platform_id = self.game_data.get('platform')
+
+            # Загружаем алиасы платформ
+            aliases_path = self.project_root / 'app' / 'registry' / 'registry_platform_aliases.json'
+            platform_aliases = {}
+            if aliases_path.exists():
+                try:
+                    with open(aliases_path, 'r', encoding='utf-8') as f:
+                        aliases_data = json.load(f)
+                        platform_aliases = aliases_data.get('platform_aliases', {})
+                except Exception as e:
+                    logger.warning(f"⚠️ Не удалось загрузить алиасы платформ: {e}")
+
+            # Получаем поддерживаемые форматы с учетом алиасов
             supported_formats = platforms_data.get(platform_id, {}).get('supported_formats', [])
+
+            # Если не нашли, пробуем алиасы
+            if not supported_formats and platform_id in platform_aliases:
+                alternative_id = platform_aliases[platform_id]
+                supported_formats = platforms_data.get(alternative_id, {}).get('supported_formats', [])
+                if supported_formats:
+                    logger.info(f"🔁 Использую альтернативный ID платформы: {alternative_id}")
+
+            # Fallback: если форматы все еще не найдены, используем стандартные для платформы
+            if not supported_formats:
+                platform_formats = {
+                    "PSP": [".iso", ".cso", ".pbp", ".elf"],
+                    "ppsspp": [".iso", ".cso", ".pbp", ".elf"],
+                    "PS1": [".bin", ".cue", ".img", ".mdf", ".pbp"],
+                    "duckstation": [".bin", ".cue", ".img", ".mdf", ".pbp"],
+                    "PS2": [".iso", ".bin", ".mdf", ".gz"],
+                    "pcsx2": [".iso", ".bin", ".mdf", ".gz"],
+                    "GBA": [".gba", ".agb", ".bin"],
+                    "NDS": [".nds", ".srl", ".bin"],
+                    "N64": [".n64", ".v64", ".z64", ".bin"],
+                    "SNES": [".smc", ".sfc", ".fig", ".swc"],
+                    "NES": [".nes", ".fds", ".unf", ".unif"]
+                }
+                supported_formats = platform_formats.get(platform_id, [".iso", ".bin", ".img"])
+                logger.warning(f"⚠️ Для платформы {platform_id} не найдены supported_formats, использую fallback: {supported_formats}")
 
             logger.info(f"🔍 Поиск файлов игры для платформы {platform_id}, форматы: {supported_formats}")
 
-            # Ищем файлы с поддерживаемыми расширениями
+            # Получаем ID игры для поиска соответствующих файлов
+            game_id = self.game_data.get('id', '').lower()
+            logger.info(f"🔍 Ищем файлы для игры ID: {game_id}")
+
+            # Сначала проверяем распакованные файлы
+            if self.extracted_files:
+                logger.info("🔍 Проверяем распакованные файлы...")
+                for file_path in self.extracted_files:
+                    if (file_path.is_file() and
+                        file_path.suffix.lower() in supported_formats):
+                        logger.info(f"✅ Найден распакованный файл: {file_path.name}")
+                        return file_path
+
+            # Если нет распакованных файлов или не нашли подходящий, ищем в директории
+            logger.info("🔍 Проверяем файлы в директории установки...")
             game_files = []
             for file_path in self.install_dir.iterdir():
-                if file_path.is_file() and file_path.suffix.lower() in supported_formats:
-                    game_files.append(file_path)
-                    logger.info(f"📁 Найден подходящий файл: {file_path.name}")
+                if (file_path.is_file() and
+                    file_path.suffix.lower() in supported_formats):
+
+                    # Проверяем соответствие имени файла ID игры
+                    filename_lower = file_path.name.lower()
+                    if game_id in filename_lower or any(
+                        word in filename_lower for word in game_id.split('_')
+                    ):
+                        logger.info(f"✅ Найден соответствующий файл: {file_path.name}")
+                        game_files.append(file_path)
+                    else:
+                        logger.info(f"⚠️ Файл не соответствует ID игры: {file_path.name}")
 
             if game_files:
-                # Возвращаем самый большой файл (скорее всего, это образ игры)
+                # Возвращаем самый подходящий файл (по размеру или точному соответствию)
                 result = max(game_files, key=lambda f: f.stat().st_size)
                 logger.info(f"✅ Выбран файл игры: {result.name}")
                 return result
 
-            # Если не нашли по расширениям, попробуем найти любой файл
-            all_files = [f for f in self.install_dir.iterdir() if f.is_file()]
+            # Fallback: если не нашли по соответствию, ищем любой подходящий файл
+            all_files = [f for f in self.install_dir.iterdir()
+                        if f.is_file() and f.suffix.lower() in supported_formats]
+
             if all_files:
                 result = max(all_files, key=lambda f: f.stat().st_size)
-                logger.warning(f"⚠️ Файл не по формату, но выбран: {result.name}")
+                logger.warning(f"⚠️ Точное соответствие не найдено, использую: {result.name}")
                 return result
 
             logger.error("❌ Не найдено ни одного файла в директории установки")
@@ -278,6 +359,8 @@ class InstallDialog(QDialog):
     """
     Основной диалог для отображения процесса установки.
     """
+
+    installation_finished = pyqtSignal()
 
     def __init__(self, game_data: dict, project_root: Path, parent=None):
         super().__init__(parent)
@@ -352,14 +435,14 @@ class InstallDialog(QDialog):
     def set_progress_indeterminate(self, indeterminate: bool):
         self.is_indeterminate = indeterminate
         if indeterminate:
-            self.animation_timer.start(100)  # Обновление анимации каждые 100мс
+            self.animation_timer.start(50)  # Обновление анимации каждые 50мс
         else:
             self.animation_timer.stop()
             self.progress_bar.setValue(self.progress_bar.value())
 
     def update_animation(self):
         # Анимация "пульсации" для неопределенного прогресса
-        self.animation_value = (self.animation_value + 5) % 100
+        self.animation_value = (self.animation_value + 2) % 100
         self.progress_bar.setValue(self.animation_value)
 
     def handle_error(self, message: str):
@@ -390,6 +473,7 @@ class InstallDialog(QDialog):
         else:
             self.progress_bar.setValue(100)
             self.status_label.setText("Установка завершена! ✅")
+            self.installation_finished.emit()
 
         # Меняем кнопку "Отмена" на "Закрыть"
         self.cancel_button.setText("Закрыть")
