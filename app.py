@@ -179,7 +179,6 @@ from PyQt6.QtGui import QIcon, QFont, QPixmap, QKeyEvent
 from pathlib import Path
 
 # Импорт из наших модулей установки
-from app.modules.installer.auto_installer import AutoInstaller
 from app.modules.installer.install import InstallDialog
 from app.modules.installer.game_downloader import GameDownloader
 
@@ -191,7 +190,11 @@ from updater import Updater, UpdateDialog  # Импортируем Updater и U
 from navigation import NavigationController  # Импортируем NavigationController
 from navigation import NavigationLayer
 from app.modules.ui.game_info_page import GameInfoPage
-from modules.module_logic.game_scanner import is_game_installed
+from app.modules.module_logic.game_scanner import (
+    is_game_installed,
+    get_installed_games
+)
+from app.modules.module_logic.game_data_manager import get_game_data_manager, set_game_data_manager
 
 # Модули настроек
 from app.modules.settings_plugins.about_settings import AboutPage
@@ -233,18 +236,32 @@ def safe_load_json(path, default):
         return default
 
 def load_content():
-    """Загружает контент из JSON-файлов с обработкой ошибок."""
+    """Загружает данные об играх и гайдах."""
+    logger.info("Загружаем данные...")
+    guides = []  # Заглушка, чтобы не выдавало ошибку
 
-    global GUIDES, GAMES
+    # Загружаем игры из реестра
+    with open('app/registry/registry_games.json', 'r', encoding='utf-8') as f:
+        registry_games = json.load(f)
 
-    # Загрузка гайдов
-    guides = safe_load_json(GUIDES_JSON_PATH, [])
+    # Получаем список установленных игр из манифеста
+    installed_games_map = {game['id']: game for game in get_installed_games()}
 
-    # Загрузка игр
-    games = safe_load_json(GAME_LIST_GUIDE_JSON_PATH, [])
+    final_games_list = []
+    for game in registry_games:
+        game_id = game.get('id')
+        if game_id in installed_games_map:
+            # Если игра установлена, используем полные данные из реестра
+            # и добавляем флаг is_installed
+            game['is_installed'] = True
+        else:
+            # Если не установлена
+            game['is_installed'] = False
 
-    logger.info(f"Загружено гайдов: {len(guides)}, игр: {len(games)}")
-    return guides, games
+        final_games_list.append(game)
+
+    logger.info(f"Загружено {len(final_games_list)} игр.")
+    return guides, final_games_list
 
 def show_style_error(missing_resources):
     """Показывает диалоговое окно с ошибкой отсутствия ресурсов."""
@@ -301,30 +318,24 @@ def check_resources():
 
 class MainWindow(QMainWindow):
     """Главное окно приложения с двухслойным интерфейсом"""
-
     def __init__(self):
         super().__init__()
-        self.install_dir = BASE_DIR  # Определяем директорию установки
-
-        # Инициализация процесса обновления
+        self.install_dir = BASE_DIR
         self.updater_process = None
         self.settings_tiles = []
-
-        # Настройка окна
         self.setWindowTitle("PixelDeck")
         self.setGeometry(400, 300, 1280, 800)
         self.setMinimumSize(800, 600)
         self.current_layer = NavigationLayer.MAIN
-
         icon_path = os.path.join(BASE_DIR, "app", "icon.png")
         self.setWindowIcon(QIcon(icon_path))
 
+        # Инициализируем централизованный менеджер данных
+        manager = get_game_data_manager(Path(BASE_DIR))
+        set_game_data_manager(manager)
 
-        # Центральный виджет
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-
-        # Основной layout
         self.main_layout = QVBoxLayout(central_widget)
         self.main_layout.setContentsMargins(15, 15, 15, 15)
         self.main_layout.setSpacing(10)
@@ -338,24 +349,29 @@ class MainWindow(QMainWindow):
         self.hint_label = QLabel("B: Назад")
         self.hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         hints_layout.addWidget(self.hint_label)
-
         self.main_layout.addLayout(hints_layout)
 
-        # ✅ Инициализируем контроллер навигации ДО init_ui()
         self.navigation_controller = NavigationController(self)
         self.navigation_controller.layer_changed.connect(self.switch_layer)
         self.navigation_controller.axis_moved.connect(self.handle_axis_movement)
 
         # ✅ Создаем все экраны
-        self.init_ui()                 # Слой 0: главный экран (поиск / библиотека)
-        self.create_settings_layer()   # Слой 1: настройки
+        self.init_ui()
+        self.create_settings_layer()
+
+        # ✅ НОВОЕ ИЗМЕНЕНИЕ: Создаём game_info_page и добавляем его в стек
+        self.game_info_page = GameInfoPage(parent=self)
+        self.stack.addWidget(self.game_info_page)
+
+        # ✅ НОВОЕ ИЗМЕНЕНИЕ: Настраиваем колбэки для кнопок "Назад" и "Действие"
+        self.game_info_page.back_callback = self.show_library_page
+        self.game_info_page.action_callback = self.on_game_action
 
         # ✅ Устанавливаем стартовый экран
         self.stack.setCurrentIndex(0)
         self.current_layer = NavigationLayer.MAIN
         self.navigation_controller.switch_layer(NavigationLayer.MAIN)
         self.switch_layer(NavigationLayer.MAIN)
-
 
         # --- Темизация ---
         self.apply_theme(theme_manager.current_theme)
@@ -365,6 +381,10 @@ class MainWindow(QMainWindow):
         self.updater = Updater(self)
         self.updater.update_available.connect(self.on_update_available)
         QTimer.singleShot(1000, self.updater.check_for_updates)
+
+    def show_library_page(self):
+        """Переключение на главную страницу библиотеки."""
+        self.stack.setCurrentWidget(self.library_page)
 
     def init_ui(self):
         # Проверьте правильность импорта
@@ -745,135 +765,38 @@ class MainWindow(QMainWindow):
     def show_game_info(self, game):
         """
         Показать страницу с информацией об игре.
-        Поддерживает аргумент:
-        - dict (game_data) — используется напрямую
-        - str  (title или id) — ищется сначала в registry, затем в отсканированных играх
-        Гарантированно создаёт self.game_info_page, если его ещё нет.
         """
+        # 1. Обработка сброса поиска (можно оставить, это не зависит от логики игры)
         try:
-            # --- СБРОС ПОИСКА: очистить все поисковые виджеты перед показом info-страницы ---
-            try:
-                # 1) Попытка получить ссылку на библиотечную страницу
-                lib_page = getattr(self, "library_page", None) or getattr(self, "game_library_page", None)
-                if lib_page:
-                    for attr in ("search_input_grid", "search_input_ph"):
-                        sb = getattr(lib_page, attr, None)
-                        if sb and hasattr(sb, "reset_search"):
-                            try:
-                                sb.reset_search()
-                            except Exception:
-                                pass
-                else:
-                    # 2) Фоллбек: найти все SearchBar в дереве виджетов и сбросить их
-                    try:
-                        from app.modules.ui.search_bar import SearchBar
-                        for sb in self.findChildren(SearchBar):
-                            if sb and hasattr(sb, "reset_search"):
-                                try:
-                                    sb.reset_search()
-                                except Exception:
-                                    pass
-                    except Exception:
-                        pass
-            except Exception:
-                # Любая ошибка при очистке поиска не должна ломать показ страницы
-                pass
-
-            # Быстрая валидация
-            if not game:
-                QMessageBox.warning(self, "Ошибка", "Нет данных об игре.")
-                return
-
-            # Если пришёл словарь — используем его как есть
-            game_data = None
-            if isinstance(game, dict):
-                game_data = game
-            else:
-                # Ищем по названию/ID в registry (если он есть) — используем safe_load_json
-                registry_path = os.path.join(BASE_DIR, "registry", "registry_games.json")
-                registry = safe_load_json(registry_path, [])
-                # registry может быть dict {"games": [...]} или list
-                if isinstance(registry, dict):
-                    reg_list = registry.get("games", [])
-                else:
-                    reg_list = registry or []
-
-                # Ищем по title или по id
-                game_data = next(
-                    (g for g in reg_list if (g.get("title") == game) or (g.get("id") == game)),
-                    None
-                )
-
-                # Если не нашли в реестре — попробуем скан локальных игр (scan_games)
-                if not game_data:
-                    try:
-                        from app.modules.module_logic.game_scanner import scan_games
-                        scanned = scan_games()
-                        game_data = next(
-                            (g for g in scanned if (g.get("title") == game) or (g.get("id") == game)),
-                            None
-                        )
-                    except Exception:
-                        # если сканирование упало — просто продолжаем с None
-                        logger.debug("scan_games не удался при поиске игры по названию/ID")
-
-            # Если всё ещё ничего не найдено
-            if not game_data:
-                # если же пользователь передал словарь, всё равно попытаемся использовать его
-                if isinstance(game, dict):
-                    game_data = game
-                else:
-                    QMessageBox.warning(self, "Ошибка", f"Игра '{game}' не найдена.")
-                    return
-
-            # Убедимся, что есть экземпляр game_info_page
-            if not hasattr(self, "game_info_page") or self.game_info_page is None:
-                try:
-                    # Создаем экземпляр с передачей данных
-                    self.game_info_page = GameInfoPage(game_data=game_data, parent=self)
-
-                    # Настройка колбэков
-                    self.game_info_page.back_callback = lambda: self.stack.setCurrentIndex(0)
-                    self.game_info_page.action_callback = lambda gd, installed: self.on_game_action(gd, installed)
-
-                    # Добавляем в стек виджетов
-                    if hasattr(self, "stack"):
-                        self.stack.addWidget(self.game_info_page)
-
-                except Exception:
-                    logger.exception("Не удалось создать GameInfoPage")
-                    QMessageBox.critical(self, "Ошибка", "Не удалось создать страницу информации об игре.")
-                    return
-
-            # Проверим, установлена ли игра (is_game_installed защищённый)
-            installed = False
-            try:
-                installed = bool(is_game_installed(game_data))
-            except Exception:
-                logger.exception("Ошибка при проверке установки игры")
-
-            # Установим данные в страницу (защита на случай несовместимого API)
-            try:
-                self.game_info_page.set_game(game_data, is_installed=installed)
-            except TypeError:
-                try:
-                    self.game_info_page.set_game(game_data)
-                except Exception:
-                    logger.exception("Не удалось вызвать set_game у game_info_page")
-            except Exception:
-                logger.exception("Ошибка при установке данных в game_info_page")
-
-            # Покажем страницу
-            try:
-                if hasattr(self, "stack"):
-                    self.stack.setCurrentWidget(self.game_info_page)
-                else:
-                    self.game_info_page.show()
-            except Exception:
-                logger.exception("Ошибка при отображении game_info_page")
-
+            lib_page = getattr(self, "library_page", None) or getattr(self, "game_library_page", None)
+            if lib_page and hasattr(lib_page, "search_input_grid"):
+                lib_page.search_input_grid.reset_search()
         except Exception:
-            logger.exception("Unhandled exception in MainWindow.show_game_info")
+            pass
+
+        # 2. Быстрая валидация
+        if not game:
+            QMessageBox.warning(self, "Ошибка", "Нет данных об игре.")
+            return
+
+        # 3. Передаем данные напрямую в game_info_page
+        try:
+            self.game_info_page.load_game(game)
+        except Exception as e:
+            logger.exception(f"Не удалось вызвать load_game у game_info_page: {e}")
+            QMessageBox.critical(self, "Ошибка", "Не удалось отобразить страницу информации об игре.")
+            return
+
+        # 4. Покажем страницу
+        try:
+            if hasattr(self, "stacked_widget"):
+                self.stacked_widget.setCurrentWidget(self.game_info_page)
+            elif hasattr(self, "stack"):
+                self.stack.setCurrentWidget(self.game_info_page)
+            else:
+                self.game_info_page.show()
+        except Exception as e:
+            logger.exception(f"Ошибка при отображении game_info_page: {e}")
 
     def on_game_action(self, game_data, is_installed):
         if is_installed:
