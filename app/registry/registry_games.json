@@ -22,8 +22,8 @@
     "size_bytes": 1800000000
   },
     {
-    "id": "birnout_legends",
-    "title": "Birnout: Legends",
+    "id": "burnout_legends",
+    "title": "Burnout: Legends",
     "platform": "PSP",
     "preferred_emulator": "ppsspp",
     "image_path": "images/system_placeholder.png",
