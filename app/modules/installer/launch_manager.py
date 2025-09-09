@@ -59,10 +59,36 @@ class LaunchManager:
             logger.error(f"Ошибка сохранения installed_games: {e}")
 
     def _find_launch_profile_by_name(self, emulator_name: str) -> Optional[Dict[str, Any]]:
-        """Ищет профиль запуска по имени эмулятора"""
+        """Ищет профиль запуска по имени эмулятора с поддержкой алиасов"""
+        # Сначала ищем прямое совпадение
         for profile_key, profile_data in self.launch_profiles.items():
             if profile_data.get('name') == emulator_name:
                 return profile_data
+
+        # Загружаем алиасы платформ
+        aliases_path = self.project_root / 'app' / 'registry' / 'registry_platform_aliases.json'
+        platform_aliases = {}
+        if aliases_path.exists():
+            try:
+                with open(aliases_path, 'r', encoding='utf-8') as f:
+                    aliases_data = json.load(f)
+                    platform_aliases = aliases_data.get('platform_aliases', {})
+            except Exception as e:
+                logger.warning(f"⚠️ Не удалось загрузить алиасы платформ: {e}")
+
+        # Если не нашли, пробуем алиасы
+        if emulator_name in platform_aliases:
+            alternative_id = platform_aliases[emulator_name]
+            # Ищем по альтернативному ID
+            for profile_key, profile_data in self.launch_profiles.items():
+                if profile_data.get('name') == alternative_id:
+                    logger.info(f"🔁 Использую альтернативный ID для запуска: {alternative_id}")
+                    return profile_data
+            # Или ищем по ключу профиля
+            if alternative_id in self.launch_profiles:
+                logger.info(f"🔁 Использую альтернативный ключ профиля: {alternative_id}")
+                return self.launch_profiles[alternative_id]
+
         return None
 
     def register_installed_game(self, game_data: dict, install_path: Path):
@@ -91,6 +117,12 @@ class LaunchManager:
         game_install_path: путь к установленной игре (файлу .iso, .pbp и т.д.)
         """
         try:
+            logger.info(f"🎯 Создание лаунчера для игры: {game_data.get('title')}")
+            logger.info(f"📁 Путь к игре: {game_install_path}")
+            logger.info(f"🎮 ID игры: {game_data.get('id')}")
+            logger.info(f"🕹️ Эмулятор: {game_data.get('preferred_emulator')}")
+            logger.info(f"📋 Платформа: {game_data.get('platform')}")
+
             emulator_name = game_data.get('preferred_emulator')
             platform = game_data.get('platform')
             game_id = game_data.get('id')
@@ -126,6 +158,10 @@ class LaunchManager:
 
             # Заменяем плейсхолдеры в шаблоне на реальные значения
             launch_command = command_template.format(**template_vars)
+
+            logger.info(f"🔧 Сформирована команда запуска: {launch_command}")
+            logger.info(f"📁 Config dir: {template_vars['config_dir']}")
+            logger.info(f"🎮 Game path: {template_vars['game_path']}")
 
             # Добавляем environment variables если они есть
             env_variables = profile.get('env_variables', {})
