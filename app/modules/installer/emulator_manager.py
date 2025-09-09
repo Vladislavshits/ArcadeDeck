@@ -36,7 +36,26 @@ class EmulatorManager(QObject):
         Получает информацию об эмуляторе из реестра платформ.
         Возвращает словарь с данными или None, если не найдено.
         """
-        return self.registry.get(emulator_id)
+        # Сначала проверяем прямой ключ
+        if emulator_id in self.registry:
+            return self.registry[emulator_id]
+
+        # Если не найдено, проверяем алиасы
+        aliases_path = self.project_root / "app" / "registry" / "registry_platform_aliases.json"
+        if aliases_path.exists():
+            try:
+                with open(aliases_path, 'r', encoding='utf-8') as f:
+                    aliases = json.load(f)
+                    platform_aliases = aliases.get('platform_aliases', {})
+
+                    # Ищем алиас и возвращаем соответствующую информацию
+                    if emulator_id in platform_aliases:
+                        actual_platform = platform_aliases[emulator_id]
+                        return self.registry.get(actual_platform)
+            except Exception as e:
+                logger.warning(f"⚠️ Не удалось прочитать реестр алиасов: {e}")
+
+        return None
 
     def ensure_emulator(self, emulator_id: str) -> bool:
         if self._cancelled:
