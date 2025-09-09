@@ -1,31 +1,14 @@
 import json
 import os
+import logging
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QLineEdit,
     QListWidget, QListWidgetItem
 )
 
-# Default paths for registry file
-DEFAULT_REG_PATHS = [
-    os.path.join("app", "registry", "registry_games.json"),
-    os.path.join(os.path.dirname(__file__), "..", "registry", "registry_games.json"),
-    os.path.join(os.path.dirname(__file__), "..", "..", "registry", "registry_games.json"),
-    os.path.join(os.path.abspath(os.sep), "mnt", "data", "registry_games.json"),
-]
-
-
-def find_registry_path():
-    """Find registry file path"""
-    for path in DEFAULT_REG_PATHS:
-        abs_path = os.path.abspath(path)
-        if os.path.exists(abs_path):
-            return abs_path
-    return os.path.abspath(DEFAULT_REG_PATHS[0])
-
-
-REGISTRY_PATH = find_registry_path()
-
+# Добавляем логгер
+logger = logging.getLogger('ArcadeDeck')
 
 class SearchBar(QWidget):
     """Search bar widget with auto-complete functionality"""
@@ -35,9 +18,7 @@ class SearchBar(QWidget):
     def __init__(self, open_game_info_callback=None, parent=None):
         super().__init__(parent)
         self.open_game_info_callback = open_game_info_callback
-        self.registry_games = self.load_games_from_registry()
-        self.installed_games = []
-        self.games_data = list(self.registry_games)
+        self.games_data = []
         self._init_ui()
 
     def _init_ui(self):
@@ -59,72 +40,29 @@ class SearchBar(QWidget):
         layout.addWidget(self.results_list)
         self.results_list.hide()  # Hidden by default
 
-    def load_games_from_registry(self):
-        """Load games from registry file"""
-        if not os.path.exists(REGISTRY_PATH):
-            print(f"[SearchBar] ⚠️ Не найден файл {REGISTRY_PATH}")
-            return []
-
-        try:
-            with open(REGISTRY_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-
-            # Handle different registry formats
-            if isinstance(data, dict):
-                games = data.get("games", [])
-            elif isinstance(data, list):
-                games = data
-            else:
-                print(f"[SearchBar] ❌ Неподдерживаемый формат: {type(data)}")
-                games = []
-
-            # Normalize game data
-            normalized = []
-            for game in games:
-                if not isinstance(game, dict):
-                    continue
-
-                # Ensure title exists
-                if "title" not in game:
-                    game["title"] = "Без названия"
-
-                # Ensure ID exists
-                if "id" not in game:
-                    game["id"] = game["title"].lower().replace(" ", "_")
-
-                normalized.append(game)
-
-            return normalized
-        except Exception as e:
-            print(f"[SearchBar] ❌ Ошибка чтения JSON: {e}")
-            return []
-
     def set_game_list(self, games):
-        """Set game list from external source"""
+        """Set game list from centralized manager - ВСЕ игры из реестра"""
         try:
-            self.installed_games = [
-                g for g in (games or []) if isinstance(g, dict)
-            ]
+            # Получаем ВСЕ игры из реестра (включая не установленные)
+            from app.modules.module_logic.game_data_manager import get_game_data_manager
+            manager = get_game_data_manager()
 
-            # Merge registry and installed games
-            registry_by_id = {
-                g["id"]: g for g in self.registry_games if "id" in g
-            }
-            merged = list(registry_by_id.values())
+            if manager:
+                # Используем метод для получения всех доступных игр из реестра
+                all_available_games = manager.get_all_available_games()
+                self.games_data = all_available_games
+                logger.info(f"[SearchBar] Загружено {len(all_available_games)} игр из реестра (все доступные)")
+            else:
+                # Fallback для обратной совместимости
+                self.games_data = [g for g in (games or []) if isinstance(g, dict)]
+                logger.warning("[SearchBar] Используем fallback данные игр")
 
-            # Add installed games not in registry
-            for game in self.installed_games:
-                game_id = game.get("id") or game["title"].lower().replace(" ", "_")
-                if game_id not in registry_by_id:
-                    merged.append(game)
-
-            self.games_data = merged
         except Exception as e:
-            print(f"[SearchBar] ❌ Ошибка при set_game_list: {e}")
-            self.games_data = list(self.registry_games)
+            logger.error(f"[SearchBar] Ошибка при set_game_list: {e}")
+            self.games_data = [g for g in (games or []) if isinstance(g, dict)]
 
     def on_search_text_changed(self, text):
-        """Handle search text changes"""
+        """Handle search text changes - ищем игры, которые НАЧИНАЮТСЯ с текста"""
         text = (text or "").strip().lower()
 
         # Clear results for empty query
@@ -133,10 +71,10 @@ class SearchBar(QWidget):
             self.searchUpdated.emit([])
             return
 
-        # Filter matching games
+        # Filter matching games - startsWith вместо contains
         results = [
             game for game in self.games_data
-            if text in (game.get("title") or "").lower()
+            if (game.get("title") or "").lower().startswith(text)
         ]
 
         # Update UI and emit signal
@@ -149,7 +87,14 @@ class SearchBar(QWidget):
 
         if results:
             for game in results:
-                item = QListWidgetItem(game.get("title", "Без названия"))
+                # Показываем статус установки в результатах поиска
+                title = game.get("title", "Без названия")
+                if game.get("is_installed"):
+                    title = f"✅ {title}"
+                else:
+                    title = f"⬇️ {title}"
+
+                item = QListWidgetItem(title)
                 item.setData(1000, game)
                 self.results_list.addItem(item)
             self.results_list.show()
@@ -161,7 +106,7 @@ class SearchBar(QWidget):
         game_data = item.data(1000)
         if not game_data:
             return
-            
+
         # Hide results list
         try:
             self.results_list.hide()
@@ -173,7 +118,7 @@ class SearchBar(QWidget):
             try:
                 self.open_game_info_callback(game_data)
             except Exception as e:
-                print(f"[SearchBar] Ошибка callback: {e}")
+                logger.error(f"[SearchBar] Ошибка callback: {e}")
 
     def reset_search(self):
         """Reset search state"""
@@ -190,4 +135,4 @@ class SearchBar(QWidget):
             # Notify subscribers
             self.searchUpdated.emit([])
         except Exception as e:
-            print(f"[SearchBar] Ошибка reset_search: {e}")
+            logger.error(f"[SearchBar] Ошибка reset_search: {e}")
