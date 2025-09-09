@@ -1,4 +1,7 @@
 import os
+import json
+import logging
+from pathlib import Path
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QStackedWidget,
     QLabel, QScrollArea, QFileDialog, QGridLayout, QListWidget, QListWidgetItem
@@ -9,15 +12,15 @@ from PyQt6.QtCore import Qt
 from app.modules.ui.search_bar import SearchBar
 from app.modules.module_logic.game_scanner import scan_games
 
-import json
-
+# Добавляем логгер
+logger = logging.getLogger('ArcadeDeck')
 
 class GameTile(QPushButton):
     """Tile widget for a single game"""
     def __init__(self, game_data: dict, parent=None):
         super().__init__(parent)
-        self.game_data = game_data  # Сохраняем данные игры
-        self._init_ui()  # Вызываем инициализацию UI
+        self.game_data = game_data
+        self._init_ui()
 
     def _init_ui(self):
         """Initialize UI components"""
@@ -27,7 +30,6 @@ class GameTile(QPushButton):
 
         # Game icon
         icon_label = QLabel()
-        # Попробуем использовать изображение из данных игры если есть
         image_path = self.game_data.get("image_path")
         if image_path and os.path.exists(image_path):
             pixmap = QPixmap(image_path)
@@ -36,11 +38,10 @@ class GameTile(QPushButton):
                     pixmap.scaled(120, 120, Qt.AspectRatioMode.KeepAspectRatio)
                 )
         else:
-            # Заглушка если нет изображения
             pixmap = QPixmap(120, 120)
             pixmap.fill(Qt.GlobalColor.gray)
             icon_label.setPixmap(pixmap)
-        
+
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Game title
@@ -51,20 +52,18 @@ class GameTile(QPushButton):
 
         layout.addWidget(icon_label)
         layout.addWidget(title_label)
-        
-        # Стилизация
-        self.setFixedSize(150, 180)
+
+        self.setFixedSize(330, 410)
         self.setObjectName("GameTile")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
-
 class AddGameButton(QPushButton):
-    """Button for adding new games"""
+    """Кнопка добавления новой игры"""
     def __init__(self, text: str, library_page, parent=None):
         super().__init__(parent)
         self.library_page = library_page
         self.setAcceptDrops(True)
-        self.setFixedSize(220, 180)
+        self.setFixedSize(240, 190)
         self.setObjectName("TileButton")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
@@ -90,13 +89,12 @@ class AddGameButton(QPushButton):
             path = url.toLocalFile()
             self.library_page.handle_file_drop(path)
 
-
 class GameLibrary(QWidget):
     """Main game library widget"""
     def __init__(self, games_dir: str, parent=None):
         super().__init__(parent)
         self.games_dir = games_dir
-        self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # Добавляем base_dir
+        self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self._init_ui()
 
     def _init_ui(self):
@@ -105,33 +103,32 @@ class GameLibrary(QWidget):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(10)
 
-        # ===== ЕДИНЫЙ ПОИСКОВЫЙ ВИДЖЕТ ДЛЯ ОБОИХ ЭКРАНОВ =====
+        # Поисковая строка
         self.search_input = SearchBar(
             open_game_info_callback=self.show_game_info
         )
-        self.search_input.searchUpdated.connect(self.filter_games)
+        # Поисковик теперь работает независимо от библиотеки
+        # self.search_input.searchUpdated.connect(self.filter_games)  # Убрано!
         self.search_input.setFixedWidth(500)
         self.search_input.setMaximumWidth(500)
 
-        # Центрируем поисковую строку
         search_layout = QHBoxLayout()
         search_layout.addStretch()
         search_layout.addWidget(self.search_input)
         search_layout.addStretch()
         layout.addLayout(search_layout)
 
-        # ===== СТЕК ЭКРАНОВ =====
-        # Stacked widget для разных состояний библиотеки
+        # Стек экранов
         self.stack = QStackedWidget()
-        layout.addWidget(self.stack, 1)  # Растягиваем на оставшееся пространство
+        layout.addWidget(self.stack, 1)
 
-        # Placeholder view (пустая библиотека)
+        # Placeholder view
         self._init_placeholder_view()
 
-        # Grid view (библиотека с играми)
+        # Grid view
         self._init_grid_view()
 
-        # Загружаем игры при инициализации
+        # Загружаем игры
         self.load_games()
 
     def _init_placeholder_view(self):
@@ -142,23 +139,18 @@ class GameLibrary(QWidget):
         ph_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ph_layout.setSpacing(30)
 
-        # СОХРАНЯЕМ search_input_ph для обратной совместимости
-        # но он будет просто перенаправлять на основной поисковик
         self.search_input_ph = self.search_input
 
-        # Текст пустого состояния
         self.placeholder_label = QLabel("Перетащите игру сюда")
         self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ph_layout.addWidget(self.placeholder_label)
 
-        # Кнопка добавления игры
         self.add_btn_ph = AddGameButton("Добавить игру", self)
         self.add_btn_ph.clicked.connect(self.open_file_dialog)
         self.add_btn_ph.setFixedWidth(500)
         self.add_btn_ph.setMaximumWidth(500)
         ph_layout.addWidget(self.add_btn_ph)
 
-        # Добавляем в стек
         self.stack.addWidget(placeholder)
 
     def _init_grid_view(self):
@@ -166,15 +158,12 @@ class GameLibrary(QWidget):
         grid_widget = QWidget()
         grid_layout = QVBoxLayout(grid_widget)
 
-        # СОХРАНЯЕМ search_input_grid для обратной совместимости
         self.search_input_grid = self.search_input
 
-        # Область с прокруткой для плиток игр
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         grid_layout.addWidget(self.scroll_area)
 
-        # Добавляем в стек
         self.stack.addWidget(grid_widget)
 
     def dragEnterEvent(self, event):
@@ -196,82 +185,100 @@ class GameLibrary(QWidget):
         try:
             game_data = import_game(path)
             QMessageBox.information(
-                self, 
-                "Готово", 
+                self,
+                "Готово",
                 f"Игра добавлена: {game_data.get('title', 'Без названия')}"
             )
-            self.load_games()  # Перезагружаем библиотеку
+            self.load_games()
         except ValueError as e:
             QMessageBox.warning(self, "Ошибка", str(e))
 
     def open_file_dialog(self):
         """Открытие диалога выбора файла"""
         path, _ = QFileDialog.getOpenFileName(
-            self, 
-            "Выберите файл игры", 
-            "", 
+            self,
+            "Выберите файл игры",
+            "",
             "PSP образы (*.iso *.cso *.cho)"
         )
         if path:
             self.handle_file_drop(path)
 
     def load_games(self):
-        """Загрузка и отображение игр"""
+        """Загрузка и отображение игр через централизованный менеджер"""
         try:
-            print(f"[LIBRARY] Scanning games from: {self.games_dir}")
-            
-            # Сканируем игры из папки
-            user_games = scan_games(self.games_dir)
-            print(f"[LIBRARY] Found {len(user_games)} user games")
+            logger.info(f"[LIBRARY] Loading games using centralized manager")
 
-            # Загружаем игры из реестра
+            # Используем централизованный менеджер
+            from app.modules.module_logic.game_data_manager import get_game_data_manager
+            from pathlib import Path
+            manager = get_game_data_manager(Path(self.base_dir))
+
+            if manager:
+                all_games = manager.get_all_games()
+                logger.info(f"[LIBRARY] Loaded {len(all_games)} games from centralized manager")
+            else:
+                # Fallback для обратной совместимости
+                logger.warning("[LIBRARY] Using fallback game loading")
+                all_games = self._fallback_load_games()
+
+            # Обновляем список игр в поисковике (ВСЕ игры из реестра)
+            self.search_input.set_game_list(all_games)
+            self.search_input_ph.set_game_list(all_games)
+            self.search_input_grid.set_game_list(all_games)
+
+            # Переключаем экран
+            if not all_games:
+                logger.info("[LIBRARY] No games found, showing placeholder")
+                self.stack.setCurrentIndex(0)
+            else:
+                logger.info("[LIBRARY] Games found, showing grid")
+                self.stack.setCurrentIndex(1)
+                self.show_game_grid(all_games)
+
+        except Exception as e:
+            logger.error(f"Error loading games: {e}")
+            import traceback
+            traceback.print_exc()
+            self.stack.setCurrentIndex(0)
+
+    def _fallback_load_games(self):
+        """Резервный метод загрузки игр"""
+        try:
+            logger.info(f"[LIBRARY] Scanning games from: {self.games_dir}")
+
+            user_games = scan_games(self.games_dir)
+            logger.info(f"[LIBRARY] Found {len(user_games)} user games")
+
             registry_path = os.path.join(self.base_dir, "app", "registry", "registry_games.json")
             registry_games = []
             if os.path.exists(registry_path):
                 with open(registry_path, 'r', encoding='utf-8') as f:
                     registry_games = json.load(f)
-                    print(f"[LIBRARY] Loaded {len(registry_games)} registry games")
+                    logger.info(f"[LIBRARY] Loaded {len(registry_games)} registry games")
 
-            # Объединяем игры (установленные + из реестра)
             all_games = user_games + [
-                g for g in registry_games 
+                g for g in registry_games
                 if not any(ug.get('id') == g.get('id') for ug in user_games)
             ]
 
-            # Обновляем список игр в поисковике (оба варианта для совместимости)
-            self.search_input.set_game_list(all_games)
-            self.search_input_ph.set_game_list(all_games)
-            self.search_input_grid.set_game_list(all_games)
+            return all_games
 
-            # Переключаем экран в зависимости от наличия игр
-            if not all_games:
-                print("[LIBRARY] No games found, showing placeholder")
-                self.stack.setCurrentIndex(0)  # Пустой экран
-            else:
-                print("[LIBRARY] Games found, showing grid")
-                self.stack.setCurrentIndex(1)  # Экран с играми
-                self.show_game_grid(all_games)
-                
         except Exception as e:
-            print(f"Error loading games: {e}")
-            import traceback
-            traceback.print_exc()
-            # В случае ошибки показываем пустой экран
-            self.stack.setCurrentIndex(0)
+            logger.error(f"Error in fallback loading: {e}")
+            return []
 
     def show_game_grid(self, games):
         """Отображение плиток игр"""
-        # Очищаем предыдущий контент
         if self.scroll_area.widget():
             self.scroll_area.widget().deleteLater()
 
-        # Создаем контейнер для плиток
         container = QWidget()
         layout = QGridLayout(container)
-        layout.setSpacing(20)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setHorizontalSpacing(15)
+        layout.setVerticalSpacing(20)
+        layout.setContentsMargins(15, 15, 15, 15)
 
-        # Добавляем игры в сетку
         row, col, max_cols = 0, 0, 4
         for game in games:
             tile = GameTile(game)
@@ -283,7 +290,11 @@ class GameLibrary(QWidget):
                 col = 0
                 row += 1
 
-        # Обновляем область прокрутки
+        # Добавляем кнопку добавления игры в конец
+        add_button = AddGameButton("Добавить игру", self)
+        add_button.clicked.connect(self.open_file_dialog)
+        layout.addWidget(add_button, row, col)
+
         self.scroll_area.setWidget(container)
         self.scroll_area.show()
 
@@ -297,18 +308,7 @@ class GameLibrary(QWidget):
             main_window.show_game_info(game_data)
 
     def filter_games(self, results):
-        """
-        Фильтрация игр по результатам поиска
-        Args: results: List of game dicts or None
-        """
-        if results is None:
-            return
-
-        # Управляем видимостью плиток в зависимости от результатов поиска
-        if self.stack.currentIndex() == 1:  # Если это экран с играми
-            if not results:
-                # Пустой поиск - показываем плитки
-                self.scroll_area.show()
-            else:
-                # Есть результаты - скрываем плитки
-                self.scroll_area.hide()
+        """Фильтрация игр по результатам поиска - теперь игнорируем результаты поиска"""
+        # Библиотека больше не реагирует на результаты поиска
+        # Поисковик работает независимо и показывает результаты в своем выпадающем списке
+        pass
