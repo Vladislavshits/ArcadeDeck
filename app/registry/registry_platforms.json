@@ -1,5 +1,5 @@
 {
-  "PSP": {
+  "ppsspp": {
     "name": "PPSSPP",
     "install_method": "flatpak",
     "flatpak_id": "org.ppsspp.PPSSPP",
