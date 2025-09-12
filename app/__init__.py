@@ -2,7 +2,7 @@ import os
 import sys
 
 # Установка централизованного кеша
-cache_dir = os.path.join(os.path.expanduser("~"), "PixelDeck", "app", "caches")
+cache_dir = os.path.join(os.path.expanduser("~"), "ArcadeDeck", "app", "caches")
 os.makedirs(cache_dir, exist_ok=True)
 
 # Для Python 3.8+
