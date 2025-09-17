@@ -49,64 +49,68 @@ QMainWindow, QDialog {
     font-size: 24px;
 }
 
-/* СПИСКИ ДЛЯ ТЕМНОЙ ТЕМЫ */
+/* СПИСКИ РЕЗУЛЬТАТОВ ПОИСКА ДЛЯ ТЕМНОЙ ТЕМЫ */
+.dark-theme #searchResultsList,
 .dark-theme QListWidget {
-    background-color: #252525;
+    background-color: rgba(35, 35, 40, 240);
     color: white;
-    border: 1px solid #333;
-    border-radius: 12px;
-    padding: 10px;
-    font-size: 18px;
-}
-
-.dark-theme QListWidget::item {
-    background-color: #333;
-    color: white;
-    border: 1px solid #444;
-    padding: 15px;
+    border: none;
     border-radius: 8px;
-    margin: 8px 0;
+    padding: 5px;
+    font-size: 16px;
 }
 
+.dark-theme #searchResultsList::item,
+.dark-theme QListWidget::item {
+    background-color: rgba(50, 50, 55, 200);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 6px;
+    margin: 2px 0;
+}
+
+.dark-theme #searchResultsList::item:selected,
 .dark-theme QListWidget::item:selected {
     background-color: #64b5f6;
     color: black;
-    border: 1px solid #5aa5e6;
 }
 
+.dark-theme #searchResultsList::item:hover,
 .dark-theme QListWidget::item:hover {
     background-color: #3a3a3a;
-    border: 1px solid #555;
 }
 
-/* СПИСКИ ДЛЯ СВЕТЛОЙ ТЕМЫ */
+/* СПИСКИ РЕЗУЛЬТАТОВ ПОИСКА ДЛЯ СВЕТЛОЙ ТЕМЫ */
+.light-theme #searchResultsList,
 .light-theme QListWidget {
-    background-color: #ffffff;
+    background-color: rgba(255, 255, 255, 240);
     color: #333333;
-    border: 1px solid #ddd;
-    border-radius: 12px;
-    padding: 10px;
-    font-size: 18px;
-}
-
-.light-theme QListWidget::item {
-    background-color: #ffffff;
-    color: #333333;
-    border: 1px solid #eee;
-    padding: 15px;
+    border: none;
     border-radius: 8px;
-    margin: 8px 0;
+    padding: 5px;
+    font-size: 16px;
 }
 
+.light-theme #searchResultsList::item,
+.light-theme QListWidget::item {
+    background-color: rgba(245, 245, 245, 200);
+    color: #333333;
+    border: none;
+    padding: 12px;
+    border-radius: 6px;
+    margin: 2px 0;
+}
+
+.light-theme #searchResultsList::item:selected,
 .light-theme QListWidget::item:selected {
     background-color: #4285f4;
     color: white;
-    border: 1px solid #3a75d4;
 }
 
+.light-theme #searchResultsList::item:hover,
 .light-theme QListWidget::item:hover {
     background-color: #f0f0f0;
-    border: 1px solid #ddd;
 }
 
 /* ПЛИТКИ ДЛЯ ТЕМНОЙ ТЕМЫ */
@@ -121,9 +125,9 @@ QMainWindow, QDialog {
     border: 2px solid #64b5f6;
 }
 
-.dark-theme QFrame#GameTile:hover, 
+.dark-theme QFrame#GameTile:hover,
 .dark-theme QFrame#SettingsTile:hover,
-.dark-theme QFrame#GameTile:focus, 
+.dark-theme QFrame#GameTile:focus,
 .dark-theme QFrame#SettingsTile:focus {
     background-color: #353535;
     border: 2px solid #e0e0e0;
@@ -141,12 +145,72 @@ QMainWindow, QDialog {
     border: 2px solid #4285f4;
 }
 
-.light-theme QFrame#GameTile:hover, 
+.light-theme QFrame#GameTile:hover,
 .light-theme QFrame#SettingsTile:hover,
-.light-theme QFrame#GameTile:focus, 
+.light-theme QFrame#GameTile:focus,
 .light-theme QFrame#SettingsTile:focus {
     background-color: #f8f8f8;
     border: 2px solid #333;
+}
+
+/* СТИЛИ ДЛЯ КОНТЕКСТНЫХ МЕНЮ В ТЕМНОЙ ТЕМЕ */
+.dark-theme QMenu {
+    background-color: #252525;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 5px;
+}
+
+.dark-theme QMenu::item {
+    background-color: transparent;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 4px;
+    font-size: 16px;
+    min-width: 150px;
+}
+
+.dark-theme QMenu::item:selected {
+    background-color: #4285f4;
+    color: white;
+}
+
+.dark-theme QMenu::item:disabled {
+    color: #888;
+}
+
+/* СТИЛИ ДЛЯ КОНТЕКСТНЫХ МЕНЮ В СВЕТЛОЙ ТЕМЕ */
+.light-theme QMenu {
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 5px;
+}
+
+/* СТИЛИ ДЛЯ КОНТЕКСТНЫХ МЕНЮ В СВЕТЛОЙ ТЕМЕ */
+.light-theme QMenu {
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 5px;
+}
+
+.light-theme QMenu::item {
+    background-color: transparent;
+    color: #333333;
+    padding: 15px 20px;
+    border-radius: 4px;
+    font-size: 16px;
+    min-width: 150px;
+}
+
+.light-theme QMenu::item:selected {
+    background-color: #4285f4;
+    color: white;
+}
+
+.light-theme QMenu::item:disabled {
+    color: #aaa;
 }
 
 /* СТИЛИ ДЛЯ КНОПОК ВЫБОРА ТЕМЫ */
@@ -244,8 +308,8 @@ QTextEdit {
 /* СПЕЦИФИЧЕСКИЕ СТИЛИ ДЛЯ РЕЗУЛЬТАТОВ ПОИСКА */
 #searchResultsList {
     background-color: #252525;
-    border: 1px solid #333;
-    border-radius: 10px;
+    border: none;
+    border-radius: 8px;
 }
 
 /* СТИЛИ ДЛЯ ПЛАГИНОВ НАСТРОЕК */
