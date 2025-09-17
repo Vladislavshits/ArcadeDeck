@@ -41,6 +41,8 @@ class SearchOverlay(QWidget):
         self.results_list.setMaximumHeight(400)
         self.results_list.itemClicked.connect(self._on_result_clicked)
         self.results_list.setObjectName("SearchOverlayResults")
+        # Автоматическая высота элементов
+        self.results_list.setUniformItemSizes(False)
 
         layout.addWidget(self.search_input)
         layout.addWidget(self.results_list)
@@ -70,6 +72,7 @@ class SearchOverlay(QWidget):
         """Показать оверлей поиска"""
         self.search_input.clear()
         self.results_list.clear()
+        self.results_list.hide()
         self.raise_()
         self.show()
         self.search_input.setFocus()
@@ -90,14 +93,19 @@ class SearchOverlay(QWidget):
             super().mousePressEvent(event)
 
     def _on_search_text_changed(self, text):
-        """Обновление результатов поиска - используем старый алгоритм"""
+        """Обновление результатов поиска"""
         self.results_list.clear()
 
         text = (text or "").strip().lower()
         if not text:
+            # Скрываем подложку при пустом поле ввода
+            self.results_list.hide()
             return
 
-        # Старый алгоритм поиска - начинается с текста
+        # Показываем подложку только когда есть текст для поиска
+        self.results_list.show()
+
+        # Поиск начинается с текста
         results = [
             game for game in self.games_data
             if (game.get("title") or "").lower().startswith(text)
@@ -110,6 +118,8 @@ class SearchOverlay(QWidget):
             title = f"✅ {title}" if game.get("is_installed") else f"⬇️ {title}"
             item = QListWidgetItem(title)
             item.setData(Qt.ItemDataRole.UserRole, game)
+            # Включаем перенос текста для автоматической высоты
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsAutoTristate)
             self.results_list.addItem(item)
 
         if len(results) > 6:
@@ -117,6 +127,22 @@ class SearchOverlay(QWidget):
             item = QListWidgetItem(f"... и ещё {hidden_count} результатов")
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
             self.results_list.addItem(item)
+
+        # Автоматически подстраиваем высоту списка
+        self._adjust_results_height()
+
+    def _adjust_results_height(self):
+        """Автоматическая подстройка высоты списка результатов"""
+        total_height = 0
+        for i in range(self.results_list.count()):
+            item = self.results_list.item(i)
+            self.results_list.setItemWidget(item, None)  # Обеспечиваем правильный расчет размера
+            size_hint = self.results_list.sizeHintForRow(i)
+            total_height += size_hint if size_hint > 0 else 30  # Минимальная высота 30px
+
+        # Ограничиваем максимальную высоту
+        total_height = min(total_height, 400)
+        self.results_list.setFixedHeight(total_height)
 
     def _on_result_clicked(self, item):
         """Обработка клика по результату"""
