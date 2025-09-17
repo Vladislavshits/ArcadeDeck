@@ -240,22 +240,28 @@ def load_content():
     logger.info("Загружаем данные...")
     guides = []  # Заглушка, чтобы не выдавало ошибку
 
-    # Используем GameDataManager для загрузки игр
-    try:
-        manager = get_game_data_manager(Path(BASE_DIR))
-        if manager is None:
-            logger.error("GameDataManager не инициализирован")
-            return [], []
+    # Загружаем игры из реестра
+    with open('app/registry/registry_games.json', 'r', encoding='utf-8') as f:
+        registry_games = json.load(f)
 
-        # Получаем все установленные игры
-        final_games_list = manager.get_all_games()
+    # Получаем список установленных игр из манифеста
+    installed_games_map = {game['id']: game for game in get_installed_games()}
 
-        logger.info(f"Загружено {len(final_games_list)} игр.")
-        return guides, final_games_list
+    final_games_list = []
+    for game in registry_games:
+        game_id = game.get('id')
+        if game_id in installed_games_map:
+            # Если игра установлена, используем полные данные из реестра
+            # и добавляем флаг is_installed
+            game['is_installed'] = True
+        else:
+            # Если не установлена
+            game['is_installed'] = False
 
-    except Exception as e:
-        logger.error(f"Ошибка загрузки игр через GameDataManager: {e}")
-        return [], []
+        final_games_list.append(game)
+
+    logger.info(f"Загружено {len(final_games_list)} игр.")
+    return guides, final_games_list
 
 def show_style_error(missing_resources):
     """Показывает диалоговое окно с ошибкой отсутствия ресурсов."""
@@ -281,7 +287,7 @@ def show_style_error(missing_resources):
     error_dialog.exec()
 
     if error_dialog.clickedButton() == download_button:
-        webbrowser.open("https://github.com/Vladislavshits/ArcadeDeck/releases/download/v0.1.5/install.arcadedeck.sh")
+        webbrowser.open("https://github.com/Vladislavshits/PixelDeck/releases/download/v0.1.5/install.pixeldeck.sh")
 
 def check_resources():
     """Проверяет наличие всех критических ресурсов"""
@@ -317,7 +323,7 @@ class MainWindow(QMainWindow):
         self.install_dir = BASE_DIR
         self.updater_process = None
         self.settings_tiles = []
-        self.setWindowTitle("ArcadeDeck")
+        self.setWindowTitle("PixelDeck")
         self.setGeometry(400, 300, 1280, 800)
         self.setMinimumSize(800, 600)
         self.current_layer = NavigationLayer.MAIN
@@ -429,18 +435,11 @@ class MainWindow(QMainWindow):
 
     def register_navigation_widgets(self):
         """Регистрируем виджеты для управления в каждом слое"""
-        # Для главного слоя: поисковик и кнопка «Добавить игру» на обоих экранах
-        main_widgets = []
-
-        # Добавляем виджеты из placeholder экрана
-        if hasattr(self.library_page, 'search_input_ph'):
-            main_widgets.append(self.library_page.search_input_ph)
-        if hasattr(self.library_page, 'add_btn_ph'):
-            main_widgets.append(self.library_page.add_btn_ph)
-
-        # Добавляем виджеты из grid экрана
-        if hasattr(self.library_page, 'search_input_grid'):
-            main_widgets.append(self.library_page.search_input_grid)
+        # Для главного слоя: поисковик и кнопка «Добавить игру» на новом экране
+        main_widgets = [
+            self.library_page.search_input_ph,
+            self.library_page.add_btn_ph
+        ]
 
         self.navigation_controller.register_widgets(
             NavigationLayer.MAIN,
@@ -582,7 +581,7 @@ class MainWindow(QMainWindow):
     def confirm_exit(self, event=None):
         dlg = QMessageBox(self)
         dlg.setWindowTitle("Выход")
-        dlg.setText("Вы хотите закрыть ArcadeDeck?")
+        dlg.setText("Вы хотите закрыть PixelDeck?")
         # Убираем стандартные кнопки и добавляем свои
         dlg.setStandardButtons(QMessageBox.StandardButton.NoButton)
         yes_btn = dlg.addButton("Да", QMessageBox.ButtonRole.AcceptRole)
@@ -612,7 +611,7 @@ class MainWindow(QMainWindow):
             {"name": "Внешний вид",           "icon": ""},
             {"name": "Сетевое подключение",    "icon": ""},
             {"name": "Инструменты отладки",    "icon": ""},
-            {"name": "О ArcadeDeck",            "icon": ""},
+            {"name": "О PixelDeck",            "icon": ""},
             {"name": "Выход",                  "icon": ""}
         ]
 
@@ -628,7 +627,7 @@ class MainWindow(QMainWindow):
                 page = AppearanceSettingsPage(self)
             elif name == "Инструменты отладки":
                 page = DevSettingsPage(self, log_path=log_file)
-            elif name == "О ArcadeDeck":
+            elif name == "О PixelDeck":
                 page = AboutPage(self)
             else:
                 # пустая заглушка для остальных (включая «Общие», «Управление эмуляторами», «Сетевое подключение» и «Выход»)
@@ -636,7 +635,7 @@ class MainWindow(QMainWindow):
                 pl = QVBoxLayout(page)
                 lbl = QLabel(f"Раздел '{name}' в разработке")
                 lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                lbl.setFont(QFont("Arial", 14))
+                lbl.setFont(QFont("Arial", 12))
                 pl.addWidget(lbl)
             self.settings_detail_stack.addWidget(page)
 
@@ -966,12 +965,12 @@ if __name__ == "__main__":
             msg_box = QMessageBox()
             msg_box.setWindowTitle("Программа уже запущена")
             msg_box.setText(
-                "ArcadeDeck уже запущен! Проверьте панель задач.\n\n"
+                "PixelDeck уже запущен! Проверьте панель задач.\n\n"
                 "Если программа не отвечает, вы можете принудительно перезапустить ее."
             )
 
             # Добавляем кнопки
-            restart_button = msg_box.addButton("Перезапустить ArcadeDeck", QMessageBox.ButtonRole.ActionRole)
+            restart_button = msg_box.addButton("Перезапустить PixelDeck", QMessageBox.ButtonRole.ActionRole)
             ok_button = msg_box.addButton("ОК", QMessageBox.ButtonRole.AcceptRole)
             msg_box.setDefaultButton(ok_button)
 
@@ -989,10 +988,10 @@ if __name__ == "__main__":
                 except Exception as e:
                     logger.error(f"Ошибка при завершении процесса: {e}")
 
-                # Определяем путь к скрипту ArcadeDeck.sh (в корне проекта)
+                # Определяем путь к скрипту PixelDeck.sh (в корне проекта)
                 # BASE_DIR - это директория проекта
                 project_root = os.path.dirname(BASE_DIR)
-                script_path = os.path.join(project_root, "ArcadeDeck.sh")
+                script_path = os.path.join(project_root, "PixelDeck.sh")
 
                 if not os.path.exists(script_path):
                     logger.error(f"Скрипт запуска не найден: {script_path}")
@@ -1012,7 +1011,7 @@ if __name__ == "__main__":
             logger.error("Ошибка блокировки без указания PID")
             sys.exit(1)
 
-    logger.info("Запуск ArcadeDeck")
+    logger.info("Запуск PixelDeck")
     logger.info(f"Версия: {APP_VERSION}")
     logger.info(f"Рабочая директория: {os.getcwd()}")
 
