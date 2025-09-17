@@ -4,12 +4,14 @@ import logging
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QStackedWidget,
-    QLabel, QScrollArea, QFileDialog, QGridLayout, QListWidget, QListWidgetItem
+    QLabel, QScrollArea, QFileDialog, QGridLayout, QListWidget, QListWidgetItem,
+    QLineEdit
 )
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 
-from app.modules.ui.search_bar import SearchBar
+# Импортируем наш новый оверлей
+from app.modules.ui.search_overlay import SearchOverlay
 from app.modules.module_logic.game_scanner import scan_games
 
 # Добавляем логгер
@@ -63,20 +65,26 @@ class AddGameButton(QPushButton):
         super().__init__(parent)
         self.library_page = library_page
         self.setAcceptDrops(True)
-        self.setFixedSize(240, 190)
+        self.setFixedSize(240, 190)  # Фиксируем размер
         self.setObjectName("TileButton")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(10)  # Добавляем отступ между элементами
 
+        # Добавляем иконку "+"
+        plus_label = QLabel("+")
+        plus_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        plus_label.setStyleSheet("font-size: 48px; font-weight: bold;")
+        layout.addWidget(plus_label)
+
+        # Текст кнопки
         text_label = QLabel(text)
         text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addStretch()
+        text_label.setWordWrap(True)  # Разрешаем перенос текста
+        text_label.setMaximumWidth(200)  # Ограничиваем ширину текста
         layout.addWidget(text_label)
-        layout.addStretch()
-
-        self.setFixedSize(220, 220)
 
     def dragEnterEvent(self, event):
         """Accept drag events with URLs"""
@@ -89,12 +97,34 @@ class AddGameButton(QPushButton):
             path = url.toLocalFile()
             self.library_page.handle_file_drop(path)
 
+
+class SearchBar(QLineEdit):
+    """Улучшенная поисковая строка"""
+    searchActivated = pyqtSignal()  # Сигнал активации поиска
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setPlaceholderText("Нажмите для поиска игр...")
+        self.setFixedWidth(500)  # Такая же ширина как у оверлея
+        self.setMaximumWidth(500)
+        self.setObjectName("SearchBar")  # Добавляем объектное имя для стилизации
+
+    def mousePressEvent(self, event):
+        """Активировать поиск при клике"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.searchActivated.emit()
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+
 class GameLibrary(QWidget):
     """Main game library widget"""
     def __init__(self, games_dir: str, parent=None):
         super().__init__(parent)
         self.games_dir = games_dir
         self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.all_games = []  # Храним все игры для поиска
         self._init_ui()
 
     def _init_ui(self):
@@ -103,20 +133,14 @@ class GameLibrary(QWidget):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(10)
 
-        # Поисковая строка
-        self.search_input = SearchBar(
-            open_game_info_callback=self.show_game_info
-        )
-        # Поисковик теперь работает независимо от библиотеки
-        # self.search_input.searchUpdated.connect(self.filter_games)  # Убрано!
-        self.search_input.setFixedWidth(500)
-        self.search_input.setMaximumWidth(500)
+        # УБИРАЕМ поисковую строку из основного layout
+        # и будем добавлять её в каждый экран отдельно
 
-        search_layout = QHBoxLayout()
-        search_layout.addStretch()
-        search_layout.addWidget(self.search_input)
-        search_layout.addStretch()
-        layout.addLayout(search_layout)
+        # Создаем оверлей поиска
+        self.search_overlay = SearchOverlay(self)
+        self.search_overlay.hide()
+        self.search_overlay.resultSelected.connect(self.show_game_info)
+        self.search_overlay.searchClosed.connect(self.on_search_closed)
 
         # Стек экранов
         self.stack = QStackedWidget()
@@ -139,17 +163,36 @@ class GameLibrary(QWidget):
         ph_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ph_layout.setSpacing(30)
 
-        self.search_input_ph = self.search_input
+        # Создаем поисковую строку для placeholder экрана
+        self.search_input_ph = SearchBar()
+        self.search_input_ph.searchActivated.connect(self.show_search_overlay)
+        self.search_input_ph.setFixedWidth(500)
+        self.search_input_ph.setMaximumWidth(500)
+
+        # Добавляем поисковую строку в placeholder
+        search_layout_ph = QHBoxLayout()
+        search_layout_ph.addStretch()
+        search_layout_ph.addWidget(self.search_input_ph)
+        search_layout_ph.addStretch()
+        ph_layout.addLayout(search_layout_ph)
 
         self.placeholder_label = QLabel("Перетащите игру сюда")
         self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.placeholder_label.setStyleSheet("font-size: 16px; margin-bottom: 20px;")
         ph_layout.addWidget(self.placeholder_label)
 
         self.add_btn_ph = AddGameButton("Добавить игру", self)
         self.add_btn_ph.clicked.connect(self.open_file_dialog)
-        self.add_btn_ph.setFixedWidth(500)
-        self.add_btn_ph.setMaximumWidth(500)
-        ph_layout.addWidget(self.add_btn_ph)
+
+        # Центрируем кнопку с помощью контейнера
+        button_container = QWidget()
+        button_container_layout = QHBoxLayout(button_container)
+        button_container_layout.addStretch()
+        button_container_layout.addWidget(self.add_btn_ph)
+        button_container_layout.addStretch()
+
+        ph_layout.addWidget(button_container)
+        ph_layout.addStretch()  # Добавляем растяжение снизу
 
         self.stack.addWidget(placeholder)
 
@@ -158,13 +201,40 @@ class GameLibrary(QWidget):
         grid_widget = QWidget()
         grid_layout = QVBoxLayout(grid_widget)
 
-        self.search_input_grid = self.search_input
+        # Создаем поисковую строку для grid экрана
+        self.search_input_grid = SearchBar()
+        self.search_input_grid.searchActivated.connect(self.show_search_overlay)
+        self.search_input_grid.setFixedWidth(500)
+        self.search_input_grid.setMaximumWidth(500)
+
+        # Добавляем поисковую строку в grid view
+        search_layout_grid = QHBoxLayout()
+        search_layout_grid.addStretch()
+        search_layout_grid.addWidget(self.search_input_grid)
+        search_layout_grid.addStretch()
+        grid_layout.addLayout(search_layout_grid)
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         grid_layout.addWidget(self.scroll_area)
 
         self.stack.addWidget(grid_widget)
+
+    def show_search_overlay(self):
+        """Показать оверлей поиска"""
+        self.search_overlay.set_game_list(self.all_games)
+        self.search_overlay.setGeometry(self.rect())
+        self.search_overlay.show_overlay()
+
+    def on_search_closed(self):
+        """Обработчик закрытия поиска"""
+        # Возвращаем фокус на библиотеку
+        self.setFocus()
+
+    def resizeEvent(self, event):
+        """Обновление размера оверлея при изменении размера"""
+        super().resizeEvent(event)
+        self.search_overlay.setGeometry(self.rect())
 
     def dragEnterEvent(self, event):
         """Обработчик перетаскивания файлов"""
@@ -222,10 +292,18 @@ class GameLibrary(QWidget):
                 logger.warning("[LIBRARY] Using fallback game loading")
                 all_games = self._fallback_load_games()
 
-            # Обновляем список игр в поисковике (ВСЕ игры из реестра)
-            self.search_input.set_game_list(all_games)
-            self.search_input_ph.set_game_list(all_games)
-            self.search_input_grid.set_game_list(all_games)
+            # Сохраняем игры для поиска в оверлее
+            self.all_games = all_games
+            self.search_overlay.set_game_list(all_games)
+
+            # Обновляем список игр в поисковиках (ВСЕ игры из реестра)
+            if hasattr(self, 'search_input_ph'):
+                if hasattr(self.search_input_ph, 'set_game_list'):
+                    self.search_input_ph.set_game_list(all_games)
+
+            if hasattr(self, 'search_input_grid'):
+                if hasattr(self.search_input_grid, 'set_game_list'):
+                    self.search_input_grid.set_game_list(all_games)
 
             # Переключаем экран
             if not all_games:

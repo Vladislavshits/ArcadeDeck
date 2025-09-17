@@ -100,7 +100,7 @@ class WelcomeWizard(QWizard):
 
         wish = QLabel(
                     "Теперь вы готовы к простой эмуляции игр на Steam Deck. \
-                    Удачных игр!")
+Удачной игры!")
         wish.setFont(QFont("Arial", 20))
         wish.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout3.addWidget(wish)
