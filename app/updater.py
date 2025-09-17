@@ -7,7 +7,7 @@ import os
 import hashlib
 import json
 import logging
-logger = logging.getLogger('PixelDeck') 
+logger = logging.getLogger('Updater')
 import re
 import shutil
 import subprocess
@@ -93,7 +93,9 @@ class Updater(QObject):
         """Проверяет наличие обновлений с учетом выбранного канала"""
         try:
             skipped_versions = self.get_skip_config()
-            update_info = None  # Инициализируем переменную
+            update_info = None
+            latest_version = None
+            app_version = version.parse(APP_VERSION.lstrip('v'))  # Инициализируем здесь!
 
             # Для стабильной версии
             if not self.is_beta:
@@ -109,42 +111,40 @@ class Updater(QObject):
                 latest_version = latest_release['tag_name'].lstrip('v')
 
                 if latest_version in skipped_versions:
-                    logger.debug(f"Версия {latest_version}"
-                                 f"пропущена пользователем")
+                    logger.debug(f"Версия {latest_version} пропущена пользователем")
                     return None
 
-                latest_version = version.parse(latest_version)
-                app_version = version.parse(APP_VERSION.lstrip('v'))
+                latest_version_parsed = version.parse(latest_version)
 
-            if latest_version > app_version:
-                # Ищем архив с обновлением
-                for asset in latest_release.get('assets', []):
-                    if not asset['name'].endswith('.tar.gz'):
-                        continue
+                if latest_version_parsed > app_version:
+                    # Ищем архив с обновлением
+                    for asset in latest_release.get('assets', []):
+                        if not asset['name'].endswith('.tar.gz'):
+                            continue
 
-                    if "ArcadeDeck" in asset['name']:
-                        # Кастомный архив
-                        update_info = {
-                            'release': latest_release,
-                            'download_url': asset['browser_download_url'],
-                            'version': latest_version,
-                            'type': 'stable',
-                            'asset_name': asset['name'],
-                        }
-                        break  # Выходим из цикла после нахождения
+                        if "ArcadeDeck" in asset['name']:
+                            # Кастомный архив
+                            update_info = {
+                                'release': latest_release,
+                                'download_url': asset['browser_download_url'],
+                                'version': latest_version,
+                                'type': 'stable',
+                                'asset_name': asset['name'],
+                            }
+                            break  # Выходим из цикла после нахождения
 
-                    if "Source code" in asset['name']:
-                        # Автогенерированный архив
-                        update_info = {
-                            'release': latest_release,
-                            'download_url': asset['browser_download_url'],
-                            'version': latest_version,
-                            'type': 'stable',
-                            'asset_name': (
-                                f"PixelDeck-{latest_version}.tar.gz"
-                            ),
-                        }
-                        break  # Выходим из цикла после нахождения
+                        if "Source code" in asset['name']:
+                            # Автогенерированный архив
+                            update_info = {
+                                'release': latest_release,
+                                'download_url': asset['browser_download_url'],
+                                'version': latest_version,
+                                'type': 'stable',
+                                'asset_name': (
+                                    f"PixelDeck-{latest_version}.tar.gz"
+                                ),
+                            }
+                            break  # Выходим из цикла после нахождения
 
                     if not update_info:
                         logger.error(
@@ -183,39 +183,36 @@ class Updater(QObject):
                         )
                     return None
 
-            if version.parse(latest_version) <= version.parse(
-                    APP_VERSION.lstrip('v')
-                    ):
-                # Версия не новее — выходим
-                pass
-            else:
-                for asset in latest_beta.get('assets', []):
-                    if not asset['name'].endswith('.tar.gz'):
-                        continue
+                latest_version_parsed = version.parse(latest_version)
 
-                    if (
-                        "PixelDeck" in asset['name']
-                        and 'beta' in asset['name'].lower()
-                    ):
-                        update_info = {
-                            'release': latest_beta,
-                            'download_url': asset['browser_download_url'],
-                            'version': latest_version,
-                            'type': 'beta',
-                            'asset_name': asset['name'],
-                        }
-                        break
+                if latest_version_parsed > app_version:
+                    for asset in latest_beta.get('assets', []):
+                        if not asset['name'].endswith('.tar.gz'):
+                            continue
 
-                    if "Source code" in asset['name']:
-                        update_info = {
-                            'release': latest_beta,
-                            'download_url': asset['browser_download_url'],
-                            'version': latest_version,
-                            'type': 'beta',
-                            'asset_name': (
-                                f"PixelDeck-{latest_version}-beta.tar.gz"
-                            ),
-                        }
+                        if (
+                            "PixelDeck" in asset['name']
+                            and 'beta' in asset['name'].lower()
+                        ):
+                            update_info = {
+                                'release': latest_beta,
+                                'download_url': asset['browser_download_url'],
+                                'version': latest_version,
+                                'type': 'beta',
+                                'asset_name': asset['name'],
+                            }
+                            break
+
+                        if "Source code" in asset['name']:
+                            update_info = {
+                                'release': latest_beta,
+                                'download_url': asset['browser_download_url'],
+                                'version': latest_version,
+                                'type': 'beta',
+                                'asset_name': (
+                                    f"PixelDeck-{latest_version}-beta.tar.gz"
+                                ),
+                            }
 
             # Если найдено обновление - отправляем сигнал
             if update_info:
@@ -225,7 +222,6 @@ class Updater(QObject):
                 return update_info
             else:
                 self.latest_info = None
-
                 logger.debug("Подходящих обновлений не найдено")
                 return None
 
@@ -325,7 +321,7 @@ class UpdateDownloaderThread(QThread):
             ignore = shutil.ignore_patterns(
                 'venv', '*.log', '*.bak', '__pycache__',
                 'user_settings.json', 'downloads', 'temp_update',
-                'updater.json', 'pixeldeck.log'
+                'updater.json', 'arcadedeck.log'
             )
 
             # Копируем с заменой существующих файлов
@@ -365,17 +361,17 @@ class UpdateDialog(QDialog):
         layout = QVBoxLayout(self)
 
         title = QLabel(f"Доступна новая версия: {new_version}")
-        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        title.setFont(QFont("Arial", 18, QFont.Weight.Bold))
         layout.addWidget(title)
 
         current_label = QLabel(f"Текущая версия: {current_version}")
-        current_label.setFont(QFont("Arial", 12))
+        current_label.setFont(QFont("Arial", 14))
         layout.addWidget(current_label)
 
         layout.addSpacing(20)
 
         changelog_label = QLabel("Изменения в новой версии:")
-        changelog_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        changelog_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         layout.addWidget(changelog_label)
 
         self.changelog_area = QTextEdit()
@@ -535,7 +531,7 @@ class UpdateDialog(QDialog):
             QMessageBox.warning(
                 self,
                 "Перезапуск",
-                "Пожалуйста, перезапустите PixelDeck" /
+                "Пожалуйста, перезапустите ArcadeDeck" /
                 "вручную для применения обновлений."
             )
 
