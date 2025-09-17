@@ -24,18 +24,16 @@ class GameDataManager:
         logger.info(f"[GameData] ✅ Загружено {len(self.installed_games)} установленных игр")
 
     def _load_registry_games(self) -> List[Dict[str, Any]]:
-        """Загружает игры из реестра"""
+        """Загружает игры из всех модулей платформ"""
         try:
-            if self.registry_games_file.exists():
-                with open(self.registry_games_file, 'r', encoding='utf-8') as f:
-                    games = json.load(f)
-                    logger.info(f"[GameData] 📋 Реестр игр успешно загружен")
-                    return games if isinstance(games, list) else []
-            else:
-                logger.warning(f"[GameData] ⚠️ Файл реестра не найден: {self.registry_games_file}")
+            from app.registry.registry_loader import RegistryLoader
+            loader = RegistryLoader(self.project_root)
+            games = loader.load_all_games()
+            logger.info(f"[GameData] 📋 Загружено {len(games)} игр из модулей платформ")
+            return games
         except Exception as e:
-            logger.error(f"[GameData] ❌ Ошибка загрузки реестра игр: {e}")
-        return []
+            logger.error(f"[GameData] ❌ Ошибка загрузки модулей платформ: {e}")
+            return []
 
     def _load_installed_games(self) -> Dict[str, Dict[str, Any]]:
         """Загружает установленные игры"""
