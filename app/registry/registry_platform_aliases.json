@@ -1,6 +1,9 @@
 {
   "platform_aliases": {
     "ppsspp": "PSP",
-    "PSP": "ppsspp"
+    "psp": "PSP",
+    "vita": "PSVITA",
+    "ps_vita": "PSVITA",
+    "psvita": "PSVITA"
   }
 }
