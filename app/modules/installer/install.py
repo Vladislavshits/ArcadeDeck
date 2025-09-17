@@ -65,7 +65,8 @@ class InstallThread(QThread):
                 self._was_cancelled = True
                 return
 
-            if not self.emulator_manager.ensure_emulator(self.game_data.get('preferred_emulator')):
+            # Используем ensure_emulator_for_game
+            if not self.emulator_manager.ensure_emulator_for_game(self.game_data):
                 self.error_occurred.emit("Ошибка при установке эмулятора.")
                 return
 
@@ -180,40 +181,60 @@ class InstallThread(QThread):
 
             if game_file and game_file.is_file():
                 # Используем LaunchManager для создания лаунчера
-                success = self.launch_manager.create_launcher(self.game_data, game_file)
-                
-                if success:
-                    # Получаем путь к созданному лаунчеру
-                    launcher_path = self.launch_manager.scripts_dir / f"{self.game_data.get('id')}.sh"
-                    self.finished.emit(self.game_data)
+                try:
+                    success = self.launch_manager.create_launcher(self.game_data, game_file)
 
-                    # Регистрируем игру
-                    installed_games = self.get_installed_games()
-                    installed_games[self.game_data.get('id')] = {
-                        'title': self.game_data.get('title'),
-                        'platform': self.game_data.get('platform'),
-                        'install_path': str(game_file.absolute()),
-                        'launcher_path': str(launcher_path.absolute()),
-                        'install_date': time.time()
-                    }
-                    
-                    # Сохраняем реестр
-                    with open(self.installed_games_file, 'w', encoding='utf-8') as f:
-                        json.dump(installed_games, f, ensure_ascii=False, indent=2)
+                    if success:
+                        # Получаем путь к созданному лаунчеру
+                        launcher_path = self.launch_manager.scripts_dir / f"{self.game_data.get('id')}.sh"
 
-                    # Добавьте обновление централизованного менеджера
-                    try:
-                        from app.modules.module_logic.game_data_manager import get_game_data_manager
-                        manager = get_game_data_manager()
-                        if manager:
-                            manager.refresh()
-                            logger.info("✅ Централизованный менеджер данных обновлен")
-                    except Exception as e:
-                        logger.error(f"❌ Ошибка обновления менеджера данных: {e}")
-                    
-                    self.progress_updated.emit(95, "✅ Лаунчер создан и игра зарегистрирована!")
-                else:
-                    self.error_occurred.emit("Не удалось создать лаунчер для игры")
+                        # Получаем путь к обложке с логированием
+                        logger.info(f"🔍 Поиск обложки для игры {self.game_data.get('id')}")
+                        cover_path = self.launch_manager._get_cover_path(self.game_data)
+                        logger.info(f"📁 Путь к обложке: {cover_path}")
+
+                        # Регистрируем игру
+                        installed_games = self.get_installed_games()
+                        game_info = {
+                            'title': self.game_data.get('title'),
+                            'platform': self.game_data.get('platform'),
+                            'install_path': str(game_file.absolute()),
+                            'launcher_path': str(launcher_path.absolute()),
+                            'install_date': time.time(),
+                            'cover_path': cover_path  # Добавляем путь к обложке
+                        }
+
+                        installed_games[self.game_data.get('id')] = game_info
+                        logger.info(f"💾 Сохранение информации об игре: {game_info}")
+
+                        # Сохраняем реестр
+                        with open(self.installed_games_file, 'w', encoding='utf-8') as f:
+                            json.dump(installed_games, f, ensure_ascii=False, indent=2)
+
+                        logger.info(f"✅ Игра успешно зарегистрирована в installed_games.json")
+
+                        self.progress_updated.emit(95, "✅ Лаунчер создан и игра зарегистрирована!")
+                        self.finished.emit(self.game_data)
+                    else:
+                        # Улучшенная обработка ошибки создания лаунчера
+                        error_msg = "Не удалось создать лаунчер для игры"
+                        logger.error(f"❌ {error_msg}")
+                        self.progress_updated.emit(90, "❌ Не удалось создать ярлык для запуска")
+                        self.error_occurred.emit(error_msg)
+                        return
+
+                except Exception as e:
+                    error_msg = f"Ошибка при создании лаунчера: {e}"
+                    logger.error(f"❌ {error_msg}")
+                    self.progress_updated.emit(90, "❌ Ошибка создания ярлыка")
+                    self.error_occurred.emit(error_msg)
+                    return
+            else:
+                error_msg = "Не удалось найти файл игры после установки"
+                logger.error(f"❌ {error_msg}")
+                self.progress_updated.emit(90, "❌ Файл игры не найден")
+                self.error_occurred.emit(error_msg)
+                return
 
         except Exception as e:
             if not self._was_cancelled:
@@ -231,35 +252,29 @@ class InstallThread(QThread):
     def find_game_file(self):
         """Находит файл игры по поддерживаемым расширениям платформы"""
         try:
-            # Загружаем информацию о поддерживаемых форматах
-            registry_path = self.project_root / 'app' / 'registry' / 'registry_platforms.json'
-            with open(registry_path, 'r', encoding='utf-8') as f:
-                platforms_data = json.load(f)
-
             platform_id = self.game_data.get('platform')
+            logger.info(f"🔍 Поиск файлов игры для платформы: {platform_id}")
 
-            # Загружаем алиасы платформ
-            aliases_path = self.project_root / 'app' / 'registry' / 'registry_platform_aliases.json'
-            platform_aliases = {}
-            if aliases_path.exists():
+            # Получаем поддерживаемые форматы из конфига платформы
+            platform_config_path = self.project_root / 'app' / 'registry' / 'platforms' / platform_id / 'config.py'
+
+            supported_formats = []
+            if platform_config_path.exists():
                 try:
-                    with open(aliases_path, 'r', encoding='utf-8') as f:
-                        aliases_data = json.load(f)
-                        platform_aliases = aliases_data.get('platform_aliases', {})
+                    # Динамически импортируем конфиг платформы
+                    import importlib.util
+                    spec = importlib.util.spec_from_file_location(f"{platform_id}_config", platform_config_path)
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+
+                    if hasattr(module, 'get_config'):
+                        config = module.get_config()
+                        supported_formats = config.get('supported_formats', [])
+                        logger.info(f"✅ Загружены поддерживаемые форматы из конфига: {supported_formats}")
                 except Exception as e:
-                    logger.warning(f"⚠️ Не удалось загрузить алиасы платформ: {e}")
+                    logger.warning(f"⚠️ Не удалось загрузить конфиг платформы: {e}")
 
-            # Получаем поддерживаемые форматы с учетом алиасов
-            supported_formats = platforms_data.get(platform_id, {}).get('supported_formats', [])
-
-            # Если не нашли, пробуем алиасы
-            if not supported_formats and platform_id in platform_aliases:
-                alternative_id = platform_aliases[platform_id]
-                supported_formats = platforms_data.get(alternative_id, {}).get('supported_formats', [])
-                if supported_formats:
-                    logger.info(f"🔁 Использую альтернативный ID платформы: {alternative_id}")
-
-            # Fallback: если форматы все еще не найдены, используем стандартные для платформы
+            # Fallback: если форматы не найдены, используем стандартные для платформы
             if not supported_formats:
                 platform_formats = {
                     "PSP": [".iso", ".cso", ".pbp", ".elf"],
@@ -277,7 +292,7 @@ class InstallThread(QThread):
                 supported_formats = platform_formats.get(platform_id, [".iso", ".bin", ".img"])
                 logger.warning(f"⚠️ Для платформы {platform_id} не найдены supported_formats, использую fallback: {supported_formats}")
 
-            logger.info(f"🔍 Поиск файлов игры для платформы {platform_id}, форматы: {supported_formats}")
+            logger.info(f"🔍 Форматы для поиска: {supported_formats}")
 
             # Получаем ID игры для поиска соответствующих файлов
             game_id = self.game_data.get('id', '').lower()
