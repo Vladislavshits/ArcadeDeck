@@ -141,7 +141,7 @@ class Updater(QObject):
                                 'version': latest_version,
                                 'type': 'stable',
                                 'asset_name': (
-                                    f"PixelDeck-{latest_version}.tar.gz"
+                                    f"ArcadeDeck-{latest_version}.tar.gz"
                                 ),
                             }
                             break  # Выходим из цикла после нахождения
@@ -191,7 +191,7 @@ class Updater(QObject):
                             continue
 
                         if (
-                            "PixelDeck" in asset['name']
+                            "ArcadeDeck" in asset['name']
                             and 'beta' in asset['name'].lower()
                         ):
                             update_info = {
@@ -210,7 +210,7 @@ class Updater(QObject):
                                 'version': latest_version,
                                 'type': 'beta',
                                 'asset_name': (
-                                    f"PixelDeck-{latest_version}-beta.tar.gz"
+                                    f"ArcadeDeck-{latest_version}-beta.tar.gz"
                                 ),
                             }
 
@@ -275,7 +275,7 @@ class UpdateDownloaderThread(QThread):
         try:
             # Создаем временную директорию
             temp_dir = os.path.join(
-                os.path.expanduser("~"), "PixelDeck", "temp_update")
+                os.path.expanduser("~"), "ArcadeDeck", "temp_update")
             os.makedirs(temp_dir, exist_ok=True)
 
             # Формируем имя файла
@@ -307,7 +307,7 @@ class UpdateDownloaderThread(QThread):
             update_dir = None
             for item in os.listdir(temp_dir):
                 item_path = os.path.join(temp_dir, item)
-                if os.path.isdir(item_path) and "PixelDeck" in item:
+                if os.path.isdir(item_path) and "ArcadeDeck" in item:
                     update_dir = item_path
                     break
 
@@ -443,7 +443,7 @@ class UpdateDialog(QDialog):
         # Создаем прогресс-диалог
         self.progress_dialog = QProgressDialog(
             "Скачивание обновления...", "Отмена", 0, 103, self)
-        self.progress_dialog.setWindowTitle("Обновление PixelDeck")
+        self.progress_dialog.setWindowTitle("Обновление ArcadeDeck")
         self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self.progress_dialog.canceled.connect(self.cancel_download)
 
@@ -489,7 +489,7 @@ class UpdateDialog(QDialog):
         QMessageBox.information(
             self.parent(),
             "Обновление установлено",
-            f"PixelDeck успешно обновлен до версии {self.new_version}!\n\n"
+            f"ArcadeDeck успешно обновлен до версии {self.new_version}!\n\n"
             "Программа будет перезапущена для применения изменений."
         )
 
