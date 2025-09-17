@@ -59,11 +59,15 @@ class LaunchManager:
             logger.error(f"Ошибка сохранения installed_games: {e}")
 
     def _find_launch_profile_by_name(self, emulator_name: str) -> Optional[Dict[str, Any]]:
-        """Ищет профиль запуска по имени эмулятора с поддержкой алиасов"""
+        """Ищет профиль запуска по имени эмулятора"""
         # Сначала ищем прямое совпадение
         for profile_key, profile_data in self.launch_profiles.items():
             if profile_data.get('name') == emulator_name:
                 return profile_data
+
+        # Если не нашли, пробуем найти по ключу профиля
+        if emulator_name in self.launch_profiles:
+            return self.launch_profiles[emulator_name]
 
         # Загружаем алиасы платформ
         aliases_path = self.project_root / 'app' / 'registry' / 'registry_platform_aliases.json'
@@ -89,6 +93,7 @@ class LaunchManager:
                 logger.info(f"🔁 Использую альтернативный ключ профиля: {alternative_id}")
                 return self.launch_profiles[alternative_id]
 
+        logger.error(f"❌ Не найден профиль запуска для эмулятора '{emulator_name}'")
         return None
 
     def register_installed_game(self, game_data: dict, install_path: Path):
@@ -100,14 +105,76 @@ class LaunchManager:
                 'platform': game_data.get('platform'),
                 'install_path': str(install_path),
                 'install_date': time.time(),
-                'emulator': game_data.get('preferred_emulator')
+                'emulator': game_data.get('preferred_emulator'),
+                'cover_path': self._get_cover_path(game_data)  # Добавляем путь к обложке
             }
             self._save_installed_games()
 
-    def unregister_installed_game(self, game_id: str):
-        """Удаляет игру из списка установленных"""
+    def _get_cover_path(self, game_data: dict) -> str:
+        """Получить путь к обложке игры"""
+        game_id = game_data.get('id')
+        platform = game_data.get('platform')
+
+        if not game_id or not platform:
+            logger.warning(f"⚠️ Не удалось получить game_id или platform для поиска обложки")
+            return ""
+
+        # Используем правильный путь: project_root/users/images/{platform}/{game_id}/
+        cover_dir = self.project_root / "users" / "images" / platform / game_id
+        image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.webp']
+
+        # Создаем директорию для обложек, если её нет
+        try:
+            cover_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"📁 Создана/проверена директория для обложек: {cover_dir}")
+        except Exception as e:
+            logger.error(f"❌ Ошибка создания директории для обложек: {e}")
+            return ""
+
+        # Ищем существующие обложки
+        for ext in image_extensions:
+            cover_path = cover_dir / f"cover{ext}"
+            if cover_path.exists():
+                logger.info(f"✅ Найдена пользовательская обложка: {cover_path}")
+                return str(cover_path)
+
+        # Возвращаем стандартную обложку, если пользовательской нет
+        default_cover = game_data.get('image_path', '')
+        if default_cover:
+            # Проверяем, является ли путь абсолютным или относительным
+            default_cover_path = Path(default_cover)
+            if not default_cover_path.is_absolute():
+                # Если путь относительный, делаем его абсолютным относительно project_root
+                default_cover_path = self.project_root / default_cover_path
+
+            if default_cover_path.exists():
+                logger.info(f"📋 Используется стандартная обложка: {default_cover_path}")
+                return str(default_cover_path)
+            else:
+                logger.warning(f"⚠️ Стандартная обложка не существует: {default_cover_path}")
+
+        logger.warning(f"⚠️ Ни пользовательская, ни стандартная обложка не найдены для игры {game_id}")
+        return ""
+
+    def get_cover_path(self, game_id: str) -> str:
+        """Получить путь к обложке игры по ID"""
+        game_info = self.installed_games.get(game_id, {})
+        cover_path = game_info.get('cover_path', '')
+
+        if cover_path:
+            # Проверяем существование файла обложки
+            cover_path_obj = Path(cover_path)
+            if not cover_path_obj.exists():
+                logger.warning(f"⚠️ Обложка не существует по указанному пути: {cover_path}")
+                return ""
+
+        logger.info(f"🔍 Путь к обложке для игры {game_id}: {cover_path}")
+        return cover_path
+
+    def update_cover_path(self, game_id: str, cover_path: str):
+        """Обновить путь к обложке игры"""
         if game_id in self.installed_games:
-            del self.installed_games[game_id]
+            self.installed_games[game_id]['cover_path'] = cover_path
             self._save_installed_games()
 
     def create_launcher(self, game_data: dict, game_install_path: Path) -> bool:
@@ -182,14 +249,14 @@ class LaunchManager:
 
             # Создаем содержимое bash-скрипта
             script_content = f"""#!/bin/bash
-    # Launcher for {game_data.get('title')}
-    # Generated by ArcadeDeck
+# Launcher for {game_data.get('title')}
+# Generated by ArcadeDeck
 
-    cd "{self.project_root}"
-    {env_section}
-    {launch_command}
-    {post_actions_section}
-    """
+cd "{self.project_root}"
+{env_section}
+{launch_command}
+{post_actions_section}
+"""
 
             # Путь к файлу скрипта-лаунчера
             launcher_path = self.scripts_dir / f"{game_id}.sh"
@@ -203,15 +270,15 @@ class LaunchManager:
 
             logger.info(f"✅ Создан лаунчер для игры {game_id}: {launcher_path}")
             logger.info(f"📝 Команда запуска: {launch_command}")
-            
+
             # После успешного создания лаунчера обновляем статус игры
             self.register_installed_game(game_data, game_install_path)
-            
+
             # Добавляем путь к лаунчеру в информацию об игре
             if game_id in self.installed_games:
                 self.installed_games[game_id]['launcher_path'] = str(launcher_path)
                 self._save_installed_games()
-            
+
             return True
 
         except Exception as e:
@@ -238,10 +305,10 @@ class LaunchManager:
         if not game_info:
             logger.error(f"❌ Игра {game_id} не установлена")
             return False
-        
+
         # Используем путь из launcher_path
         launcher_path = Path(game_info.get('launcher_path', ''))
-        
+
         if not launcher_path.exists():
             logger.error(f"❌ Лаунчер для игры {game_id} не найден по пути: {launcher_path}")
             return False
@@ -265,14 +332,14 @@ class LaunchManager:
                 launcher_path = Path(installed_games[game_id].get('launcher_path', ''))
                 if launcher_path.exists():
                     launcher_path.unlink()
-                
+
                 # Удаляем из реестра
                 del installed_games[game_id]
-                
+
                 # Сохраняем обновленный реестр
                 with open(self.installed_games_file, 'w', encoding='utf-8') as f:
                     json.dump(installed_games, f, ensure_ascii=False, indent=2)
-                
+
                 return True
         except Exception as e:
             print(f"Ошибка при удалении игры: {e}")
