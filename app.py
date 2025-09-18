@@ -1075,8 +1075,6 @@ if __name__ == "__main__":
         window = MainWindow()
         window.showMaximized()
 
-        QTimer.singleShot(1000, lambda: check_and_show_updates(dark_theme))
-
         sys.exit(app.exec())
 
     except Exception as e:
