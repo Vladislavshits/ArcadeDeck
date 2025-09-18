@@ -50,6 +50,7 @@ CONFIG_PATH = os.path.join(CONFIG_DIR, "updater.json")
 
 class Updater(QObject):
     update_available = pyqtSignal(dict)
+    update_check_complete = pyqtSignal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -214,22 +215,25 @@ class Updater(QObject):
                                 ),
                             }
 
-            # Если найдено обновление - отправляем сигнал
             if update_info:
                 logger.info(f"Найдено обновление: {update_info['version']}")
                 self.latest_info = update_info
                 self.update_available.emit(update_info)
+                self.update_check_complete.emit(True)  # Отправляем сигнал
                 return update_info
             else:
                 self.latest_info = None
                 logger.debug("Подходящих обновлений не найдено")
+                self.update_check_complete.emit(False)  # Отправляем сигнал
                 return None
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Ошибка сети при проверке обновлений: {e}")
+            self.update_check_complete.emit(False)  # Отправляем сигнал
             return None
         except Exception as e:
             logger.error(f"Неизвестная ошибка при проверке обновлений: {e}")
+            self.update_check_complete.emit(False)  # Отправляем сигнал
             return None
 
     def format_changelog_text(self, text):
@@ -423,7 +427,7 @@ class UpdateDialog(QDialog):
         self.changelog_area.setReadOnly(True)
         self.changelog_area.setPlainText(changelog)
 
-        # Устанавливаем стили для текстового поля
+        # Устанавливаем стили для текстового поле
         self.changelog_area.setStyleSheet("""
             QTextEdit {
                 background-color: transparent;
@@ -460,16 +464,29 @@ class UpdateDialog(QDialog):
         self.apply_theme(theme_manager.current_theme)
 
     def apply_theme(self, theme_name):
-        """Применяет указанную тему к диалогу"""
+        """Применяет указанную тему к диалогу и всем дочерним виджетам"""
         try:
             # Устанавливаем свойство класса для самого диалога
             self.setProperty("class", f"{theme_name}-theme")
 
-            # Применяем стили ко всем виджетам в диалоге
+            # Рекурсивно применяем свойство ко всем дочерним виджетам
+            def apply_to_children(widget):
+                for child in widget.findChildren(QWidget):
+                    child.setProperty("class", f"{theme_name}-theme")
+                    apply_to_children(child)
+
+            apply_to_children(self)
+
+            # Принудительно обновляем стили
+            self.style().unpolish(self)
+            self.style().polish(self)
+            self.update()
+
             for widget in self.findChildren(QWidget):
                 widget.style().unpolish(widget)
                 widget.style().polish(widget)
                 widget.update()
+
         except Exception as e:
             print(f"Ошибка применения темы в диалоге обновления: {e}")
 
@@ -657,6 +674,15 @@ def run_updater(dark_theme=None, current_version=None):
                 asset_name
             )
             dialog.exec()
+        else:
+            # Если обновлений нет, сразу закрываем приложение
+            print("Обновлений не найдено")
+            QMessageBox.information(
+                None,
+                "Обновлений нет",
+                "У вас уже установлена самая последняя версия ArcadeDeck."
+            )
+
     except Exception as e:
         print(f"Критическая ошибка в updater: {e}")
 
