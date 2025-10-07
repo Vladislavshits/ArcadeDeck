@@ -59,12 +59,38 @@ class RegistryLoader:
             logger.error(f"Ошибка загрузки игр из {games_file}: {e}")
             return []
 
+    def get_supported_formats(self):
+        """Возвращает словарь всех поддерживаемых форматов с платформами"""
+        formats_map = {}
+        platform_configs = self.get_all_platform_configs()
+
+        for platform_id, config in platform_configs.items():
+            formats = config.get("supported_formats", [])
+            for fmt in formats:
+                if fmt not in formats_map:
+                    formats_map[fmt] = []
+                formats_map[fmt].append(platform_id)
+
+        return formats_map
+
     def get_platform_config(self, platform: str) -> Optional[Dict[str, Any]]:
-        """Получает конфигурацию для платформы"""
-        platform_dir = self.platforms_dir / platform
+        """Получает конфигурацию для платформы (нечувствительно к регистру)"""
+
+        # Ищем папку платформы (нечувствительно к регистру)
+        platform_dir = None
+        for dir_item in self.platforms_dir.iterdir():
+            if dir_item.is_dir() and dir_item.name.lower() == platform.lower():
+                platform_dir = dir_item
+                break
+
+        if not platform_dir:
+            logger.warning(f"⚠️ Папка платформы {platform} не найдена в {self.platforms_dir}")
+            return None
+
         config_file = platform_dir / 'config.py'
 
         if not config_file.exists():
+            logger.warning(f"⚠️ Конфиг не найден: {config_file}")
             return None
 
         try:
@@ -77,14 +103,15 @@ class RegistryLoader:
             if hasattr(module, 'get_config'):
                 config = module.get_config()
                 # Добавляем идентификатор платформы
-                config['id'] = platform
+                config['id'] = platform_dir.name  # Используем реальное имя папки
+                logger.info(f"✅ Конфиг загружен для {platform_dir.name}")
                 return config
             else:
-                logger.warning(f"Конфиг платформы {platform} не содержит функцию get_config")
+                logger.warning(f"⚠️ Конфиг платформы {platform_dir.name} не содержит функцию get_config")
                 return None
 
         except Exception as e:
-            logger.error(f"Ошибка загрузки конфига платформы {platform}: {e}")
+            logger.error(f"❌ Ошибка загрузки конфига платформы {platform_dir.name}: {e}")
             return None
 
     def get_all_platform_configs(self) -> Dict[str, Dict[str, Any]]:

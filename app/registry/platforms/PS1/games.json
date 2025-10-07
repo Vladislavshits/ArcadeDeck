@@ -1,0 +1,14 @@
+[
+  {
+    "id": "crash_bandicoot_1",
+    "title": "Crash Bandicoot",
+    "platform": "PS1",
+    "platform_module": "PS1",
+    "preferred_emulator": "duckstation",
+    "image_path": "images/crash_bandicoot_1.png",
+    "description": "Легендарная платформенная игра про енота Крэша. Спаси подружку Таву от злого доктора Нео Кортекса!",
+    "torrent_url": "https://4pda.to/forum/index.php?act=attach&id=2121762&dlsess=d67e2c5e247a33e8077f4bc2f6afab49",
+    "preset": "crash_1.json",
+    "size_bytes": 650000000
+  }
+]

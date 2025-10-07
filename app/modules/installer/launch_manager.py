@@ -1,10 +1,13 @@
-#!/usr/bin/env python3
 import json
 import logging
 import shutil
 import time
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+
+# Импорт каталога игровых данных
+from core import get_users_path
+from core import get_users_subpath
 
 logger = logging.getLogger('LaunchManager')
 
@@ -13,9 +16,13 @@ class LaunchManager:
     def __init__(self, project_root: Path):
         self.project_root = project_root
         self.launch_profiles = self._load_launch_profiles()
-        self.scripts_dir = self.project_root / 'users' / 'launchers'
+
+        # Используем путь из настроек для лаунчеров
+        users_path = Path(get_users_path())
+        self.scripts_dir = users_path / 'launchers'
         self.scripts_dir.mkdir(parents=True, exist_ok=True)
-        self.installed_games_file = project_root / 'users' / 'installed_games.json'
+
+        self.installed_games_file = users_path / 'installed_games.json'
         self.installed_games = self._load_installed_games()
 
     def get_installed_games(self):
@@ -119,8 +126,9 @@ class LaunchManager:
             logger.warning(f"⚠️ Не удалось получить game_id или platform для поиска обложки")
             return ""
 
-        # Используем правильный путь: project_root/users/images/{platform}/{game_id}/
-        cover_dir = self.project_root / "users" / "images" / platform / game_id
+        # Используем путь из настроек для images
+        images_dir = Path(get_users_subpath("images"))
+        cover_dir = images_dir / platform / game_id
         image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.webp']
 
         # Создаем директорию для обложек, если её нет
@@ -214,8 +222,10 @@ class LaunchManager:
             flatpak_id = profile.get('flatpak_id', '')
 
             # Подготавливаем переменные для подстановки в шаблон
+            configs_dir = Path(get_users_subpath("configs"))
+
             template_vars = {
-                'config_dir': f'"{str(self.project_root / "users" / "configs" / platform)}"',
+                'config_dir': f'"{str(configs_dir / platform)}"',
                 'game_path': f'"{str(game_install_path)}"',  # Путь в кавычках!
                 'game_id': game_id,
                 'project_root': f'"{str(self.project_root)}"',

@@ -3,14 +3,98 @@
     "name": "PPSSPP",
     "bios_files": [],
     "bios_url": null,
-    "description": "Эмулятор PPSSPP не требует BIOS-файлов. Эта запись оставлена для единообразия и будущих нужд."
+    "description": "Эмулятор PPSSPP не требует BIOS-файлов"
+  },
+  "PS1": {
+    "name": "PlayStation",
+    "bios_files": [
+      "scph1001.bin",
+      "scph5500.bin",
+      "scph5501.bin",
+      "scph5502.bin",
+      "scph7001.bin"
+    ],
+    "bios_url": "https://example.com/ps1_bios.zip",
+    "description": "BIOS для PlayStation (разные регионы)"
   },
   "PS2": {
     "name": "PlayStation 2",
     "bios_files": [
       "SCPH-70004_BIOS_V12_PAL_20040301.bin",
-      "SCPH-70004_BIOS_V12_NTSC_20040301.bin"
+      "SCPH-70004_BIOS_V12_NTSC_20040301.bin",
+      "ps2-0230a-20040620.bin",
+      "ps2-0230e-20040620.bin",
+      "ps2-0230j-20040620.bin"
     ],
-    "bios_url": "https://example.com/ps2_bios.zip"
+    "bios_url": "https://example.com/ps2_bios.zip",
+    "description": "BIOS для PlayStation 2 (разные регионы и версии)"
+  },
+  "PS3": {
+    "name": "PlayStation 3",
+    "bios_files": [
+      "PS3UPDAT.PUP"
+    ],
+    "bios_url": "https://example.com/ps3_bios.zip",
+    "description": "Файл прошивки PS3 требуется для RPCS3"
+  },
+  "SWITCH": {
+    "name": "Nintendo Switch",
+    "bios_files": [
+      "prod.keys",
+      "title.keys"
+    ],
+    "bios_url": null,
+    "description": "Ключи для Nintendo Switch (должны быть добыты с консоли)"
+  },
+  "3DS": {
+    "name": "Nintendo 3DS",
+    "bios_files": [
+      "sysdata",
+      "shared_font.bin"
+    ],
+    "bios_url": null,
+    "description": "Системные файлы 3DS (должны быть добыты с консоли)"
+  },
+  "NDS": {
+    "name": "Nintendo DS",
+    "bios_files": [
+      "bios7.bin",
+      "bios9.bin",
+      "firmware.bin"
+    ],
+    "bios_url": "https://example.com/ds_bios.zip",
+    "description": "BIOS и firmware для Nintendo DS"
+  },
+  "DREAMCAST": {
+    "name": "Sega Dreamcast",
+    "bios_files": [
+      "dc_boot.bin",
+      "dc_flash.bin"
+    ],
+    "bios_url": "https://example.com/dreamcast_bios.zip",
+    "description": "BIOS для Sega Dreamcast"
+  },
+  "XBOX": {
+    "name": "Xbox",
+    "bios_files": [
+      "mcpx_1.0.bin",
+      "complex_4627.bin"
+    ],
+    "bios_url": "https://example.com/xbox_bios.zip",
+    "description": "BIOS для оригинального Xbox"
+  },
+  "GAMECUBE": {
+    "name": "Nintendo GameCube",
+    "bios_files": [
+      "IPL.bin"
+    ],
+    "bios_url": null,
+    "description": "BIOS для GameCube (опционально)"
+  },
+  "WII": {
+    "name": "Nintendo Wii",
+    "bios_files": [],
+    "bios_url": null,
+    "description": "Эмулятор Dolphin не требует отдельных BIOS файлов для Wii"
   }
 }

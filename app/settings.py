@@ -1,5 +1,6 @@
 from PyQt6.QtCore import QSettings
 import os
+from pathlib import Path
 
 class AppSettings:
     def __init__(self):
@@ -31,6 +32,34 @@ class AppSettings:
     def set_welcome_shown(self, shown):
         self._ensure_settings()
         self._settings.setValue("welcome_shown", "true" if shown else "false")
+
+    # Настройки для пути users
+    def get_users_path(self):
+        self._ensure_settings()
+        default_path = Path(__file__).parent / "users"
+        return self._settings.value("users_path", str(default_path), type=str)
+
+    def set_users_path(self, path):
+        self._ensure_settings()
+        self._settings.setValue("users_path", path)
+
+    def get_users_path_type(self):
+        self._ensure_settings()
+        return self._settings.value("users_path_type", "default", type=str)
+
+    def set_users_path_type(self, path_type):
+        self._ensure_settings()
+        self._settings.setValue("users_path_type", path_type)
+
+    # Настройки для модуля разработчика
+    def get_log_auto_scroll(self):
+        self._ensure_settings()
+        value = self._settings.value("Modules-dev-settings/auto_scroll", "true")
+        return value.lower() == "true"
+
+    def set_log_auto_scroll(self, enabled):
+        self._ensure_settings()
+        self._settings.setValue("Modules-dev-settings/auto_scroll", "true" if enabled else "false")
 
 # Глобальный экземпляр настроек
 app_settings = AppSettings()

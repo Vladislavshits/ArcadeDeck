@@ -4,6 +4,10 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
+# Импорт путей к игровым данным
+from core import get_users_path
+from core import get_users_subpath
+
 logger = logging.getLogger('GameData')
 
 class GameDataManager:
@@ -12,7 +16,11 @@ class GameDataManager:
     def __init__(self, project_root: Path):
         self.project_root = project_root
         self.registry_games_file = project_root / 'app' / 'registry' / 'registry_games.json'
-        self.installed_games_file = project_root / 'users' / 'installed_games.json'
+
+        # Каталог к реестру установленных игр
+        users_path = Path(get_users_path())
+        self.installed_games_file = users_path / 'installed_games.json'
+
         logger.info(f"[GameData] 🎮 Инициализация менеджера данных игр")
         logger.info(f"[GameData] 📁 Реестр игр: {self.registry_games_file}")
         logger.info(f"[GameData] 📁 Установленные игры: {self.installed_games_file}")
@@ -48,6 +56,30 @@ class GameDataManager:
         except Exception as e:
             logger.error(f"[GameData] ❌ Ошибка загрузки установленных игр: {e}")
         return {}
+
+    def get_platform_formats(self, platform: str) -> List[str]:
+        """Возвращает поддерживаемые форматы для платформы"""
+        try:
+            from app.registry.registry_loader import RegistryLoader
+            loader = RegistryLoader(self.project_root)
+            config = loader.get_platform_config(platform.lower())
+
+            if config:
+                return config.get("supported_formats", [])
+            return []
+        except Exception as e:
+            logger.error(f"[GameData] ❌ Ошибка получения форматов для {platform}: {e}")
+            return []
+
+    def get_all_platforms_info(self) -> Dict[str, Dict[str, Any]]:
+        """Возвращает информацию о всех платформах"""
+        try:
+            from app.registry.registry_loader import RegistryLoader
+            loader = RegistryLoader(self.project_root)
+            return loader.get_all_platform_configs()
+        except Exception as e:
+            logger.error(f"[GameData] ❌ Ошибка получения информации о платформах: {e}")
+            return {}
 
     def get_all_games(self) -> List[Dict[str, Any]]:
         """Возвращает ТОЛЬКО установленные игры из installed_games.json"""
@@ -95,7 +127,7 @@ class GameDataManager:
         """Сканирует пользовательские игры, но только для информации (не для отображения)"""
         # Этот метод теперь используется только для внутренних целей,
         # а не для отображения игр в библиотеке
-        games_dir = self.project_root / 'users' / 'games'
+        games_dir = Path(get_users_subpath("games"))
         if not games_dir.exists():
             return []
 
@@ -200,8 +232,6 @@ class GameDataManager:
 
     def get_uninstalled_games(self) -> List[Dict[str, Any]]:
         """Возвращает только не установленные игры (только для отладки)"""
-        # Этот метод теперь практически не будет использоваться,
-        # так как мы не показываем не установленные игры из реестра
         uninstalled = [game for game in self.get_all_games() if not game.get('is_installed')]
         logger.info(f"[GameData] 📦 Не установленных игр: {len(uninstalled)}")
         return uninstalled

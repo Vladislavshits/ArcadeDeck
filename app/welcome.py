@@ -1,9 +1,10 @@
 import os
 import sys
+from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QWizard, QWizardPage, QLabel, QVBoxLayout, QPushButton,
-    QHBoxLayout, QButtonGroup, QFrame, QApplication
+    QHBoxLayout, QButtonGroup, QFrame, QApplication, QFileDialog
 )
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
@@ -11,6 +12,136 @@ from PyQt6.QtCore import Qt
 from settings import app_settings
 from app.ui_assets.theme_manager import theme_manager
 from core import THEME_FILE
+
+
+class PathSelectionPage(QWizardPage):
+    """Страница выбора пути установки в мастере приветствия"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setTitle("Расположение данных")
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout()
+
+        title = QLabel("Выберите расположение для игр и данных")
+        title.setFont(QFont("Arial", 20))
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+
+        # Виджет выбора пути в одном ряду
+        path_frame = QFrame()
+        path_frame.setObjectName("PathSelectionFrame")
+        path_layout = QHBoxLayout(path_frame)  # Меняем на QHBoxLayout
+        path_layout.setContentsMargins(20, 20, 20, 20)
+        path_layout.setSpacing(10)
+
+        # Кнопки выбора в одном ряду
+        self.default_btn = QPushButton("По умолчанию")
+        self.default_btn.setCheckable(True)
+        self.default_btn.setFixedHeight(60)
+        self.default_btn.setFixedWidth(180)  # Фиксированная ширина
+        self.default_btn.clicked.connect(self.select_default)
+
+        self.sd_card_btn = QPushButton("SD-карта")
+        self.sd_card_btn.setCheckable(True)
+        self.sd_card_btn.setFixedHeight(60)
+        self.sd_card_btn.setFixedWidth(180)  # Фиксированная ширина
+        self.sd_card_btn.clicked.connect(self.select_sd_card)
+
+        self.custom_btn = QPushButton("Выбрать вручную")
+        self.custom_btn.setCheckable(True)
+        self.custom_btn.setFixedHeight(60)
+        self.custom_btn.setFixedWidth(180)  # Фиксированная ширина
+        self.custom_btn.clicked.connect(self.select_custom)
+
+        path_layout.addWidget(self.default_btn)
+        path_layout.addWidget(self.sd_card_btn)
+        path_layout.addWidget(self.custom_btn)
+
+        # Центрируем кнопки
+        path_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        layout.addWidget(path_frame)
+
+        # Метка текущего выбора
+        self.path_label = QLabel()
+        self.path_label.setWordWrap(True)
+        self.path_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.path_label.setFont(QFont("Arial", 12))
+        layout.addWidget(self.path_label)
+
+        # Информация
+        info = QLabel(
+            "Выберите где будут храниться игры, обложки и другие данные. "
+            "Вы всегда сможете изменить это в настройках."
+        )
+        info.setWordWrap(True)
+        info.setFont(QFont("Arial", 12))
+        layout.addWidget(info)
+
+        self.setLayout(layout)
+
+        # Устанавливаем выбор по умолчанию
+        self.select_default()
+
+    def get_default_path(self):
+        """Путь по умолчанию (в директории программы)"""
+        return Path(__file__).parent.parent / "users"
+
+    def get_sd_card_path(self):
+        """Путь к SD-карте на Steam Deck"""
+        # Стандартные пути к SD-карте на Steam Deck
+        possible_paths = [
+            "/run/media/mmcblk0p1",
+            "/run/media/mmcblk1p1",
+            "/media/sdcard",
+            "/mnt/sdcard"
+        ]
+
+        for path in possible_paths:
+            if os.path.exists(path):
+                sd_path = Path(path) / "ArcadeDeck" / "users"
+                sd_path.mkdir(parents=True, exist_ok=True)
+                return sd_path
+
+        # Если SD-карта не найдена, создаем в домашней директории
+        home_path = Path.home() / "ArcadeDeck" / "users"
+        home_path.mkdir(parents=True, exist_ok=True)
+        return home_path
+
+    def select_default(self):
+        """Выбор пути по умолчанию"""
+        path = self.get_default_path()
+        self.update_selection(path, "default")
+
+    def select_sd_card(self):
+        """Выбор пути на SD-карте"""
+        path = self.get_sd_card_path()
+        self.update_selection(path, "sd_card")
+
+    def select_custom(self):
+        """Выбор пользовательского пути"""
+        dialog = QFileDialog(self)
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dialog.setOption(QFileDialog.Option.ShowDirsOnly, True)
+
+        if dialog.exec() == QFileDialog.DialogCode.Accepted:
+            selected = dialog.selectedFiles()[0]
+            path = Path(selected) / "ArcadeDeck" / "users"
+            path.mkdir(parents=True, exist_ok=True)
+            self.update_selection(path, "custom")
+
+    def update_selection(self, path, path_type):
+        """Обновляет интерфейс и сохраняет настройки"""
+        self.default_btn.setChecked(path_type == "default")
+        self.sd_card_btn.setChecked(path_type == "sd_card")
+        self.custom_btn.setChecked(path_type == "custom")
+        self.path_label.setText(f"Будет использоваться: {path}")
+
+        # Сохраняем настройки
+        app_settings.set_users_path(str(path))
+        app_settings.set_users_path_type(path_type)
 
 
 class WelcomeWizard(QWizard):
@@ -87,27 +218,32 @@ class WelcomeWizard(QWizard):
         self.page2.setLayout(layout2)
         self.addPage(self.page2)
 
-        # Страница 3: Успех
-        self.page3 = QWizardPage()
-        self.page3.setTitle("Настройка завершена")
-        self.page3.setFinalPage(True)
-        layout3 = QVBoxLayout()
+        # Страница 3: Выбор расположения данных
+        self.page3 = PathSelectionPage()
+        self.addPage(self.page3)
+
+        # Страница 4: Успех
+        self.page4 = QWizardPage()
+        self.page4.setTitle("Настройка завершена")
+        self.page4.setFinalPage(True)
+        layout4 = QVBoxLayout()
 
         success = QLabel("Настройка успешно завершена!")
         success.setFont(QFont("Arial", 28, QFont.Weight.Bold))
         success.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout3.addWidget(success)
+        layout4.addWidget(success)
 
         wish = QLabel(
-                    "Теперь вы готовы к простой эмуляции игр на Steam Deck. \
-Удачной игры!")
+            "Теперь вы готовы к простой эмуляции игр на Steam Deck. "
+            "Удачной игры!"
+        )
         wish.setFont(QFont("Arial", 20))
         wish.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout3.addWidget(wish)
-        layout3.addStretch()
+        layout4.addWidget(wish)
+        layout4.addStretch()
 
-        self.page3.setLayout(layout3)
-        self.addPage(self.page3)
+        self.page4.setLayout(layout4)
+        self.addPage(self.page4)
 
         # Применяем текущую тему и подписываемся
         self.apply_theme(theme_manager.current_theme)

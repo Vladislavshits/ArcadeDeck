@@ -14,7 +14,11 @@ from .bios_manager import BIOSManager
 from .config_manager import ConfigManager
 from .game_downloader import GameDownloader
 from .archive_extractor import ArchiveExtractor
-from .launch_manager import LaunchManager  # Добавляем импорт LaunchManager
+from .launch_manager import LaunchManager
+
+# Импорт каталога установки
+from core import get_users_path
+from core import get_users_subpath
 
 # Создаем основной логгер приложения
 logger = logging.getLogger('PixelDeck')
@@ -37,7 +41,7 @@ class InstallThread(QThread):
         self.project_root = project_root
         self._cancelled = False
         self._was_cancelled = False
-        self.installed_games_file = project_root / 'users' / 'installed_games.json'
+        self.installed_games_file = Path(get_users_path()) / 'installed_games.json'
 
         self.emulator_manager = EmulatorManager(self.project_root, test_mode=False)
         self.bios_manager = BIOSManager(self.project_root)
@@ -384,7 +388,7 @@ class InstallDialog(QDialog):
         self.dialog_is_finished = False
         self.installation_cancelled = False
 
-        self.install_dir = self.project_root / 'users' / 'games' / self.game_data.get('platform')
+        self.install_dir = Path(get_users_subpath("games")) / self.game_data.get('platform')
         self.install_dir.mkdir(parents=True, exist_ok=True)
 
         self.thread = None
@@ -488,6 +492,11 @@ class InstallDialog(QDialog):
         else:
             self.progress_bar.setValue(100)
             self.status_label.setText("Установка завершена! ✅")
+
+            # Обновление статуса в библиотеке
+            if hasattr(self.parent(), 'game_library'):
+                self.parent().game_library.load_games()
+
             self.installation_finished.emit()
 
         # Меняем кнопку "Отмена" на "Закрыть"

@@ -10,7 +10,161 @@
       "SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS": "0"
     },
     "post_launch_actions": [
-      "echo '✅ Игра завершена. Конфиг ArcadeDeck успешно использован!'"
+      "echo '✅ PSP игра завершена. Конфиг ArcadeDeck успешно использован!'"
+    ]
+  },
+  "duckstation": {
+    "name": "duckstation",
+    "launch_method": "flatpak",
+    "flatpak_id": "org.duckstation.DuckStation",
+    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} -- --fullscreen {game_path}",
+    "config_source_dir": "{project_root}/app/emulators/PS1/",
+    "config_files": ["settings.ini", "controllers.ini"],
+    "env_variables": {
+      "SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS": "0"
+    },
+    "post_launch_actions": [
+      "echo '✅ PS1 игра завершена. Конфиг ArcadeDeck успешно использован!'"
+    ]
+  },
+  "pcsx2": {
+    "name": "pcsx2",
+    "launch_method": "flatpak",
+    "flatpak_id": "net.pcsx2.PCSX2",
+    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} --fullscreen {game_path}",
+    "config_source_dir": "{project_root}/app/emulators/PS2/",
+    "config_files": ["PCSX2.ini", "GS.ini", "SPU2.ini"],
+    "env_variables": {
+      "SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS": "0"
+    },
+    "post_launch_actions": [
+      "echo '✅ PS2 игра завершена. Конфиг ArcadeDeck успешно использован!'"
+    ]
+  },
+  "rpcs3": {
+    "name": "rpcs3",
+    "launch_method": "flatpak",
+    "flatpak_id": "net.rpcs3.RPCS3",
+    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} --no-gui {game_path}",
+    "config_source_dir": "{project_root}/app/emulators/PS3/",
+    "config_files": ["config.yml", "controllers.yml"],
+    "env_variables": {
+      "SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS": "0"
+    },
+    "post_launch_actions": [
+      "echo '✅ PS3 игра завершена. Конфиг ArcadeDeck успешно использован!'"
+    ]
+  },
+  "ryujinx": {
+    "name": "ryujinx",
+    "launch_method": "flatpak",
+    "flatpak_id": "org.ryujinx.Ryujinx",
+    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} {game_path}",
+    "config_source_dir": "{project_root}/app/emulators/SWITCH/",
+    "config_files": ["Config.json", "keys.txt"],
+    "env_variables": {
+      "SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS": "0"
+    },
+    "post_launch_actions": [
+      "echo '✅ Switch игра завершена. Конфиг ArcadeDeck успешно использован!'"
+    ]
+  },
+  "yuzu": {
+    "name": "yuzu",
+    "launch_method": "flatpak",
+    "flatpak_id": "org.yuzu_emu.yuzu",
+    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} -f {game_path}",
+    "config_source_dir": "{project_root}/app/emulators/SWITCH/",
+    "config_files": ["qt-config.ini"],
+    "env_variables": {
+      "SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS": "0"
+    },
+    "post_launch_actions": [
+      "echo '✅ Switch игра завершена. Конфиг ArcadeDeck успешно использован!'"
+    ]
+  },
+  "dolphin": {
+    "name": "dolphin",
+    "launch_method": "flatpak",
+    "flatpak_id": "org.DolphinEmu.dolphin-emu",
+    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} -b -e {game_path}",
+    "config_source_dir": "{project_root}/app/emulators/DOLPHIN/",
+    "config_files": ["Dolphin.ini", "GCPadNew.ini", "WiimoteNew.ini"],
+    "env_variables": {
+      "SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS": "0"
+    },
+    "post_launch_actions": [
+      "echo '✅ GameCube/Wii игра завершена. Конфиг ArcadeDeck успешно использован!'"
+    ]
+  },
+  "citra": {
+    "name": "citra",
+    "launch_method": "flatpak",
+    "flatpak_id": "org.citra_emu.citra",
+    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} -f {game_path}",
+    "config_source_dir": "{project_root}/app/emulators/3DS/",
+    "config_files": ["qt-config.ini"],
+    "env_variables": {
+      "SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS": "0"
+    },
+    "post_launch_actions": [
+      "echo '✅ 3DS игра завершена. Конфиг ArcadeDeck успешно использован!'"
+    ]
+  },
+  "melonds": {
+    "name": "melonds",
+    "launch_method": "flatpak",
+    "flatpak_id": "net.kuribo64.melonDS",
+    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} {game_path}",
+    "config_source_dir": "{project_root}/app/emulators/NDS/",
+    "config_files": ["melonds.ini"],
+    "env_variables": {
+      "SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS": "0"
+    },
+    "post_launch_actions": [
+      "echo '✅ Nintendo DS игра завершена. Конфиг ArcadeDeck успешно использован!'"
+    ]
+  },
+  "flycast": {
+    "name": "flycast",
+    "launch_method": "flatpak",
+    "flatpak_id": "org.flycast.Flycast",
+    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} {game_path}",
+    "config_source_dir": "{project_root}/app/emulators/DREAMCAST/",
+    "config_files": ["flycast.cfg"],
+    "env_variables": {
+      "SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS": "0"
+    },
+    "post_launch_actions": [
+      "echo '✅ Dreamcast игра завершена. Конфиг ArcadeDeck успешно использован!'"
+    ]
+  },
+  "xemu": {
+    "name": "xemu",
+    "launch_method": "flatpak",
+    "flatpak_id": "app.xemu.xemu",
+    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} -dvd_path {game_path} -full-screen",
+    "config_source_dir": "{project_root}/app/emulators/XBOX/",
+    "config_files": ["xemu.toml"],
+    "env_variables": {
+      "SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS": "0"
+    },
+    "post_launch_actions": [
+      "echo '✅ Xbox игра завершена. Конфиг ArcadeDeck успешно использован!'"
+    ]
+  },
+  "retroarch": {
+    "name": "retroarch",
+    "launch_method": "flatpak",
+    "flatpak_id": "org.libretro.RetroArch",
+    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} -L {core_path} {game_path}",
+    "config_source_dir": "{project_root}/app/emulators/RETROARCH/",
+    "config_files": ["retroarch.cfg"],
+    "env_variables": {
+      "SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS": "0"
+    },
+    "post_launch_actions": [
+      "echo '✅ RetroArch игра завершена. Конфиг ArcadeDeck успешно использован!'"
     ]
   }
 }

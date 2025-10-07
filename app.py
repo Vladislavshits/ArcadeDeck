@@ -182,14 +182,15 @@ from pathlib import Path
 from app.modules.installer.install import InstallDialog
 from app.modules.installer.game_downloader import GameDownloader
 
-from core import APP_VERSION, CONTENT_DIR, STYLES_DIR, THEME_FILE, GUIDES_JSON_PATH, GAME_LIST_GUIDE_JSON_PATH
+from core import APP_VERSION, STYLES_DIR, THEME_FILE
 from settings import app_settings
 from app.welcome import WelcomeWizard
 from app.ui_assets.theme_manager import theme_manager
 from updater import Updater, UpdateDialog  # Импортируем Updater и UpdateDialog
-from navigation import NavigationController  # Импортируем NavigationController
-from navigation import NavigationLayer
+from navigation import NavigationController, NavigationLayer
 from app.modules.ui.game_info_page import GameInfoPage
+from app.modules.ui.search_overlay import SearchOverlay
+from app.modules.ui.settings_page import SettingsPage
 from app.modules.module_logic.game_scanner import (
     is_game_installed,
     get_installed_games
@@ -198,129 +199,24 @@ from app.modules.module_logic.game_data_manager import get_game_data_manager, se
 
 # Модули настроек
 from app.modules.settings_plugins.about_settings import AboutPage
-from modules.settings_plugins.dev_settings import DevSettingsPage
+from modules.settings_plugins.general_settings import GeneralSettingsPage
 from modules.settings_plugins.appearance_settings import AppearanceSettingsPage
+from modules.settings_plugins.dev_settings import DevSettingsPage
 
-# Безопасная загрузка JSON
-def safe_load_json(path, default):
-    try:
-        if not os.path.exists(path):
-            logger.warning(f"Файл не найден: {path}")
-            return default
-
-        with open(path, 'r', encoding='utf-8') as f:
-            content = f.read().strip()
-
-        if not content:
-            logger.info(f"Файл пуст: {path}")
-            return default
-
-        return json.loads(content)
-
-    except json.JSONDecodeError as e:
-        logger.error(f"Ошибка декодирования JSON в {path}: {e}")
-        # Создаем резервную копию битого файла
-        backup_path = f"{path}.corrupted.{int(time.time())}"
-        shutil.copyfile(path, backup_path)
-        logger.info(f"Создана резервная копия: {backup_path}")
-
-        # Восстанавливаем исходный файл
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(default, f, ensure_ascii=False, indent=2)
-
-        logger.info(f"Восстановлен исходный файл: {path}")
-        return default
-
-    except Exception as e:
-        logger.error(f"Критическая ошибка при загрузке {path}: {e}")
-        return default
-
-def load_content():
-    """Загружает данные об играх и гайдах."""
-    logger.info("Загружаем данные...")
-    guides = []  # Заглушка, чтобы не выдавало ошибку
-
-    # Используем GameDataManager для загрузки игр
-    try:
-        manager = get_game_data_manager(Path(BASE_DIR))
-        if manager is None:
-            logger.error("GameDataManager не инициализирован")
-            return [], []
-
-        # Получаем все установленные игры
-        final_games_list = manager.get_all_games()
-
-        logger.info(f"Загружено {len(final_games_list)} игр.")
-        return guides, final_games_list
-
-    except Exception as e:
-        logger.error(f"Ошибка загрузки игр через GameDataManager: {e}")
-        return [], []
-
-def show_style_error(missing_resources):
-    """Показывает диалоговое окно с ошибкой отсутствия ресурсов."""
-    # Создаем временное приложение для показа сообщения
-    app = QApplication.instance()
-    if not app:
-        app = QApplication([])
-
-    error_dialog = QMessageBox()
-    error_dialog.setWindowTitle("Ошибка запуска! Код #1!")
-    error_dialog.setIcon(QMessageBox.Icon.Critical)
-
-    message = "Отсутствуют критические ресурсы. Переустановите программу.\n\n"
-    message += "Отсутствующие файлы/директории:\n"
-    for resource in missing_resources:
-        message += f"- {resource}\n"
-
-    error_dialog.setText(message)
-
-    download_button = error_dialog.addButton("Скачать установщик", QMessageBox.ActionRole)
-    close_button = error_dialog.addButton("Закрыть", QMessageBox.RejectRole)
-
-    error_dialog.exec()
-
-    if error_dialog.clickedButton() == download_button:
-        webbrowser.open("https://github.com/Vladislavshits/ArcadeDeck/releases/download/v0.1.5/install.arcadedeck.sh")
-
-def check_resources():
-    """Проверяет наличие всех критических ресурсов"""
-    missing = []
-
-    # Список обязательных файлов
-    required_files = [
-        THEME_FILE,
-        GUIDES_JSON_PATH,
-        GAME_LIST_GUIDE_JSON_PATH
-    ]
-
-    # Проверяем каждый файл
-    for path in required_files:
-        if not os.path.exists(path):
-            missing.append(os.path.basename(path))
-            logger.error(f"Отсутствует обязательный файл: {path}")
-
-    # Проверяем директории
-    required_dirs = [STYLES_DIR, CONTENT_DIR]
-    for dir_path in required_dirs:
-        if not os.path.isdir(dir_path):
-            missing.append(os.path.basename(dir_path))
-            logger.error(f"Отсутствует обязательная директория: {dir_path}")
-
-    return missing
-
+# Импорт пути игровых данных
+from core import get_users_path
 
 class MainWindow(QMainWindow):
-    """Главное окно приложения с двухслойным интерфейсом"""
+    """Главное окно приложения с модульной навигацией"""
     def __init__(self):
         super().__init__()
         self.install_dir = BASE_DIR
         self.updater_process = None
-        self.settings_tiles = []
+
         self.setWindowTitle("ArcadeDeck")
         self.setGeometry(400, 300, 1280, 800)
         self.setMinimumSize(800, 600)
-        self.current_layer = NavigationLayer.MAIN
+
         icon_path = os.path.join(BASE_DIR, "app", "icon.png")
         self.setWindowIcon(QIcon(icon_path))
 
@@ -328,83 +224,100 @@ class MainWindow(QMainWindow):
         manager = get_game_data_manager(Path(BASE_DIR))
         set_game_data_manager(manager)
 
+        # Основной layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         self.main_layout = QVBoxLayout(central_widget)
         self.main_layout.setContentsMargins(15, 15, 15, 15)
         self.main_layout.setSpacing(10)
 
-        # --- СТЕК СЛОЕВ ---
+        # Стек виджетов
         self.stack = QStackedWidget()
         self.main_layout.addWidget(self.stack, 1)
 
-        # --- НИЖНЯЯ ЧАСТЬ (подсказки) ---
+        # Подсказки
         hints_layout = QHBoxLayout()
         self.hint_label = QLabel("B: Назад")
         self.hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         hints_layout.addWidget(self.hint_label)
         self.main_layout.addLayout(hints_layout)
 
+        # Навигационный контроллер
         self.navigation_controller = NavigationController(self)
+        self.navigation_controller.set_hint_widget(self.hint_label)
         self.navigation_controller.layer_changed.connect(self.switch_layer)
-        self.navigation_controller.axis_moved.connect(self.handle_axis_movement)
+        self.navigation_controller.button_pressed.connect(self.handle_gamepad_input)
 
-        # ✅ Создаем все экраны
+        # Инициализация UI
         self.init_ui()
-        self.create_settings_layer()
-
-        # ✅ НОВОЕ ИЗМЕНЕНИЕ: Создаём game_info_page и добавляем его в стек
-        self.game_info_page = GameInfoPage(parent=self)
-        self.stack.addWidget(self.game_info_page)
-
-        # ✅ НОВОЕ ИЗМЕНЕНИЕ: Настраиваем колбэки для кнопок "Назад" и "Действие"
-        self.game_info_page.back_callback = self.show_library_page
-        self.game_info_page.action_callback = self.on_game_action
-
-        # ✅ Устанавливаем стартовый экран
-        self.stack.setCurrentIndex(0)
-        self.current_layer = NavigationLayer.MAIN
-        self.navigation_controller.switch_layer(NavigationLayer.MAIN)
-        self.switch_layer(NavigationLayer.MAIN)
-
-        # --- Темизация ---
         self.apply_theme(theme_manager.current_theme)
         theme_manager.theme_changed.connect(self.apply_theme)
 
-        # --- Обновления ---
+        # Проверка обновлений
         self.updater = Updater(self)
         self.updater.update_available.connect(self.on_update_available)
         QTimer.singleShot(1000, self.updater.check_for_updates)
 
-    def show_library_page(self):
-        """Переключение на главную страницу библиотеки."""
-        self.stack.setCurrentWidget(self.library_page)
+        # Инициализация поиска
+        self.setup_search_overlay()
 
     def init_ui(self):
-        # Проверьте правильность импорта
+        """Инициализация пользовательского интерфейса"""
+        # Страница библиотеки игр
         try:
             from app.modules.ui.game_library import GameLibrary
         except ImportError:
             from modules.ui.game_library import GameLibrary
-        
-        games_dir = os.path.join(BASE_DIR, "users", "games")
-        print(f"[MAIN] Games directory: {games_dir}")
-        print(f"[MAIN] Directory exists: {os.path.exists(games_dir)}")
-        
-        self.library_page = GameLibrary(
-            games_dir=games_dir,
-            parent=self
-        )
-        self.stack.addWidget(self.library_page)
-        games_dir = os.path.join(BASE_DIR, "users", "games")
 
-        # Регистрируем виджеты для каждого слоя
+        games_dir = os.path.join(BASE_DIR, "users", "games")
+        self.library_page = GameLibrary(games_dir=games_dir, parent=self)
+        self.stack.addWidget(self.library_page)
+
+        # Страница настроек (теперь из отдельного модуля)
+        self.settings_page = SettingsPage(parent=self)
+        self.stack.addWidget(self.settings_page)
+
+        # Страница информации об игре
+        self.game_info_page = GameInfoPage(parent=self)
+        self.game_info_page.back_callback = self.show_library_page
+        self.game_info_page.action_callback = self.on_game_action
+        self.stack.addWidget(self.game_info_page)
+
+        # Регистрация виджетов для навигации
         self.register_navigation_widgets()
 
         # Начальное состояние
         self.stack.setCurrentIndex(0)
-        self.current_layer = NavigationLayer.MAIN
-        self.update_hints()
+        self.navigation_controller.switch_layer(NavigationLayer.MAIN)
+
+    def setup_search_overlay(self):
+        """Настройка оверлея поиска"""
+        self.search_overlay = SearchOverlay(self)
+        self.search_overlay.setParent(self)
+        self.search_overlay.searchClosed.connect(self.on_search_closed)
+        self.search_overlay.resultSelected.connect(self.on_search_result_selected)
+        self.search_overlay.searchActivated.connect(self.on_search_activated)
+
+    def on_search_closed(self):
+        """Обработчик закрытия поиска"""
+        self.navigation_controller.search_active = False
+        self.navigation_controller.update_hints()
+
+    def on_search_result_selected(self, game_data):
+        """Обработчик выбора игры из поиска"""
+        # Открытие страницы с нужной игрой!
+        self.show_game_info(game_data)
+
+    def on_search_activated(self):
+        """Обработчик активации поиска"""
+        # Обновляем список игр при каждом открытии
+        if hasattr(self, 'library_page'):
+            games = self.library_page.all_games
+            self.search_overlay.set_game_list(games)
+
+    def show_library_page(self):
+        """Переключение на главную страницу библиотеки."""
+        self.stack.setCurrentWidget(self.library_page)
 
     def apply_theme(self, theme_name):
         try:
@@ -428,81 +341,77 @@ class MainWindow(QMainWindow):
             logger.error(f"Ошибка применения темы: {e}")
 
     def register_navigation_widgets(self):
-        """Регистрируем виджеты для управления в каждом слое"""
-        # Для главного слоя: поисковик и кнопка «Добавить игру» на обоих экранах
-        main_widgets = []
+        """Регистрация виджетов для навигационного контроллера"""
+        logger.info("Начало регистрации навигационных виджетов")
 
-        # Добавляем виджеты из placeholder экрана
+        # Главный слой
+        main_widgets = []
         if hasattr(self.library_page, 'search_input_ph'):
             main_widgets.append(self.library_page.search_input_ph)
         if hasattr(self.library_page, 'add_btn_ph'):
             main_widgets.append(self.library_page.add_btn_ph)
-
-        # Добавляем виджеты из grid экрана
         if hasattr(self.library_page, 'search_input_grid'):
             main_widgets.append(self.library_page.search_input_grid)
 
+        logger.info(f"Главный слой: {len(main_widgets)} виджетов")
         self.navigation_controller.register_widgets(
             NavigationLayer.MAIN,
             main_widgets
         )
 
-        # Для слоя настроек: все плитки настроек
+        # Слой настроек
+        settings_widgets = self.settings_page.get_tiles()
+        logger.info(f"Слой настроек: {len(settings_widgets)} плиток")
+
+        # Находим плитку "Выход" и устанавливаем правильный обработчик
+        exit_tile_found = False
+        for tile in settings_widgets:
+            if tile.name == "Выход":
+                tile.action = self.confirm_exit
+                exit_tile_found = True
+                logger.info("Обработчик выхода установлен для плитки 'Выход'")
+                break
+
+        if not exit_tile_found:
+            logger.warning("Плитка 'Выход' не найдена!")
+
         self.navigation_controller.register_widgets(
             NavigationLayer.SETTINGS,
-            self.settings_tiles
+            settings_widgets
         )
 
-        # Устанавливаем действия для плиток настроек
-        for tile in self.settings_tiles:
-            if hasattr(tile, 'action'):
-                tile.activated = tile.action
+        # Слой информации об игре - регистрируем все кнопки
+        game_info_widgets = [
+            self.game_info_page.action_button,
+            self.game_info_page.back_button,
+            self.game_info_page.menu_button  # Добавляем кнопку меню
+        ]
+        logger.info(f"Слой информации об игре: {len(game_info_widgets)} виджетов")
 
-        # Настройки чувствительности
-        self.axis_threshold = 0.7
-        self.last_axis_event = time.time()
+        self.navigation_controller.register_widgets(
+            NavigationLayer.GAME_INFO,
+            game_info_widgets
+        )
+
+        logger.info("Регистрация навигационных виджетов завершена")
 
     def handle_gamepad_input(self, button):
-        """Обработка нажатий кнопок геймпада"""
-        # Маппинг кнопок на действия
-        action_map = {
-            'A': 'A',
-            'B': 'B',
-            'X': 'X',
-            'Y': 'Y',
-            'DPAD_UP': 'UP',
-            'DPAD_DOWN': 'DOWN',
-            'DPAD_LEFT': 'LEFT',
-            'DPAD_RIGHT': 'RIGHT',
-            'SELECT': 'SELECT',
-            'START': 'START'
-        }
-
-        if button in action_map:
-            # Создаем искусственное событие клавиатуры
-            key = self.navigation_controller.key_mapping.get(action_map[button])
-            if key:
-                event = QKeyEvent(QEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier)
-                QApplication.postEvent(self, event)
-
-        # Специальные действия
+        """Обработка глобальных действий геймпада"""
         if button == 'SELECT':
             self.toggle_settings()
-        elif button == 'START' and self.current_layer == NavigationLayer.MAIN:
+        elif button == 'START' and self.navigation_controller.current_layer == NavigationLayer.MAIN:
             self.launch_selected_game()
-        # Кнопка "Назад"
-        elif button == 'B':
-            if self.current_layer == NavigationLayer.SETTINGS:
-                self.switch_layer(NavigationLayer.MAIN)
-            elif self.current_layer == NavigationLayer.MAIN:
-                self.confirm_exit()
+        elif button == 'Y' and self.navigation_controller.current_layer == NavigationLayer.MAIN:
+            # Активация поиска по кнопке Y
+            self.search_overlay.show_overlay()
 
     def toggle_settings(self):
         """Переключение между основным экраном и настройками"""
-        if self.current_layer == NavigationLayer.MAIN:
-            self.switch_layer(NavigationLayer.SETTINGS)
+        current_layer = self.navigation_controller.current_layer
+        if current_layer == NavigationLayer.MAIN:
+            self.navigation_controller.switch_layer(NavigationLayer.SETTINGS)
         else:
-            self.switch_layer(NavigationLayer.MAIN)
+            self.navigation_controller.switch_layer(NavigationLayer.MAIN)
 
     def launch_selected_game(self):
         """Запуск выбранной игры"""
@@ -510,26 +419,8 @@ class MainWindow(QMainWindow):
             widgets = self.navigation_controller.layer_widgets[NavigationLayer.MAIN]
             idx = self.navigation_controller.focus_index[NavigationLayer.MAIN]
             if 0 <= idx < len(widgets):
-                self.launch_game(self.games[idx])
-
-    def handle_axis_movement(self, axis, value):
-        """Обработка движения осей (для навигации в меню)"""
-        # Защита от слишком частых событий
-        if time.time() - self.last_axis_event < 0.2:
-            return
-
-        action = None
-        if axis == 'LEFT_Y' and value < -self.axis_threshold: action = 'UP'
-        elif axis == 'LEFT_Y' and value > self.axis_threshold: action = 'DOWN'
-        elif axis == 'LEFT_X' and value < -self.axis_threshold: action = 'LEFT'
-        elif axis == 'LEFT_X' and value > self.axis_threshold: action = 'RIGHT'
-
-        if action:
-            key = self.navigation_controller.key_mapping.get(action)
-            if key:
-                event = QKeyEvent(QEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier)
-                QApplication.postEvent(self, event)
-                self.last_axis_event = time.time()
+                # Нужно получить данные игры - возможно, нужно доработать
+                logger.info("Запуск игры из главного меню")
 
     def closeEvent(self, event):
         """Обработчик закрытия окна - завершаем все процессы"""
@@ -560,10 +451,8 @@ class MainWindow(QMainWindow):
             # Отключаем все сигналы
             try:
                 theme_manager.theme_changed.disconnect(self.apply_theme)
-                self.updater.update_available.disconnect(
-                    self.on_update_available)
-                self.navigation_controller.layer_changed.disconnect(
-                    self.switch_layer)
+                self.updater.update_available.disconnect(self.on_update_available)
+                self.navigation_controller.layer_changed.disconnect(self.switch_layer)
             except TypeError:
                 pass
 
@@ -583,143 +472,90 @@ class MainWindow(QMainWindow):
         dlg = QMessageBox(self)
         dlg.setWindowTitle("Выход")
         dlg.setText("Вы хотите закрыть ArcadeDeck?")
-        # Убираем стандартные кнопки и добавляем свои
         dlg.setStandardButtons(QMessageBox.StandardButton.NoButton)
+
         yes_btn = dlg.addButton("Да", QMessageBox.ButtonRole.AcceptRole)
-        no_btn  = dlg.addButton("Нет", QMessageBox.ButtonRole.RejectRole)
-        dlg.exec()
+        no_btn = dlg.addButton("Нет", QMessageBox.ButtonRole.RejectRole)
+
+        # Устанавливаем фокус на кнопку "Нет" для безопасности
+        dlg.setDefaultButton(no_btn)
+
+        # Сохраняем ссылки на кнопки для навигации
+        self.exit_dialog_buttons = [no_btn, yes_btn]
+        self.exit_dialog_current_index = 0
+        no_btn.setFocus()
+
+        # Подключаем обработчики клавиш для диалога
+        dlg.keyPressEvent = self._exit_dialog_key_handler
+
+        result = dlg.exec()
 
         if dlg.clickedButton() is yes_btn:
             self.close()
 
-    def create_settings_layer(self):
-        """Создаёт слой настроек с плитками и областью деталей"""
-        settings_widget = QWidget()
-        settings_layout = QVBoxLayout(settings_widget)
-        settings_layout.setContentsMargins(15, 15, 15, 15)
-        settings_layout.setSpacing(15)
+    def _exit_dialog_key_handler(self, event):
+        """Обработчик клавиш для диалога выхода"""
+        # Обработка геймпада
+        if hasattr(self, 'navigation_controller'):
+            # Преобразуем клавиши в кнопки геймпада
+            key_map = {
+                Qt.Key.Key_Left: 'LEFT',
+                Qt.Key.Key_Right: 'RIGHT',
+                Qt.Key.Key_Return: 'A',
+                Qt.Key.Key_Escape: 'B',
+                Qt.Key.Key_A: 'A',
+                Qt.Key.Key_B: 'B'
+            }
 
-        # Карусель плиток
-        self.carousel_container = QWidget()
-        self.carousel_layout = QHBoxLayout(self.carousel_container)
-        self.carousel_layout.setContentsMargins(0, 0, 0, 0)
-        self.carousel_layout.setSpacing(15)
+            button = key_map.get(event.key())
+            if button:
+                if button == 'LEFT':
+                    self.exit_dialog_current_index = (self.exit_dialog_current_index - 1) % len(self.exit_dialog_buttons)
+                    self.exit_dialog_buttons[self.exit_dialog_current_index].setFocus()
+                    event.accept()
+                elif button == 'RIGHT':
+                    self.exit_dialog_current_index = (self.exit_dialog_current_index + 1) % len(self.exit_dialog_buttons)
+                    self.exit_dialog_buttons[self.exit_dialog_current_index].setFocus()
+                    event.accept()
+                elif button == 'A':
+                    self.exit_dialog_buttons[self.exit_dialog_current_index].click()
+                    event.accept()
+                elif button == 'B':
+                    self.exit_dialog_buttons[0].click()  # "Нет"
+                    event.accept()
+                return
 
-        # Список разделов
-        settings_items = [
-            {"name": "Общие",                  "icon": ""},
-            {"name": "Управление эмуляторами", "icon": ""},
-            {"name": "Внешний вид",           "icon": ""},
-            {"name": "Сетевое подключение",    "icon": ""},
-            {"name": "Инструменты отладки",    "icon": ""},
-            {"name": "О ArcadeDeck",            "icon": ""},
-            {"name": "Выход",                  "icon": ""}
-        ]
-
-        self._settings_index = {}
-        self.settings_detail_stack = QStackedWidget()
-
-        for idx, item in enumerate(settings_items):
-            name = item["name"]
-            icon = item.get("icon", "")
-
-            # 1) создаём страницу
-            if name == "Внешний вид":
-                page = AppearanceSettingsPage(self)
-            elif name == "Инструменты отладки":
-                page = DevSettingsPage(self, log_path=log_file)
-            elif name == "О ArcadeDeck":
-                page = AboutPage(self)
-            else:
-                # пустая заглушка для остальных (включая «Общие», «Управление эмуляторами», «Сетевое подключение» и «Выход»)
-                page = QWidget()
-                pl = QVBoxLayout(page)
-                lbl = QLabel(f"Раздел '{name}' в разработке")
-                lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                lbl.setFont(QFont("Arial", 14))
-                pl.addWidget(lbl)
-            self.settings_detail_stack.addWidget(page)
-
-            # 2) выбираем handler
-            if name == "Выход":
-                handler = self.confirm_exit
-            else:
-                handler = self._make_tile_click_handler(idx)
-
-            # 3) создаём и регистрируем плитку
-            tile = self.create_settings_tile(name, icon_path=icon, action=handler)
-            self.settings_tiles.append(tile)
-            self.carousel_layout.addWidget(tile)
-            self._settings_index[name] = idx
-
-        # обёртка карусели
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(False)
-        self.scroll_area.setWidget(self.carousel_container)
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
-        settings_layout.addWidget(self.scroll_area)
-
-        # область деталей
-        settings_layout.addWidget(self.settings_detail_stack, 1)
-        self.stack.addWidget(settings_widget)
-
-    def _make_tile_click_handler(self, index):
-        """Возвращает функцию-обработчик клика, которая переключает стек"""
-        def handler(event=None):
-            # При клике на плитку переключаем детальную область
-            self.settings_detail_stack.setCurrentIndex(index)
-        return handler
-
-    def create_settings_tile(self, name, icon_path, action):
-        """Создает плитку настроек"""
-        tile = QFrame()
-        tile.setObjectName("SettingsTile")
-        tile.setMinimumSize(200, 150)
-        tile.setMaximumSize(400, 220)
-
-        tile_layout = QVBoxLayout(tile)
-        tile_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        if icon_path:
-            icon_label = QLabel()
-            icon_pixmap = QPixmap(icon_path)
-            icon_label.setPixmap(icon_pixmap.scaled(50, 50, Qt.AspectRatioMode.KeepAspectRatio))
-            tile_layout.addWidget(icon_label)
-
-        name_label = QLabel(name)
-        name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        name_label.setFont(QFont("Arial", 10))
-        tile_layout.addWidget(name_label)
-
-        # Привязываем действие по клику (если задано)
-        if action:
-            tile.action = action
-            tile.mousePressEvent = lambda event: action()
-
-        return tile
+        # Стандартная обработка клавиатуры
+        if event.key() == Qt.Key.Key_Left:
+            self.exit_dialog_current_index = (self.exit_dialog_current_index - 1) % len(self.exit_dialog_buttons)
+            self.exit_dialog_buttons[self.exit_dialog_current_index].setFocus()
+            event.accept()
+        elif event.key() == Qt.Key.Key_Right:
+            self.exit_dialog_current_index = (self.exit_dialog_current_index + 1) % len(self.exit_dialog_buttons)
+            self.exit_dialog_buttons[self.exit_dialog_current_index].setFocus()
+            event.accept()
+        elif event.key() == Qt.Key.Key_A or event.key() == Qt.Key.Key_Return:
+            self.exit_dialog_buttons[self.exit_dialog_current_index].click()
+            event.accept()
+        elif event.key() == Qt.Key.Key_B or event.key() == Qt.Key.Key_Escape:
+            self.exit_dialog_buttons[0].click()
+            event.accept()
+        else:
+            event.accept()
 
     def switch_layer(self, new_layer):
-        """Переключает между слоями"""
-        self.current_layer = new_layer
+        """Переключение между слоями интерфейса"""
+        logger.info(f"Переключение на слой: {new_layer}")
 
         if new_layer == NavigationLayer.MAIN:
-            self.stack.setCurrentIndex(0)
+            self.stack.setCurrentWidget(self.library_page)
+            logger.info("Установлена страница библиотеки")
         elif new_layer == NavigationLayer.SETTINGS:
-            self.stack.setCurrentIndex(1)
-            self.update_hints()
-
-    def update_hints(self):
-        """Обновляет подсказки в зависимости от текущего слоя"""
-        if self.current_layer == NavigationLayer.MAIN:
-            hints = "↓: Настройки  |  A: Запустить  |  Y: Поиск  |  B: Назад"
-        elif self.current_layer == NavigationLayer.SETTINGS:
-            hints = "↑: Главный экран  |  ←/→: Навигация  |  A: Выбрать  |  B: Назад"
-        else:  # SEARCH
-            hints = "B: Назад  |  Enter: Поиск  |  Стрелки: Навигация"
-
-        self.hint_label.setText(hints)
+            self.stack.setCurrentWidget(self.settings_page)
+            logger.info("Установлена страница настроек")
+        elif new_layer == NavigationLayer.GAME_INFO:
+            self.stack.setCurrentWidget(self.game_info_page)
+            logger.info("Установлена страница информации об игре")
 
     def keyPressEvent(self, event):
         """Обработка клавиш через навигационный контроллер"""
@@ -734,7 +570,7 @@ class MainWindow(QMainWindow):
             logger.info(f"Запуск игры: {game_data.get('title', 'Unknown')}")
             
             # Загружаем информацию об установленных играх
-            installed_games_file = Path(BASE_DIR) / 'users' / 'installed_games.json'
+            installed_games_file = Path(get_users_path()) / 'installed_games.json'
             if not installed_games_file.exists():
                 QMessageBox.warning(self, "Ошибка", "Файл installed_games.json не найден")
                 return
@@ -765,39 +601,23 @@ class MainWindow(QMainWindow):
 
     def show_game_info(self, game):
         """
-        Показать страницу с информацией об игре.
+        Показать страницу с информацией об игре
         """
-        # 1. Обработка сброса поиска (можно оставить, это не зависит от логики игры)
         try:
-            lib_page = getattr(self, "library_page", None) or getattr(self, "game_library_page", None)
-            if lib_page and hasattr(lib_page, "search_input_grid"):
-                lib_page.search_input_grid.reset_search()
-        except Exception:
-            pass
-
-        # 2. Быстрая валидация
-        if not game:
-            QMessageBox.warning(self, "Ошибка", "Нет данных об игре.")
-            return
-
-        # 3. Передаем данные напрямую в game_info_page
-        try:
+            # 1. Передаем данные в game_info_page
             self.game_info_page.load_game(game)
-        except Exception as e:
-            logger.exception(f"Не удалось вызвать load_game у game_info_page: {e}")
-            QMessageBox.critical(self, "Ошибка", "Не удалось отобразить страницу информации об игре.")
-            return
 
-        # 4. Покажем страницу
-        try:
-            if hasattr(self, "stacked_widget"):
-                self.stacked_widget.setCurrentWidget(self.game_info_page)
-            elif hasattr(self, "stack"):
-                self.stack.setCurrentWidget(self.game_info_page)
-            else:
-                self.game_info_page.show()
+            # 2. Показываем страницу
+            self.stack.setCurrentWidget(self.game_info_page)
+
+            # 3. Переключаем слой навигации
+            self.navigation_controller.switch_layer(NavigationLayer.GAME_INFO)
+
+            logger.info(f"✅ Переход на страницу игры: {game.get('title', 'Unknown')}")
+
         except Exception as e:
-            logger.exception(f"Ошибка при отображении game_info_page: {e}")
+            logger.error(f"❌ Ошибка перехода на страницу игры: {e}")
+            QMessageBox.critical(self, "Ошибка", "Не удалось открыть страницу информации об игре.")
 
     def on_game_action(self, game_data, is_installed):
         if is_installed:
@@ -832,7 +652,7 @@ class MainWindow(QMainWindow):
             game_id = game_data.get('id')
             
             # Проверяем, установлена ли игра
-            installed_games_file = Path(BASE_DIR) / 'users' / 'installed_games.json'
+            installed_games_file = Path(get_users_path()) / 'installed_games.json'
             is_installed = False
             
             if installed_games_file.exists():
@@ -921,6 +741,15 @@ class MainWindow(QMainWindow):
             self.activateWindow()
             self.raise_()
 
+    # Автоматическое включение виртуальной клавиатуры
+    def enable_virtual_keyboard():
+        # Для Steam Deck
+        os.environ['QT_IM_MODULE'] = 'qtvirtualkeyboard'
+        # Включение виртуальной клавиатуры при фокусе
+        os.environ['QT_ENABLE_GLYPH_CACHE_WORKAROUND'] = '1'
+
+    # Вызовите эту функцию до создания QApplication
+    enable_virtual_keyboard()
 
 def check_and_show_updates(dark_theme):
     """Запускает внешний updater и возвращает объект процесса"""
@@ -1018,13 +847,6 @@ if __name__ == "__main__":
 
     try:
         os.makedirs(STYLES_DIR, exist_ok=True)
-        os.makedirs(CONTENT_DIR, exist_ok=True)
-
-        missing_resources = check_resources()
-        if missing_resources:
-            logger.critical("Отсутствуют критические ресурсы")
-            show_style_error(missing_resources)
-            sys.exit(1)
 
         # Загружаем глобальный стиль
         try:
@@ -1050,10 +872,6 @@ if __name__ == "__main__":
         # Инициализируем менеджер тем
         theme_manager.set_theme(theme_name)
 
-        # Загружаем контент
-        global GUIDES, GAMES
-        GUIDES, GAMES = load_content()
-
         welcome_shown = app_settings.get_welcome_shown()
         dark_theme = (theme_name == 'dark')
 
@@ -1073,7 +891,7 @@ if __name__ == "__main__":
             dark_theme = (new_theme == 'dark')
 
         window = MainWindow()
-        window.showMaximized()
+        window.showNormal()
 
         QTimer.singleShot(1000, lambda: check_and_show_updates(dark_theme))
 
