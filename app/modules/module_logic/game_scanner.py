@@ -9,24 +9,48 @@ logger = logging.getLogger('PixelDeck')
 # Корень проекта
 from core import BASE_DIR
 
+# Импорт пути к игровым данным
+from core import get_users_subpath
+
 # Вычисляем абсолютный путь к корню проекта
 REGISTRY_PLATFORM_FILE = os.path.join(BASE_DIR, "app", "registry", "registry_platforms.json")
-GAMES_DIR = os.path.join(BASE_DIR, "users", "games")
+GAMES_DIR = get_users_subpath("games")
 
 def load_supported_formats():
-    """Загружает поддерживаемые форматы из registry_platforms.json"""
-    if not os.path.exists(REGISTRY_PLATFORM_FILE):
-        logger.warning(f"Registry platform file not found: {REGISTRY_PLATFORM_FILE}")
-        return {}
-
+    """Загружает поддерживаемые форматы через RegistryLoader"""
     try:
-        with open(REGISTRY_PLATFORM_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            logger.info(f"Loaded registry platform data")
-            return data
+        # ПЫТАЕМСЯ ИСПОЛЬЗОВАТЬ НОВЫЙ REGISTRYLOADER
+        from app.registry.registry_loader import RegistryLoader
+        loader = RegistryLoader(Path(BASE_DIR))
+        platform_configs = loader.get_all_platform_configs()
+
+        # Преобразуем в старый формат для совместимости
+        supported = {}
+        for platform_id, config in platform_configs.items():
+            supported[platform_id] = {
+                "name": config.get("name", platform_id),
+                "supported_formats": config.get("supported_formats", [])
+            }
+
+        logger.info(f"✅ Загружено {len(supported)} платформ через RegistryLoader")
+        return supported
+
     except Exception as e:
-        logger.error(f"Error loading registry platform: {e}")
-        return {}
+        logger.error(f"❌ Ошибка загрузки через RegistryLoader: {e}")
+
+        # Fallback на старый файл
+        if not os.path.exists(REGISTRY_PLATFORM_FILE):
+            logger.warning(f"Registry platform file not found: {REGISTRY_PLATFORM_FILE}")
+            return {}
+
+        try:
+            with open(REGISTRY_PLATFORM_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                logger.info(f"🔄 Загружено {len(data)} платформ из старого файла")
+                return data
+        except Exception as e2:
+            logger.error(f"❌ Ошибка загрузки старого файла: {e2}")
+            return {}
 
 def scan_games(games_dir=None) -> List[Dict[str, Any]]:
     """Сканирует папку с играми и возвращает список найденных игр"""
