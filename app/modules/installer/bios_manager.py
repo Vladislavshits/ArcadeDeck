@@ -1,92 +1,478 @@
-# bios_manager.py (обновлённый)
+# bios_manager.py
 #!/usr/bin/env python3
-from pathlib import Path
-from datetime import datetime
 import json
-import zipfile
-import urllib.request
-import shutil
 import logging
+import shutil
+import zipfile
+from pathlib import Path
+from urllib.parse import unquote, urlparse
+from PyQt6.QtCore import QThread, pyqtSignal
+import requests
 
 logger = logging.getLogger('BIOSManager')
+
+
+class YandexDownloader:
+    """Загрузчик для Яндекс.Диска"""
+
+    @staticmethod
+    def download_file(url: str, target_path: Path, progress_callback=None) -> bool:
+        """Скачивает файл с Яндекс.Диска"""
+        try:
+            logger.info("🎯 Загрузка с Яндекс.Диска")
+
+            # Извлекаем public key из URL
+            if '/d/' in url:
+                public_key = url.split('/d/')[1].split('/')[0].split('?')[0]
+            else:
+                public_key = url.split('/')[-1]
+
+            # Получаем прямую ссылку через Яндекс API
+            api_url = f"https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=https://disk.yandex.ru/d/{public_key}"
+
+            response = requests.get(api_url)
+            if response.status_code != 200:
+                logger.error("❌ Не удалось получить ссылку Яндекс.Диска")
+                return False
+
+            data = response.json()
+            download_url = data.get('href')
+            if not download_url:
+                logger.error("❌ Не найдена ссылка для скачивания")
+                return False
+
+            # Скачиваем файл
+            return YandexDownloader._download_direct(download_url, target_path, progress_callback)
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка загрузки с Яндекс.Диска: {e}")
+            return False
+
+    @staticmethod
+    def _download_direct(url: str, target_path: Path, progress_callback=None) -> bool:
+        """Прямая загрузка файла"""
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+                'Accept': '*/*'
+            }
+
+            response = requests.get(url, stream=True, headers=headers, timeout=30)
+            response.raise_for_status()
+
+            total_size = int(response.headers.get('content-length', 0))
+            downloaded_size = 0
+
+            with open(target_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded_size += len(chunk)
+
+                        if progress_callback and total_size > 0:
+                            progress = int((downloaded_size / total_size) * 100)
+                            mb_downloaded = downloaded_size / (1024 * 1024)
+                            progress_callback(progress, f"📥 Загрузка BIOS: {mb_downloaded:.1f}MB")
+
+            logger.info(f"✅ Загрузка успешна: {target_path.name}")
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка загрузки: {e}")
+            return False
+
+
+class BIOSDownloadThread(QThread):
+    progress_updated = pyqtSignal(int, str)
+    finished = pyqtSignal(bool, str)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, bios_info: dict, target_dir: Path, platform: str):
+        super().__init__()
+        self.bios_info = bios_info
+        self.target_dir = target_dir
+        self.platform = platform
+        self._cancelled = False
+
+    def run(self):
+        try:
+            download_url = self.bios_info.get('bios_url')
+            if not download_url:
+                self.error_occurred.emit("URL загрузки не указан")
+                return
+
+            self.progress_updated.emit(0, "🔄 Подготовка к загрузке BIOS...")
+
+            # Создаем временную директорию
+            temp_dir = self.target_dir / "temp_download"
+            temp_dir.mkdir(parents=True, exist_ok=True)
+
+            # Генерируем имя файла с расширением .zip
+            filename = self._generate_filename(download_url)
+            temp_file = temp_dir / filename
+
+            # Скачиваем файл
+            self.progress_updated.emit(10, "📥 Загрузка BIOS архива...")
+
+            success = YandexDownloader.download_file(
+                download_url,
+                temp_file,
+                progress_callback=self.progress_updated.emit
+            )
+
+            if not success:
+                self.error_occurred.emit("Не удалось скачать BIOS архив")
+                return
+
+            if self._cancelled:
+                self.progress_updated.emit(0, "❌ Загрузка отменена")
+                return
+
+            # ВСЕГДА ПЫТАЕМСЯ РАСПАКОВАТЬ КАК АРХИВ
+            self.progress_updated.emit(90, "📦 Распаковка BIOS архива...")
+
+            # Сначала пробуем определить тип архива по сигнатурам файлов
+            if self._is_archive_by_signature(temp_file) or self._is_archive_by_extension(temp_file):
+                logger.info(f"🔧 Распаковываю архив: {temp_file.name}")
+                extracted_files = self._extract_archive(temp_file, self.target_dir)
+
+                # Удаляем архив после успешной распаковки
+                temp_file.unlink()
+                logger.info(f"🗑️ Удалил архив: {temp_file.name}")
+
+                # Логируем результат распаковки
+                if extracted_files:
+                    logger.info(f"✅ Распаковано {len(extracted_files)} файлов")
+                    for file in extracted_files:
+                        logger.info(f"📄 Распакован: {file.name}")
+                else:
+                    logger.warning("⚠️ Архив распакован, но файлы не найдены")
+            else:
+                # Если не удалось распаковать, пробуем скопировать как есть
+                logger.warning(f"⚠️ Файл не является архивом, пробуем скопировать как есть: {temp_file.name}")
+                try:
+                    # Копируем файл с оригинальным именем
+                    shutil.copy2(temp_file, self.target_dir / temp_file.name)
+                    logger.info(f"📄 Файл скопирован как: {temp_file.name}")
+                except Exception as copy_error:
+                    logger.error(f"❌ Ошибка копирования файла: {copy_error}")
+
+            # Очищаем временные файлы
+            shutil.rmtree(temp_dir)
+
+            # УСПЕШНО ЗАВЕРШАЕМСЯ БЕЗ ПРОВЕРКИ ФАЙЛОВ
+            self.progress_updated.emit(100, "✅ BIOS установлен!")
+            self.finished.emit(True, f"BIOS для {self.platform} успешно установлен")
+
+        except Exception as e:
+            error_msg = f"Ошибка загрузки BIOS: {e}"
+            logger.error(f"❌ {error_msg}")
+            self.error_occurred.emit(error_msg)
+
+    def _generate_filename(self, url: str) -> str:
+        """Генерирует имя файла на основе URL с принудительным добавлением .zip"""
+        parsed = urlparse(url)
+        filename = unquote(parsed.path.split('/')[-1])
+
+        if not filename or filename == '/':
+            import time
+            filename = f"bios_download_{int(time.time())}.zip"
+        elif not any(filename.lower().endswith(ext) for ext in ['.zip', '.7z', '.rar', '.tar.gz', '.tar']):
+            # Если нет расширения архива, добавляем .zip
+            filename += ".zip"
+
+        return filename
+
+    def _is_archive_by_extension(self, file_path: Path) -> bool:
+        """Проверяет, является ли файл архивом по расширению"""
+        archive_extensions = ['.zip', '.7z', '.rar', '.tar.gz', '.tar']
+        return file_path.suffix.lower() in archive_extensions
+
+    def _is_archive_by_signature(self, file_path: Path) -> bool:
+        """Проверяет, является ли файл архивом по сигнатурам файлов"""
+        try:
+            with open(file_path, 'rb') as f:
+                header = f.read(8)  # Читаем первые 8 байт
+
+            # ZIP signature
+            if header.startswith(b'PK\x03\x04'):
+                return True
+            # 7z signature
+            elif header.startswith(b'7z\xBC\xAF\x27\x1C'):
+                return True
+            # RAR signature
+            elif header.startswith(b'Rar!\x1A\x07\x00'):
+                return True
+            # GZIP signature (for .tar.gz)
+            elif header.startswith(b'\x1F\x8B'):
+                return True
+            # TAR signature
+            elif header.startswith(b'ustar') or header[257:262] == b'ustar':
+                return True
+
+        except Exception as e:
+            logger.warning(f"⚠️ Ошибка проверки сигнатуры файла: {e}")
+
+        return False
+
+    def _extract_archive(self, archive_path: Path, extract_to: Path) -> list:
+        """Распаковывает архив и возвращает список распакованных файлов"""
+        extracted_files = []
+
+        try:
+            # Сначала пробуем определить тип по сигнатуре
+            if self._is_zip_by_signature(archive_path):
+                logger.info(f"📦 Распаковываю ZIP архив (по сигнатуре): {archive_path.name}")
+                return self._extract_zip(archive_path, extract_to)
+            elif self._is_archive_by_extension(archive_path):
+                file_ext = archive_path.suffix.lower()
+                if file_ext == '.zip':
+                    logger.info(f"📦 Распаковываю ZIP архив: {archive_path.name}")
+                    return self._extract_zip(archive_path, extract_to)
+                elif file_ext in ['.7z', '.rar']:
+                    logger.info(f"📦 Распаковываю {file_ext} архив: {archive_path.name}")
+                    return self._extract_with_libarchive(archive_path, extract_to)
+                elif file_ext in ['.tar.gz', '.tar']:
+                    logger.info(f"📦 Распаковываю TAR архив: {archive_path.name}")
+                    return self._extract_tar(archive_path, extract_to)
+            else:
+                # Пробуем распаковать как ZIP (наиболее распространенный формат)
+                logger.info(f"📦 Пробую распаковать как ZIP: {archive_path.name}")
+                return self._extract_zip(archive_path, extract_to)
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка распаковки архива: {e}")
+            raise Exception(f"Ошибка распаковки: {e}")
+
+        return extracted_files
+
+    def _is_zip_by_signature(self, file_path: Path) -> bool:
+        """Проверяет, является ли файл ZIP архивом по сигнатуре"""
+        try:
+            with open(file_path, 'rb') as f:
+                return f.read(4) == b'PK\x03\x04'
+        except:
+            return False
+
+    def _extract_zip(self, archive_path: Path, extract_to: Path) -> list:
+        """Распаковывает ZIP архив"""
+        extracted_files = []
+        try:
+            with zipfile.ZipFile(archive_path, 'r') as zip_ref:
+                # Получаем список файлов в архиве
+                file_list = zip_ref.namelist()
+                logger.info(f"📋 Файлы в ZIP архиве: {file_list}")
+
+                # Распаковываем
+                zip_ref.extractall(extract_to)
+
+                # Собираем список распакованных файлов
+                for file_name in file_list:
+                    extracted_file = extract_to / file_name
+                    if extracted_file.exists():
+                        extracted_files.append(extracted_file)
+
+            logger.info(f"✅ ZIP архив распакован: {archive_path.name}")
+        except zipfile.BadZipFile:
+            logger.error(f"❌ Файл не является ZIP архивом: {archive_path.name}")
+            raise
+        except Exception as e:
+            logger.error(f"❌ Ошибка распаковки ZIP: {e}")
+            raise
+
+        return extracted_files
+
+    def _extract_with_libarchive(self, archive_path: Path, extract_to: Path) -> list:
+        """Распаковывает 7z/RAR архив с помощью libarchive"""
+        extracted_files = []
+        try:
+            import libarchive
+            with libarchive.file_reader(str(archive_path)) as archive:
+                for entry in archive:
+                    if not entry.isdir:
+                        target_path = extract_to / entry.pathname
+                        target_path.parent.mkdir(parents=True, exist_ok=True)
+                        with open(target_path, 'wb') as f:
+                            for block in entry.get_blocks():
+                                f.write(block)
+                        extracted_files.append(target_path)
+                        logger.info(f"📄 Распакован: {entry.pathname}")
+
+            logger.info(f"✅ {archive_path.suffix.upper()} архив распакован: {archive_path.name}")
+        except ImportError:
+            logger.error("❌ Библиотека libarchive не установлена")
+            raise Exception("Для распаковки 7z/RAR архивов требуется libarchive")
+        except Exception as e:
+            logger.error(f"❌ Ошибка распаковки {archive_path.suffix}: {e}")
+            raise
+
+        return extracted_files
+
+    def _extract_tar(self, archive_path: Path, extract_to: Path) -> list:
+        """Распаковывает TAR/TAR.GZ архив"""
+        extracted_files = []
+        try:
+            import tarfile
+            mode = 'r:gz' if archive_path.suffix == '.gz' else 'r'
+
+            with tarfile.open(archive_path, mode) as tar_ref:
+                # Получаем список файлов в архиве
+                file_list = tar_ref.getnames()
+                logger.info(f"📋 Файлы в TAR архиве: {file_list}")
+
+                # Распаковываем
+                tar_ref.extractall(extract_to)
+
+                # Собираем список распакованных файлов
+                for file_name in file_list:
+                    extracted_file = extract_to / file_name
+                    if extracted_file.exists():
+                        extracted_files.append(extracted_file)
+
+            logger.info(f"✅ TAR архив распакован: {archive_path.name}")
+        except ImportError:
+            logger.error("❌ Модуль tarfile не доступен")
+            raise Exception("Для распаковки TAR архивов требуется модуль tarfile")
+        except Exception as e:
+            logger.error(f"❌ Ошибка распаковки TAR: {e}")
+            raise
+
+        return extracted_files
+
+    def cancel(self):
+        self._cancelled = True
 
 
 class BIOSManager:
     """
     Класс для управления файлами BIOS.
-    Отвечает за проверку наличия и установку необходимых файлов BIOS для эмуляторов.
     """
+
     def __init__(self, project_root: Path):
         self.project_root = project_root
         self.registry_path = self.project_root / 'app' / 'registry' / 'registry_bios.json'
+        self.aliases_path = self.project_root / 'app' / 'registry' / 'registry_platform_aliases.json'
         self._cancelled = False
+        self.download_thread = None
+        self.platform_aliases = self._load_platform_aliases()
 
-    def ensure_bios_for_platform(self, platform: str):
+    def _load_platform_aliases(self):
+        """Загружает алиасы платформ"""
+        try:
+            if self.aliases_path.exists():
+                with open(self.aliases_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data.get('platform_aliases', {})
+        except Exception as e:
+            logger.error(f"❌ Ошибка загрузки алиасов: {e}")
+        return {}
+
+    def _resolve_platform_alias(self, platform: str) -> str:
+        """Преобразует алиас платформы в реальный ключ"""
+        # Прямой поиск
+        if platform in self.platform_aliases:
+            resolved = self.platform_aliases[platform]
+            logger.info(f"🔁 Преобразовали алиас '{platform}' -> '{resolved}'")
+            return resolved
+
+        # Поиск по значению (обратный поиск)
+        for alias, real_platform in self.platform_aliases.items():
+            if real_platform == platform:
+                logger.info(f"🔁 Нашли алиас для '{platform}': '{alias}'")
+                return alias
+
+        # Если не нашли, возвращаем оригинал
+        return platform
+
+    def ensure_bios_for_platform(self, platform: str, progress_callback=None) -> bool:
         """
         Проверяет наличие необходимых файлов BIOS для указанной платформы.
-
-        Args:
-            platform (str): Название платформы (например, 'ppsspp').
-
-        Returns:
-            bool: True, если BIOS не требуется или все файлы найдены.
-                  False, если произошла ошибка или файлы отсутствуют.
+        Если есть URL для загрузки - скачивает и распаковывает архив.
         """
         if self._cancelled:
             return False
-            
+
         logger.info(f"🔍 Проверяю BIOS для платформы: {platform}")
 
-        # Шаг 1: Проверка наличия файла реестра BIOS
-        if not self.registry_path.exists():
-            logger.info("ℹ️ registry_bios.json не найден — пропускаю проверку BIOS.")
-            return True # Возвращаем True, так как BIOS не требуется, и это не ошибка
+        # Преобразуем платформу через алиасы
+        resolved_platform = self._resolve_platform_alias(platform)
+        logger.info(f"🔍 Ищем BIOS для разрешенной платформы: {resolved_platform}")
 
-        # Шаг 2: Чтение файла реестра BIOS
-        try:
-            with open(self.registry_path, 'r', encoding='utf-8') as f:
-                registry_data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.error(f"❌ Ошибка чтения или декодирования registry_bios.json: {e}")
-            return False # Возвращаем False, так как это критическая ошибка
-
-        # Шаг 3: Поиск информации о BIOS для платформы
-        # Ищем по названию платформы или по названию в верхнем регистре
-        bios_info = registry_data.get(platform) or registry_data.get(platform.upper())
-
-        # Если информации о BIOS для платформы нет, значит, он не требуется
-        if not bios_info:
-            logger.info(f"ℹ️ BIOS для {platform} не требуется по реестру.")
-            return True # Возвращаем True, так как BIOS не требуется
-
-        # Шаг 4: Проверка наличия обязательных файлов BIOS
-        required_files = bios_info.get('bios_files', [])
-
-        # Если в реестре нет обязательных файлов, считаем, что BIOS не нужен
-        if not required_files:
-            logger.info(f"ℹ️ BIOS для {platform} не имеет обязательных файлов. Проверка завершена.")
+        # Загружаем реестр BIOS
+        registry_data = self._load_bios_registry()
+        if registry_data is None:
             return True
 
-        # Проверяем, существует ли папка для BIOS
-        bios_dir = self.project_root / 'users' / 'bios' / platform
+        # Ищем информацию о BIOS для платформы (пробуем оба варианта)
+        bios_info = registry_data.get(resolved_platform) or registry_data.get(platform)
+
+        if not bios_info:
+            logger.info(f"ℹ️ BIOS для {platform} (разрешено: {resolved_platform}) не требуется.")
+            return True
+
+        # Проверяем наличие URL для загрузки
+        download_url = bios_info.get('bios_url')
+
+        if not download_url:
+            logger.info(f"ℹ️ BIOS для {platform} не имеет URL для загрузки.")
+            return True
+
+        # Создаем директорию для BIOS (используем resolved_platform для пути)
+        bios_dir = self.project_root / 'users' / 'bios' / resolved_platform
         bios_dir.mkdir(parents=True, exist_ok=True)
 
-        # Находим отсутствующие файлы
-        missing_files = [
-            fn for fn in required_files
-            if not (bios_dir / fn).exists()
-        ]
+        # Скачиваем BIOS
+        return self._download_and_install_bios(bios_info, bios_dir, platform, progress_callback)
 
-        # Шаг 5: Обработка результатов
-        if not missing_files:
-            logger.info(f"✅ Все BIOS файлы для {platform} присутствуют.")
-            return True # Все файлы на месте, возвращаем True
-        else:
-            bios_url = bios_info.get('bios_url', 'URL не указан')
-            logger.info(f"⬇️ Не найдены BIOS файлы: {missing_files}. Требуется загрузка с: {bios_url}")
-            # Здесь должна быть логика скачивания файлов
-            # Пока что мы возвращаем False, чтобы сигнализировать о необходимости установки
+    def _load_bios_registry(self):
+        """Загружает реестр BIOS"""
+        if not self.registry_path.exists():
+            logger.info("ℹ️ registry_bios.json не найден — пропускаю проверку BIOS.")
+            return None
+
+        try:
+            with open(self.registry_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"❌ Ошибка чтения registry_bios.json: {e}")
+            return None
+
+    def _download_and_install_bios(self, bios_info: dict, bios_dir: Path, platform: str, progress_callback=None) -> bool:
+        """Скачивает и устанавливает BIOS"""
+        if self._cancelled:
             return False
+
+        download_url = bios_info.get('bios_url')
+        if not download_url:
+            return False
+
+        logger.info(f"⬇️ Загружаем BIOS для {platform}")
+
+        # Создаем и запускаем поток загрузки
+        self.download_thread = BIOSDownloadThread(bios_info, bios_dir, platform)
+
+        if progress_callback:
+            self.download_thread.progress_updated.connect(progress_callback)
+
+        # Обработчики завершения
+        self.download_success = False
+
+        def on_finished(success, message):
+            self.download_success = success
+
+        def on_error(error_msg):
+            self.download_success = False
+
+        self.download_thread.finished.connect(on_finished)
+        self.download_thread.error_occurred.connect(on_error)
+
+        self.download_thread.start()
+        self.download_thread.wait()
+
+        return self.download_success
 
     def cancel(self):
         self._cancelled = True
+        if self.download_thread and self.download_thread.isRunning():
+            self.download_thread.cancel()
+            self.download_thread.wait()

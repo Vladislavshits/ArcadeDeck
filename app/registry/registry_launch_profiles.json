@@ -1,9 +1,10 @@
 {
   "ppsspp": {
     "name": "ppsspp",
+    "installation_type": "flatpak",
     "launch_method": "flatpak",
     "flatpak_id": "org.ppsspp.PPSSPP",
-    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} {game_path}",
+    "command_template": "XDG_CONFIG_HOME={config_dir} {emulator_path} {game_path}",
     "config_source_dir": "{project_root}/app/emulators/PSP/",
     "config_files": ["ppsspp.ini"],
     "env_variables": {
@@ -15,9 +16,11 @@
   },
   "duckstation": {
     "name": "duckstation",
-    "launch_method": "flatpak",
-    "flatpak_id": "org.duckstation.DuckStation",
-    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} -- --fullscreen {game_path}",
+    "installation_type": "appimage",
+    "launch_method": "appimage",
+    "appimage_url": "https://github.com/stenzek/duckstation/releases/download/latest/duckstation-qt-x64.AppImage",
+    "appimage_filename": "DuckStation-x64.AppImage",
+    "command_template": "{emulator_path} -fullscreen -- {game_path}",
     "config_source_dir": "{project_root}/app/emulators/PS1/",
     "config_files": ["settings.ini", "controllers.ini"],
     "env_variables": {
@@ -29,9 +32,11 @@
   },
   "pcsx2": {
     "name": "pcsx2",
-    "launch_method": "flatpak",
-    "flatpak_id": "net.pcsx2.PCSX2",
-    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} --fullscreen {game_path}",
+    "installation_type": "appimage",
+    "launch_method": "appimage",
+    "appimage_url": "https://github.com/PCSX2/pcsx2/releases/download/v1.7.5576/pcsx2-v1.7.5576-linux-appimage-x64-Qt.AppImage",
+    "appimage_filename": "pcsx2-v2.5.215.AppImage",
+    "command_template": "{emulator_path} -fullscreen -- {game_path}",
     "config_source_dir": "{project_root}/app/emulators/PS2/",
     "config_files": ["PCSX2.ini", "GS.ini", "SPU2.ini"],
     "env_variables": {
@@ -43,13 +48,21 @@
   },
   "rpcs3": {
     "name": "rpcs3",
-    "launch_method": "flatpak",
-    "flatpak_id": "net.rpcs3.RPCS3",
-    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} --no-gui {game_path}",
+    "installation_type": "appimage",
+    "launch_method": "appimage",
+    "appimage_url": "https://github.com/RPCS3/rpcs3-binaries-linux/releases/download/build-8f6d5cc04d2e22a0e2a6c64a6a6c1e8d1c5e6d75/rpcs3-v0.0.31-16738-8f6d5cc0_linux64.AppImage",
+    "appimage_filename": "rpcs3.AppImage",
+    "command_template": "{emulator_path} --no-gui --fullscreen {game_path}",
     "config_source_dir": "{project_root}/app/emulators/PS3/",
     "config_files": ["config.yml", "controllers.yml"],
     "env_variables": {
       "SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS": "0"
+    },
+    "game_types": {
+      "pkg": "{emulator_path} --installpkg {game_path}",
+      "iso": "{emulator_path} --no-gui --fullscreen {game_path}",
+      "folder": "{emulator_path} --no-gui --fullscreen {game_path}",
+      "eboot": "{emulator_path} --no-gui --fullscreen {game_path}"
     },
     "post_launch_actions": [
       "echo '✅ PS3 игра завершена. Конфиг ArcadeDeck успешно использован!'"

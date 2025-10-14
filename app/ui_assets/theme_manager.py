@@ -1,4 +1,4 @@
-# PixelDeck/app/ui_assets/theme_manager.py
+# ArcadeDeck/app/ui_assets/theme_manager.py
 from PyQt6.QtCore import QObject, pyqtSignal
 
 class ThemeManager(QObject):
