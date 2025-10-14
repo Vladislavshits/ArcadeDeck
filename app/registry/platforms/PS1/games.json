@@ -1,14 +1,19 @@
 [
   {
-    "id": "crash_bandicoot_1",
-    "title": "Crash Bandicoot",
+    "id": "alien_resurrection",
+    "title": "Alien: Resurrection",
     "platform": "PS1",
     "platform_module": "PS1",
     "preferred_emulator": "duckstation",
     "image_path": "images/crash_bandicoot_1.png",
-    "description": "Легендарная платформенная игра про енота Крэша. Спаси подружку Таву от злого доктора Нео Кортекса!",
-    "torrent_url": "https://4pda.to/forum/index.php?act=attach&id=2121762&dlsess=d67e2c5e247a33e8077f4bc2f6afab49",
-    "preset": "crash_1.json",
-    "size_bytes": 650000000
+    "description": "Корабль «Аурига» стал ловушкой, где Чужие вырвались на свободу. Вам предстоит войти в шкуру одного из четырёх выживших и пробиться сквозь полчища ксеноморфов. Это классический шутер от первого лица, где на кону стоит ваше спасение и жизнь всех на борту. Очистите корабль от угрозы или станьте её жертвой.",
+    "torrent_url": "magnet:?xt=urn:btih:C4BF4322606A03B155FC88573D81A170FD570E64&tr=http%3A%2F%2Fbt4.t-ru.org%2Fann%3Fmagnet&dn=%5BPS%5D%20Alien%20Resurrection%20%5BSLUS-00633%5D%20%5BVector%20%2B%20Golden%20Leon%5D%20%5BFull%20RUS%5D",
+    "preset": "alien_resurrection.json",
+    "size_bytes": 171323776,
+    "year": "2000",
+    "language": "Русский",
+    "developer": "Argonaut Games",
+    "genre": "Шутер от 1 лица",
+    "rating": "6.6/10"
   }
 ]

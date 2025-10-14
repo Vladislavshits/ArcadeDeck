@@ -1,0 +1,19 @@
+[
+  {
+    "id": "ctr3_as",
+    "title": "Gran Turismo 3: A-Spec",
+    "platform": "PS2",
+    "platform_module": "PS2",
+    "preferred_emulator": "pcsx2",
+    "image_path": "images/crash_bandicoot_1.png",
+    "description": "Гоночный симулятор, эксклюзивный для PlayStation 2. В 2001 году игра стала знаковой для жанра, предлагая беспрецедентно детализированную графику и реалистичную физику вождения. Игроков ждала обширная карьера в режиме «A-Spec», а также огромный автопарк, включающий 150+ автомобилей и множество лицензированных трасс.",
+    "torrent_url": "magnet:?xt=urn:btih:36D910477E3A53C71962AB12C347F8ADFBD9F2F1&tr=http%3A%2F%2Fbt3.t-ru.org%2Fann%3Fmagnet&dn=%5BPS2%5D%20Gran%20Turismo%203%3A%20A-Spec%20%5BRUS%2FMulti5%7CPAL%5D",
+    "preset": "PCSX2.ini",
+    "size_bytes": 3650722918,
+    "year": "2001",
+    "language": "Русский",
+    "developer": "Polyphony Digital",
+    "genre": "Автосимулятор + Гонки",
+    "rating": "9.8/10"
+  }
+]

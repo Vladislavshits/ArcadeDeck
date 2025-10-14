@@ -1,41 +1,62 @@
 {
-  "ppsspp": {
-    "name": "PPSSPP",
-    "bios_files": [],
-    "bios_url": null,
-    "description": "Эмулятор PPSSPP не требует BIOS-файлов"
-  },
-  "PS1": {
-    "name": "PlayStation",
+  "duckstation": {
+    "name": "DuckStation - PlayStation 1",
     "bios_files": [
-      "scph1001.bin",
-      "scph5500.bin",
       "scph5501.bin",
-      "scph5502.bin",
-      "scph7001.bin"
+      "Sony PlayStation BIOS (E)(v2.0)(1995-05-10)[SCPH-1002].bin",
+      "Sony PlayStation BIOS (E)(v2.2)(1995-12-04)[DTLH-3002].bin",
+      "Sony PlayStation BIOS (E)(v3.0)(1997-01-06)[SCPH-5502 + SCPH-5552].bin",
+      "Sony PlayStation BIOS (E)(v4.1)(1997-12-16)[SCPH-7502 + SCPH-9002].bin",
+      "Sony PlayStation BIOS (J)(v1.1)(1995-01-22)[SCPH-3000].bin",
+      "Sony PlayStation BIOS (J)(v2.2)(1995-12-04)[SCPH-5000].bin",
+      "Sony PlayStation BIOS (J)(v2.2)(1995-12-04)[SCPH-5000][h].bin",
+      "Sony PlayStation BIOS (J)(v4.0)(1997-08-18)[SCPH-7000].bin",
+      "Sony PlayStation BIOS (J)[SCPH-1000].bin",
+      "Sony PlayStation BIOS (U)(v3.0)(1996-11-18)[SCPH-7003].bin",
+      "Sony PlayStation BIOS (U)(v4.1)(1997-12-16)[SCPH-7001 + SCPH-9001].bin"
     ],
-    "bios_url": "https://example.com/ps1_bios.zip",
-    "description": "BIOS для PlayStation (разные регионы)"
+    "bios_url": "https://disk.yandex.ru/d/rQHMWncg-aAuOg",
+    "description": "BIOS файлы для PlayStation 1",
+    "install_path": "users/bios/duckstation",
+    "expected_size": 3047279
   },
-  "PS2": {
-    "name": "PlayStation 2",
+  "pcsx2": {
+    "name": "PCSX2 - PlayStation 2",
     "bios_files": [
-      "SCPH-70004_BIOS_V12_PAL_20040301.bin",
-      "SCPH-70004_BIOS_V12_NTSC_20040301.bin",
       "ps2-0230a-20040620.bin",
       "ps2-0230e-20040620.bin",
       "ps2-0230j-20040620.bin"
     ],
-    "bios_url": "https://example.com/ps2_bios.zip",
-    "description": "BIOS для PlayStation 2 (разные регионы и версии)"
+    "bios_url": "https://disk.yandex.ru/d/pXVi-JUdFf7DeQ",
+    "description": "BIOS файлы для PlayStation 2",
+    "install_path": "users/bios/pcsx2",
+    "expected_size": 4194304
   },
-  "PS3": {
-    "name": "PlayStation 3",
+  "rpcs3": {
+    "name": "RPCS3 - PlayStation 3",
     "bios_files": [
       "PS3UPDAT.PUP"
     ],
-    "bios_url": "https://example.com/ps3_bios.zip",
-    "description": "Файл прошивки PS3 требуется для RPCS3"
+    "bios_url": "https://disk.yandex.ru/d/t9mYUZwZ5aYP7w",
+    "description": "Файл прошивки PS3",
+    "install_path": "users/bios/rpcs3",
+    "expected_size": 202000000
+  },
+  "shadps4": {
+    "name": "shadPS4 - PlayStation 4",
+    "bios_files": [
+      "ps4_firmware.pup"
+    ],
+    "bios_url": "https://disk.yandex.ru/d/UgVYR7muGEYTbA",
+    "description": "Файл прошивки PS4",
+    "install_path": "users/bios/shadps4",
+    "expected_size": 1050000000
+  },
+  "ppsspp": {
+    "name": "PPSSPP - PlayStation Portable",
+    "bios_files": [],
+    "bios_url": null,
+    "description": "Эмулятор PPSSPP не требует BIOS файлов"
   },
   "SWITCH": {
     "name": "Nintendo Switch",
@@ -62,7 +83,7 @@
       "bios9.bin",
       "firmware.bin"
     ],
-    "bios_url": "https://example.com/ds_bios.zip",
+    "bios_url": null,
     "description": "BIOS и firmware для Nintendo DS"
   },
   "DREAMCAST": {
@@ -71,7 +92,7 @@
       "dc_boot.bin",
       "dc_flash.bin"
     ],
-    "bios_url": "https://example.com/dreamcast_bios.zip",
+    "bios_url": null,
     "description": "BIOS для Sega Dreamcast"
   },
   "XBOX": {
@@ -80,7 +101,7 @@
       "mcpx_1.0.bin",
       "complex_4627.bin"
     ],
-    "bios_url": "https://example.com/xbox_bios.zip",
+    "bios_url": null,
     "description": "BIOS для оригинального Xbox"
   },
   "GAMECUBE": {

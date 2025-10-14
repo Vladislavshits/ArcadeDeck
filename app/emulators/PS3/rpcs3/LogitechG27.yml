@@ -1,0 +1,196 @@
+steering:
+  device_type_id: 0
+  type: axis
+  id: 0
+  hat: ""
+  reverse: false
+throttle:
+  device_type_id: 0
+  type: axis
+  id: 2
+  hat: ""
+  reverse: false
+brake:
+  device_type_id: 0
+  type: axis
+  id: 3
+  hat: ""
+  reverse: false
+clutch:
+  device_type_id: 0
+  type: axis
+  id: 1
+  hat: ""
+  reverse: false
+shift_up:
+  device_type_id: 0
+  type: button
+  id: 4
+  hat: ""
+  reverse: false
+shift_down:
+  device_type_id: 0
+  type: button
+  id: 5
+  hat: ""
+  reverse: false
+up:
+  device_type_id: 0
+  type: hat
+  id: 0
+  hat: up
+  reverse: false
+down:
+  device_type_id: 0
+  type: hat
+  id: 0
+  hat: down
+  reverse: false
+left:
+  device_type_id: 0
+  type: hat
+  id: 0
+  hat: left
+  reverse: false
+right:
+  device_type_id: 0
+  type: hat
+  id: 0
+  hat: right
+  reverse: false
+triangle:
+  device_type_id: 0
+  type: button
+  id: 3
+  hat: ""
+  reverse: false
+cross:
+  device_type_id: 0
+  type: button
+  id: 0
+  hat: ""
+  reverse: false
+square:
+  device_type_id: 0
+  type: button
+  id: 1
+  hat: ""
+  reverse: false
+circle:
+  device_type_id: 0
+  type: button
+  id: 2
+  hat: ""
+  reverse: false
+l2:
+  device_type_id: 0
+  type: button
+  id: 7
+  hat: ""
+  reverse: false
+l3:
+  device_type_id: 0
+  type: button
+  id: 11
+  hat: ""
+  reverse: false
+r2:
+  device_type_id: 0
+  type: button
+  id: 6
+  hat: ""
+  reverse: false
+r3:
+  device_type_id: 0
+  type: button
+  id: 10
+  hat: ""
+  reverse: false
+plus:
+  device_type_id: 0
+  type: button
+  id: 19
+  hat: ""
+  reverse: false
+minus:
+  device_type_id: 0
+  type: button
+  id: 20
+  hat: ""
+  reverse: false
+dial_clockwise:
+  device_type_id: 0
+  type: button
+  id: 21
+  hat: ""
+  reverse: false
+dial_anticlockwise:
+  device_type_id: 0
+  type: button
+  id: 22
+  hat: ""
+  reverse: false
+select:
+  device_type_id: 0
+  type: button
+  id: 8
+  hat: ""
+  reverse: false
+pause:
+  device_type_id: 0
+  type: button
+  id: 9
+  hat: ""
+  reverse: false
+shifter_1:
+  device_type_id: 0
+  type: button
+  id: 3
+  hat: ""
+  reverse: false
+shifter_2:
+  device_type_id: 0
+  type: button
+  id: 0
+  hat: ""
+  reverse: false
+shifter_3:
+  device_type_id: 0
+  type: button
+  id: 2
+  hat: ""
+  reverse: false
+shifter_4:
+  device_type_id: 0
+  type: button
+  id: 1
+  hat: ""
+  reverse: false
+shifter_5:
+  device_type_id: 0
+  type: hat
+  id: 0
+  hat: up
+  reverse: false
+shifter_6:
+  device_type_id: 0
+  type: hat
+  id: 0
+  hat: down
+  reverse: false
+shifter_r:
+  device_type_id: 0
+  type: hat
+  id: 0
+  hat: left
+  reverse: false
+shifter_press:
+  device_type_id: 0
+  type: hat
+  id: 0
+  hat: right
+  reverse: false
+reverse_effects: false
+ffb_device_type_id: 0
+led_device_type_id: 0
+enabled: false

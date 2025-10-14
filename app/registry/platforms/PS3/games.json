@@ -1,0 +1,38 @@
+[
+  {
+    "id": "dead_nation",
+    "title": "Dead Nation",
+    "platform": "PS3",
+    "platform_module": "PS3",
+    "preferred_emulator": "rpcs3",
+    "game_type": "pkg",
+    "image_path": "images/crash_bandicoot_1.png",
+    "description": "аркадный шутер от Housemarque, где игроки в одиночку или в кооперативе выживают в мире, охваченном зомби-апокалипсисом. Геймплей строится на уничтожении орд зомби, зарабатывании денег и очков для покупки и улучшения оружия и брони. Игрокам предстоит пройти через серию уровней, отбивая волны врагов и выполняя задачи на выживание.",
+    "torrent_url": "magnet:?xt=urn:btih:6043A59018E188A8747EF0F9142D8A49B2E96FDA&tr=http%3A%2F%2Fbt.t-ru.org%2Fann%3Fmagnet&dn=%5BPS3%5D%20Dead%20Nation%20%5BRepack%5D%20%5BEUR%2FRUS%5D%20%5B%2BDLC%2Fv1.08%5D",
+    "preset": "Config.ymi",
+    "size_bytes": 1717986918,
+    "year": "2010",
+    "language": "Русский",
+    "developer": "Housemarque",
+    "genre": "Изометрический шутер",
+    "rating": "9.8/10"
+  },
+    {
+    "id": "motorStorm_apocalypse",
+    "title": "MotorStorm: Apocalypse",
+    "platform": "PS3",
+    "platform_module": "PS3",
+    "preferred_emulator": "rpcs3",
+    "game_type": "folder",
+    "image_path": "images/crash_bandicoot_1.png",
+    "description": "аркадный шутер от Housemarque, где игроки в одиночку или в кооперативе выживают в мире, охваченном зомби-апокалипсисом. Геймплей строится на уничтожении орд зомби, зарабатывании денег и очков для покупки и улучшения оружия и брони. Игрокам предстоит пройти через серию уровней, отбивая волны врагов и выполняя задачи на выживание.",
+    "torrent_url": "magnet:?xt=urn:btih:AE8167740D43579CCB0EB2D75EC03BD034FBB663&tr=http%3A%2F%2Fbt2.t-ru.org%2Fann%3Fmagnet&dn=%5BPS3%5D%20MotorStorm%3A%20Apocalypse%20%2F%20MotorStorm%3A%20Апокалипсис%20%5BRIP%5D%20%5BRUS%5D",
+    "preset": "Config.ymi",
+    "size_bytes": 9073118413,
+    "year": "2011",
+    "language": "Русский",
+    "developer": "Evolution Studios",
+    "genre": "Гонки",
+    "rating": "8,5/10"
+  }
+]

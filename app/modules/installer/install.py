@@ -3,6 +3,7 @@ import json
 import logging
 import time
 from pathlib import Path
+from typing import Optional, Dict
 from PyQt6.QtWidgets import (QApplication, QDialog, QVBoxLayout, QLabel,
                            QProgressBar, QPushButton, QHBoxLayout, QMessageBox,
                            QTextEdit)
@@ -21,7 +22,7 @@ from core import get_users_path
 from core import get_users_subpath
 
 # Создаем основной логгер приложения
-logger = logging.getLogger('PixelDeck')
+logger = logging.getLogger('InstallDialog')
 
 
 class InstallThread(QThread):
@@ -63,6 +64,17 @@ class InstallThread(QThread):
 
     def run(self):
         try:
+            # ДИАГНОСТИКА: выводим информацию о том, что ищем
+            logger.info(f"🎯 Начинаем установку игры: {self.game_data.get('title')}")
+            logger.info(f"📁 ID игры: {self.game_data.get('id')}")
+            logger.info(f"🎮 Тип из JSON: {self.game_data.get('game_type')}")
+            logger.info(f"🔍 Директория установки: {self.install_dir}")
+
+            # Выводим содержимое директории для диагностики
+            if self.install_dir.exists():
+                contents = [f.name for f in self.install_dir.iterdir()]
+                logger.info(f"📋 Содержимое директории установки: {contents}")
+
             # Шаг 1: Проверка и установка эмулятора
             self.progress_updated.emit(5, "Этап 1: Проверка и установка эмулятора...")
             if self._cancelled:
@@ -84,9 +96,13 @@ class InstallThread(QThread):
                 self._was_cancelled = True
                 return
 
-            if not self.bios_manager.ensure_bios_for_platform(self.game_data.get('platform')):
-                self.error_occurred.emit("Ошибка при установке BIOS.")
-                return
+            bios_result = self.bios_manager.ensure_bios_for_platform(self.game_data.get('platform'))
+            if not bios_result:
+                # Даже если BIOS не установился, продолжаем установку
+                logger.warning("⚠️ BIOS не установлен, но продолжаем установку игры")
+                self.progress_updated.emit(35, "⚠️ BIOS не установлен, продолжаем...")
+            else:
+                self.progress_updated.emit(35, "✅ BIOS проверен/установлен")
 
             if self._cancelled:
                 self._was_cancelled = True
@@ -167,7 +183,8 @@ class InstallThread(QThread):
 
             self.config_manager.apply_config(
                 self.game_data.get('id'),
-                self.game_data.get('platform')
+                self.game_data.get('platform'),
+                self.game_data.get('preferred_emulator')
             )
 
             if self._cancelled:
@@ -254,53 +271,118 @@ class InstallThread(QThread):
         logger.info(f"📋 Получен список распакованных файлов: {[f.name for f in files_list]}")
 
     def find_game_file(self):
-        """Находит файл игры по поддерживаемым расширениям платформы"""
+        """Находит файл игры с улучшенной логикой для PS3"""
         try:
             platform_id = self.game_data.get('platform')
-            logger.info(f"🔍 Поиск файлов игры для платформы: {platform_id}")
-
-            # Получаем поддерживаемые форматы из конфига платформы
-            platform_config_path = self.project_root / 'app' / 'registry' / 'platforms' / platform_id / 'config.py'
-
-            supported_formats = []
-            if platform_config_path.exists():
-                try:
-                    # Динамически импортируем конфиг платформы
-                    import importlib.util
-                    spec = importlib.util.spec_from_file_location(f"{platform_id}_config", platform_config_path)
-                    module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(module)
-
-                    if hasattr(module, 'get_config'):
-                        config = module.get_config()
-                        supported_formats = config.get('supported_formats', [])
-                        logger.info(f"✅ Загружены поддерживаемые форматы из конфига: {supported_formats}")
-                except Exception as e:
-                    logger.warning(f"⚠️ Не удалось загрузить конфиг платформы: {e}")
-
-            # Fallback: если форматы не найдены, используем стандартные для платформы
-            if not supported_formats:
-                platform_formats = {
-                    "PSP": [".iso", ".cso", ".pbp", ".elf"],
-                    "ppsspp": [".iso", ".cso", ".pbp", ".elf"],
-                    "PS1": [".bin", ".cue", ".img", ".mdf", ".pbp"],
-                    "duckstation": [".bin", ".cue", ".img", ".mdf", ".pbp"],
-                    "PS2": [".iso", ".bin", ".mdf", ".gz"],
-                    "pcsx2": [".iso", ".bin", ".mdf", ".gz"],
-                    "GBA": [".gba", ".agb", ".bin"],
-                    "NDS": [".nds", ".srl", ".bin"],
-                    "N64": [".n64", ".v64", ".z64", ".bin"],
-                    "SNES": [".smc", ".sfc", ".fig", ".swc"],
-                    "NES": [".nes", ".fds", ".unf", ".unif"]
-                }
-                supported_formats = platform_formats.get(platform_id, [".iso", ".bin", ".img"])
-                logger.warning(f"⚠️ Для платформы {platform_id} не найдены supported_formats, использую fallback: {supported_formats}")
-
-            logger.info(f"🔍 Форматы для поиска: {supported_formats}")
-
-            # Получаем ID игры для поиска соответствующих файлов
             game_id = self.game_data.get('id', '').lower()
-            logger.info(f"🔍 Ищем файлы для игры ID: {game_id}")
+            game_type = self.game_data.get('game_type', 'unknown')
+
+            logger.info(f"🔍 Поиск файлов игры для платформы: {platform_id}")
+            logger.info(f"🎮 ID игры: {game_id}, тип из JSON: {game_type}")
+
+            # === СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ PS3 ===
+            if platform_id.upper() == 'PS3':
+                return self._find_ps3_game_file(game_id, game_type)
+
+            # Стандартная логика для других платформ
+            return self._find_standard_game_file(platform_id, game_id)
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка при поиске файла игры: {e}")
+            return None
+
+    def _find_ps3_game_file(self, game_id: str, game_type: str) -> Optional[Path]:
+        """Находит файлы для PS3 игры с рекурсивным поиском"""
+        try:
+            logger.info(f"🎮 Поиск PS3 игры типа: {game_type}")
+
+            # Рекурсивно ищем все возможные файлы PS3
+            ps3_files = []
+
+            for file_path in self.install_dir.rglob('*'):
+                if file_path.is_file():
+                    filename_lower = file_path.name.lower()
+
+                    # Ищем EBOOT.BIN в любой папке
+                    if filename_lower == 'eboot.bin':
+                        logger.info(f"🎮 Найден EBOOT.BIN: {file_path}")
+                        ps3_files.append(file_path)
+
+                    # Ищем PKG файлы
+                    elif file_path.suffix.lower() == '.pkg':
+                        logger.info(f"📦 Найден PKG: {file_path}")
+                        ps3_files.append(file_path)
+
+                    # Ищем ISO файлы
+                    elif file_path.suffix.lower() == '.iso':
+                        logger.info(f"💿 Найден ISO: {file_path}")
+                        ps3_files.append(file_path)
+
+            logger.info(f"📋 Найдено PS3 файлов: {len(ps3_files)}")
+
+            # Если нашли файлы, выбираем самый подходящий
+            if ps3_files:
+                # Для типа 'folder' приоритет - EBOOT.BIN
+                if game_type == 'folder':
+                    eboot_files = [f for f in ps3_files if f.name.lower() == 'eboot.bin']
+                    if eboot_files:
+                        result = eboot_files[0]
+                        logger.info(f"✅ Для типа 'folder' выбран EBOOT: {result}")
+                        return result
+
+                # Для типа 'pkg' приоритет - PKG файлы
+                elif game_type == 'pkg':
+                    pkg_files = [f for f in ps3_files if f.suffix.lower() == '.pkg']
+                    if pkg_files:
+                        result = max(pkg_files, key=lambda f: f.stat().st_size)
+                        logger.info(f"✅ Для типа 'pkg' выбран PKG: {result}")
+                        return result
+
+                # Для типа 'iso' приоритет - ISO файлы
+                elif game_type == 'iso':
+                    iso_files = [f for f in ps3_files if f.suffix.lower() == '.iso']
+                    if iso_files:
+                        result = max(iso_files, key=lambda f: f.stat().st_size)
+                        logger.info(f"✅ Для типа 'iso' выбран ISO: {result}")
+                        return result
+
+                # Fallback: берем самый большой файл
+                result = max(ps3_files, key=lambda f: f.stat().st_size)
+                logger.info(f"⚠️ Тип {game_type}, выбран самый большой файл: {result}")
+                return result
+
+            # Если файлов не найдено, проверяем есть ли папки с игрой
+            logger.info("🔍 Файлы не найдены, проверяем структуру папок...")
+
+            # Ищем папки с кодами дисков (BLUS, BCES, NPEA и т.д.)
+            for dir_path in self.install_dir.rglob('*'):
+                if dir_path.is_dir():
+                    dir_name = dir_path.name.upper()
+                    if any(code in dir_name for code in ['BLUS', 'BCES', 'NPEA', 'NPUA', 'BLES', 'BCUS']):
+                        logger.info(f"🏷️ Найдена папка с кодом диска: {dir_path}")
+                        # Проверяем есть ли EBOOT внутри
+                        eboot_candidate = dir_path / 'PS3_GAME' / 'USRDIR' / 'EBOOT.BIN'
+                        if eboot_candidate.exists():
+                            logger.info(f"✅ Найден EBOOT в папке с кодом диска: {eboot_candidate}")
+                            return eboot_candidate
+                        else:
+                            # Если EBOOT нет, используем саму папку
+                            logger.info(f"⚠️ EBOOT не найден, использую папку: {dir_path}")
+                            return dir_path
+
+            logger.error("❌ Не найдено ни одного файла или папки PS3")
+            return None
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка поиска PS3 файлов: {e}")
+            return None
+
+    def _find_standard_game_file(self, platform_id: str, game_id: str) -> Optional[Path]:
+        """Стандартная логика поиска для других платформ"""
+        try:
+            # Получаем поддерживаемые форматы из конфига платформы
+            supported_formats = self._get_supported_formats(platform_id)
+            logger.info(f"🔍 Форматы для поиска: {supported_formats}")
 
             # Сначала проверяем распакованные файлы
             if self.extracted_files:
@@ -311,7 +393,7 @@ class InstallThread(QThread):
                         logger.info(f"✅ Найден распакованный файл: {file_path.name}")
                         return file_path
 
-            # Если нет распакованных файлов или не нашли подходящий, ищем в директории
+            # Ищем в директории установки
             logger.info("🔍 Проверяем файлы в директории установки...")
             game_files = []
             for file_path in self.install_dir.iterdir():
@@ -329,12 +411,11 @@ class InstallThread(QThread):
                         logger.info(f"⚠️ Файл не соответствует ID игры: {file_path.name}")
 
             if game_files:
-                # Возвращаем самый подходящий файл (по размеру или точному соответствию)
                 result = max(game_files, key=lambda f: f.stat().st_size)
                 logger.info(f"✅ Выбран файл игры: {result.name}")
                 return result
 
-            # Fallback: если не нашли по соответствию, ищем любой подходящий файл
+            # Fallback: любой подходящий файл
             all_files = [f for f in self.install_dir.iterdir()
                         if f.is_file() and f.suffix.lower() in supported_formats]
 
@@ -347,8 +428,45 @@ class InstallThread(QThread):
             return None
 
         except Exception as e:
-            logger.error(f"❌ Ошибка при поиске файла игры: {e}")
+            logger.error(f"❌ Ошибка при поиске стандартного файла игры: {e}")
             return None
+
+    def _get_supported_formats(self, platform_id: str) -> list:
+        """Получает поддерживаемые форматы для платформы"""
+        platform_config_path = self.project_root / 'app' / 'registry' / 'platforms' / platform_id / 'config.py'
+
+        supported_formats = []
+        if platform_config_path.exists():
+            try:
+                import importlib.util
+                spec = importlib.util.spec_from_file_location(f"{platform_id}_config", platform_config_path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+
+                if hasattr(module, 'get_config'):
+                    config = module.get_config()
+                    supported_formats = config.get('supported_formats', [])
+                    logger.info(f"✅ Загружены поддерживаемые форматы из конфига: {supported_formats}")
+            except Exception as e:
+                logger.warning(f"⚠️ Не удалось загрузить конфиг платформы: {e}")
+
+        # Fallback форматы
+        if not supported_formats:
+            platform_formats = {
+                "PS3": [".pkg", ".iso", ".bin"],  # Добавляем для PS3
+                "PSP": [".iso", ".cso", ".pbp", ".elf"],
+                "PS1": [".bin", ".cue", ".img", ".mdf", ".pbp"],
+                "PS2": [".iso", ".bin", ".mdf", ".gz"],
+                "GBA": [".gba", ".agb", ".bin"],
+                "NDS": [".nds", ".srl", ".bin"],
+                "N64": [".n64", ".v64", ".z64", ".bin"],
+                "SNES": [".smc", ".sfc", ".fig", ".swc"],
+                "NES": [".nes", ".fds", ".unf", ".unif"]
+            }
+            supported_formats = platform_formats.get(platform_id, [".iso", ".bin", ".img"])
+            logger.warning(f"⚠️ Для платформы {platform_id} не найдены supported_formats, использую fallback: {supported_formats}")
+
+        return supported_formats
 
     def on_download_finished(self):
         self.progress_updated.emit(70, "✅ Загрузка игры завершена!")

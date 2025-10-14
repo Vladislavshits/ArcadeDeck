@@ -1,3 +1,5 @@
+import requests
+
 def get_latest_pcsx2_url():
     """Получает URL самой свежей версии PCSX2 AppImage (включая pre-release)"""
     try:

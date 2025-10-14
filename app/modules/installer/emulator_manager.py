@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import subprocess
 import json
 from pathlib import Path
@@ -187,6 +188,8 @@ class EmulatorManager(QObject):
 
         if install_method == 'flatpak':
             return self._ensure_flatpak(emulator_info)
+        elif install_method == 'appimage':
+            return self._ensure_appimage(emulator_info)
         elif install_method == 'system':
             logger.info(f"✅ Эмулятор '{emulator_id}' использует системную установку")
             return True
@@ -204,6 +207,128 @@ class EmulatorManager(QObject):
         except (FileNotFoundError, subprocess.TimeoutExpired):
             logger.warning("⚠️ flatpak не найден в системе или проверка заняла слишком много времени.")
             return False
+
+    def _ensure_appimage(self, emu_info: dict) -> bool:
+        """
+        Устанавливает эмулятор из AppImage.
+        """
+        if self._cancelled:
+            return False
+
+        appimage_url = emu_info.get('appimage_url')
+        appimage_filename = emu_info.get('appimage_filename')
+        name = emu_info.get('name', 'AppImage')
+
+        if not appimage_url or not appimage_filename:
+            logger.error(f"❌ Не указаны URL или имя файла для AppImage {name}")
+            return False
+
+        logger.info(f"⬇️ Проверка/установка AppImage: {name}")
+
+        # Создаем директорию для AppImage если нужно
+        appimage_dir = self.project_root / "app" / "emulators" / "appimages"
+        appimage_dir.mkdir(parents=True, exist_ok=True)
+
+        appimage_path = appimage_dir / appimage_filename
+
+        if self._cancelled:
+            return False
+
+        # Проверяем, уже ли скачан AppImage
+        if appimage_path.exists():
+            # Делаем исполняемым если нужно
+            if not os.access(appimage_path, os.X_OK):
+                appimage_path.chmod(0o755)
+            logger.info(f"✅ AppImage {name} уже установлен")
+            self.progress_updated.emit(100, f"✅ {name} уже установлен")
+            return True
+
+        if self.test_mode:
+            logger.info("[TEST MODE] Симуляция установки AppImage")
+            return True
+
+        try:
+            self.progress_updated.emit(10, f"🔄 Скачивание {name}...")
+
+            # Скачиваем AppImage
+            download_command = ["wget", appimage_url, "-O", str(appimage_path)]
+
+            process = subprocess.Popen(
+                download_command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1
+            )
+
+            # Чтение и отправка вывода
+            for line in process.stdout:
+                if self._cancelled:
+                    process.terminate()
+                    if appimage_path.exists():
+                        appimage_path.unlink()  # Удаляем частично скачанный файл
+                    return False
+                self.progress_updated.emit(50, line.strip())
+
+            process.wait(timeout=300)  # Таймаут 5 минут
+
+            if self._cancelled:
+                if appimage_path.exists():
+                    appimage_path.unlink()
+                return False
+
+            if process.returncode == 0:
+                # Делаем исполняемым
+                appimage_path.chmod(0o755)
+                self.progress_updated.emit(100, f"✅ {name} успешно установлен.")
+                return True
+            else:
+                error_msg = f"Ошибка при скачивании AppImage: процесс завершился с кодом {process.returncode}"
+                self.progress_updated.emit(0, error_msg)
+                logger.error(error_msg)
+                if appimage_path.exists():
+                    appimage_path.unlink()
+                return False
+
+        except subprocess.TimeoutExpired:
+            error_msg = "❌ Скачивание AppImage заняло слишком много времени."
+            self.progress_updated.emit(0, error_msg)
+            logger.error(error_msg)
+            if appimage_path.exists():
+                appimage_path.unlink()
+            return False
+        except Exception as e:
+            error_msg = f"❌ Непредвиденная ошибка при установке AppImage: {e}"
+            self.progress_updated.emit(0, error_msg)
+            logger.error(error_msg)
+            if appimage_path.exists():
+                appimage_path.unlink()
+            return False
+
+    def get_emulator_path(self, emulator_id: str) -> str | None:
+        """
+        Возвращает путь к исполняемому файлу эмулятора.
+        """
+        emulator_info = self.platform_configs.get(emulator_id)
+        if not emulator_info:
+            return None
+
+        install_method = emulator_info.get('install_method')
+
+        if install_method == 'appimage':
+            appimage_filename = emulator_info.get('appimage_filename')
+            if appimage_filename:
+                appimage_path = self.project_root / "app" / "emulators" / "appimages" / appimage_filename
+                return str(appimage_path) if appimage_path.exists() else None
+
+        elif install_method == 'flatpak':
+            return emulator_info.get('flatpak_id')
+
+        elif install_method == 'system':
+            # Для системных эмуляторов возвращаем имя команды
+            return emulator_info.get('command', emulator_id.lower())
+
+        return None
 
     def _ensure_flatpak(self, emu_info: dict) -> bool:
         if self._cancelled:
