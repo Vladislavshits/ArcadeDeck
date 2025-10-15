@@ -72,7 +72,7 @@ class YandexDownloader:
                         if progress_callback and total_size > 0:
                             progress = int((downloaded_size / total_size) * 100)
                             mb_downloaded = downloaded_size / (1024 * 1024)
-                            progress_callback(progress, f"📥 Загрузка BIOS: {mb_downloaded:.1f}MB")
+                            progress_callback(progress, f"📥 Загрузка файлов: {mb_downloaded:.1f}MB")
 
             logger.info(f"✅ Загрузка успешна: {target_path.name}")
             return True
@@ -101,7 +101,7 @@ class BIOSDownloadThread(QThread):
                 self.error_occurred.emit("URL загрузки не указан")
                 return
 
-            self.progress_updated.emit(0, "🔄 Подготовка к загрузке BIOS...")
+            self.progress_updated.emit(0, "🔄 Подготовка к загрузке...")
 
             # Создаем временную директорию
             temp_dir = self.target_dir / "temp_download"
@@ -112,7 +112,7 @@ class BIOSDownloadThread(QThread):
             temp_file = temp_dir / filename
 
             # Скачиваем файл
-            self.progress_updated.emit(10, "📥 Загрузка BIOS архива...")
+            self.progress_updated.emit(10, "📥 Загрузка архива...")
 
             success = YandexDownloader.download_file(
                 download_url,
@@ -121,7 +121,7 @@ class BIOSDownloadThread(QThread):
             )
 
             if not success:
-                self.error_occurred.emit("Не удалось скачать BIOS архив")
+                self.error_occurred.emit("Не удалось скачать архив")
                 return
 
             if self._cancelled:
@@ -129,7 +129,7 @@ class BIOSDownloadThread(QThread):
                 return
 
             # ВСЕГДА ПЫТАЕМСЯ РАСПАКОВАТЬ КАК АРХИВ
-            self.progress_updated.emit(90, "📦 Распаковка BIOS архива...")
+            self.progress_updated.emit(90, "📦 Обработка файлов...")
 
             # Сначала пробуем определить тип архива по сигнатурам файлов
             if self._is_archive_by_signature(temp_file) or self._is_archive_by_extension(temp_file):
@@ -161,11 +161,11 @@ class BIOSDownloadThread(QThread):
             shutil.rmtree(temp_dir)
 
             # УСПЕШНО ЗАВЕРШАЕМСЯ БЕЗ ПРОВЕРКИ ФАЙЛОВ
-            self.progress_updated.emit(100, "✅ BIOS установлен!")
-            self.finished.emit(True, f"BIOS для {self.platform} успешно установлен")
+            self.progress_updated.emit(100, "✅ Файлы готовы!")
+            self.finished.emit(True, f"Файлы для {self.platform} успешно подготовлены")
 
         except Exception as e:
-            error_msg = f"Ошибка загрузки BIOS: {e}"
+            error_msg = f"Ошибка загрузки: {e}"
             logger.error(f"❌ {error_msg}")
             self.error_occurred.emit(error_msg)
 
@@ -176,7 +176,7 @@ class BIOSDownloadThread(QThread):
 
         if not filename or filename == '/':
             import time
-            filename = f"bios_download_{int(time.time())}.zip"
+            filename = f"download_{int(time.time())}.zip"
         elif not any(filename.lower().endswith(ext) for ext in ['.zip', '.7z', '.rar', '.tar.gz', '.tar']):
             # Если нет расширения архива, добавляем .zip
             filename += ".zip"
@@ -386,48 +386,121 @@ class BIOSManager:
 
     def ensure_bios_for_platform(self, platform: str, progress_callback=None) -> bool:
         """
-        Проверяет наличие необходимых файлов BIOS для указанной платформы.
-        Если есть URL для загрузки - скачивает и распаковывает архив.
+        Проверяет наличие необходимых файлов для указанной платформы.
         """
         if self._cancelled:
             return False
 
-        logger.info(f"🔍 Проверяю BIOS для платформы: {platform}")
+        logger.info(f"🔍 Проверка необходимых файлов для: {platform}")
 
         # Преобразуем платформу через алиасы
         resolved_platform = self._resolve_platform_alias(platform)
-        logger.info(f"🔍 Ищем BIOS для разрешенной платформы: {resolved_platform}")
+        logger.info(f"🔍 Поиск файлов для платформы: {resolved_platform}")
 
-        # Загружаем реестр BIOS
+        # Загружаем реестр
         registry_data = self._load_bios_registry()
         if registry_data is None:
             return True
 
-        # Ищем информацию о BIOS для платформы (пробуем оба варианта)
+        # Ищем информацию для платформы
         bios_info = registry_data.get(resolved_platform) or registry_data.get(platform)
 
         if not bios_info:
-            logger.info(f"ℹ️ BIOS для {platform} (разрешено: {resolved_platform}) не требуется.")
+            logger.info(f"ℹ️ Для {platform} не требуются дополнительные файлы")
             return True
 
-        # Проверяем наличие URL для загрузки
+        # === ОСОБАЯ ЛОГИКА ДЛЯ PS3 ===
+        if platform.upper() == 'PS3' or resolved_platform.upper() == 'PS3':
+            return self._ensure_ps3_bios(bios_info, progress_callback)
+
+        # Стандартная логика для других платформ
+        return self._ensure_standard_bios(bios_info, resolved_platform, progress_callback)
+
+    def _verify_ps3_system_files(self, ps3_config_dir: Path) -> bool:
+        """
+        Проверяет наличие и корректность системных файлов PS3
+        """
+        system_files_path = ps3_config_dir / "dev_flash"
+
+        if not system_files_path.exists() or not system_files_path.is_dir():
+            logger.info("📁 Системные файлы не обнаружены")
+            return False
+
+        # Проверяем объем системных файлов
+        total_size = 0
+        try:
+            for file_path in system_files_path.rglob('*'):
+                if file_path.is_file():
+                    total_size += file_path.stat().st_size
+        except Exception as e:
+            logger.warning(f"⚠️ Ошибка при анализе системных файлов: {e}")
+            return False
+
+        size_mb = total_size / (1024 * 1024)
+        logger.info(f"📊 Объем системных файлов: {size_mb:.1f} MB")
+
+        # Проверяем минимальный требуемый объем
+        if size_mb < 180:
+            logger.info(f"📁 Объем системных файлов недостаточен: {size_mb:.1f} MB")
+            return False
+
+        logger.info(f"✅ Системные файлы готовы к работе")
+        return True
+
+    def _ensure_ps3_bios(self, bios_info: dict, progress_callback=None) -> bool:
+        """
+        Специальная логика для подготовки PS3
+        """
+        try:
+            logger.info("🎮 Подготовка системных файлов PS3...")
+
+            # Используем путь из настроек для PS3
+            from core import get_users_subpath
+            ps3_config_dir = Path(get_users_subpath("configs")) / "PS3" / "rpcs3"
+            ps3_config_dir.mkdir(parents=True, exist_ok=True)
+
+            logger.info(f"📁 Каталог для системных файлов: {ps3_config_dir}")
+
+            # Проверяем, не подготовлены ли уже системные файлы
+            if self._verify_ps3_system_files(ps3_config_dir):
+                logger.info("✅ Системные файлы уже подготовлены")
+                if progress_callback:
+                    progress_callback(100, "✅ Системные файлы готовы")
+                return True
+
+            download_url = bios_info.get('bios_url')
+            if not download_url:
+                logger.info("ℹ️ Для PS3 не требуется дополнительная загрузка")
+                return True
+
+            # Загружаем и устанавливаем системные файлы
+            return self._download_and_install_bios(bios_info, ps3_config_dir, "PS3", progress_callback)
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка подготовки системных файлов: {e}")
+            return False
+
+    def _ensure_standard_bios(self, bios_info: dict, platform: str, progress_callback=None) -> bool:
+        """
+        Стандартная логика для BIOS других платформ
+        """
         download_url = bios_info.get('bios_url')
-
         if not download_url:
-            logger.info(f"ℹ️ BIOS для {platform} не имеет URL для загрузки.")
+            logger.info(f"ℹ️ Для {platform} не требуется дополнительная загрузка")
             return True
 
-        # Создаем директорию для BIOS (используем resolved_platform для пути)
-        bios_dir = self.project_root / 'users' / 'bios' / resolved_platform
+        # Создаем директорию для файлов
+        from core import get_users_subpath
+        bios_dir = Path(get_users_subpath("bios")) / platform
         bios_dir.mkdir(parents=True, exist_ok=True)
 
-        # Скачиваем BIOS
+        # Скачиваем файлы
         return self._download_and_install_bios(bios_info, bios_dir, platform, progress_callback)
 
     def _load_bios_registry(self):
         """Загружает реестр BIOS"""
         if not self.registry_path.exists():
-            logger.info("ℹ️ registry_bios.json не найден — пропускаю проверку BIOS.")
+            logger.info("ℹ️ registry_bios.json не найден — пропускаю проверку")
             return None
 
         try:
@@ -437,8 +510,8 @@ class BIOSManager:
             logger.error(f"❌ Ошибка чтения registry_bios.json: {e}")
             return None
 
-    def _download_and_install_bios(self, bios_info: dict, bios_dir: Path, platform: str, progress_callback=None) -> bool:
-        """Скачивает и устанавливает BIOS"""
+    def _download_and_install_bios(self, bios_info: dict, target_dir: Path, platform: str, progress_callback=None) -> bool:
+        """Загружает и устанавливает необходимые файлы"""
         if self._cancelled:
             return False
 
@@ -446,10 +519,10 @@ class BIOSManager:
         if not download_url:
             return False
 
-        logger.info(f"⬇️ Загружаем BIOS для {platform}")
+        logger.info(f"⬇️ Загрузка файлов для {platform}")
 
         # Создаем и запускаем поток загрузки
-        self.download_thread = BIOSDownloadThread(bios_info, bios_dir, platform)
+        self.download_thread = BIOSDownloadThread(bios_info, target_dir, platform)
 
         if progress_callback:
             self.download_thread.progress_updated.connect(progress_callback)
