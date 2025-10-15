@@ -261,6 +261,9 @@ class MainWindow(QMainWindow):
         # Инициализация поиска
         self.setup_search_overlay()
 
+        # Отслеживаем изменение состояния окна
+        self.installEventFilter(self)
+
     def init_ui(self):
         """Инициализация пользовательского интерфейса"""
         # Страница библиотеки игр
@@ -557,9 +560,25 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentWidget(self.game_info_page)
             logger.info("Установлена страница информации об игре")
 
+    def eventFilter(self, obj, event):
+        """Фильтр событий для отслеживания активации/деактивации окна"""
+        if obj == self and event.type() == QEvent.Type.WindowActivate:
+            # Окно активировано - включаем навигацию
+            if hasattr(self, 'navigation_controller'):
+                self.navigation_controller.set_active(True)
+                self.navigation_controller.block_input(False)  # Разблокируем ввод
+        elif obj == self and event.type() == QEvent.Type.WindowDeactivate:
+            # Окно деактивировано - выключаем навигацию
+            if hasattr(self, 'navigation_controller'):
+                self.navigation_controller.set_active(False)
+                self.navigation_controller.block_input(True)   # Блокируем ввод
+
+        return super().eventFilter(obj, event)
+
     def keyPressEvent(self, event):
         """Обработка клавиш через навигационный контроллер"""
-        if self.navigation_controller.handle_key_event(event):
+        # Обрабатываем только если окно активно
+        if self.isActiveWindow() and self.navigation_controller.handle_key_event(event):
             event.accept()
         else:
             super().keyPressEvent(event)
@@ -568,6 +587,10 @@ class MainWindow(QMainWindow):
         """Запускает выбранную игру через launcher_path"""
         try:
             logger.info(f"Запуск игры: {game_data.get('title', 'Unknown')}")
+
+            # 🔥 ВАЖНО: БЛОКИРУЕМ ВВОД ПЕРЕД ЗАПУСКОМ
+            if hasattr(self, 'navigation_controller'):
+                self.navigation_controller.block_input(True)  # Блокируем весь ввод
             
             # Загружаем информацию об установленных играх
             installed_games_file = Path(get_users_path()) / 'installed_games.json'
@@ -594,10 +617,14 @@ class MainWindow(QMainWindow):
             import subprocess
             subprocess.Popen(['bash', launcher_path], start_new_session=True)
             logger.info(f"✅ Запущена игра: {game_data.get('title')}")
-            
+
         except Exception as e:
             logger.error(f"Ошибка запуска игры: {e}")
             QMessageBox.critical(self, "Ошибка", f"Не удалось запустить игру: {e}")
+        finally:
+            # 🔥 ВАЖНО: НЕ разблокируем автоматически!
+            # Ввод останется заблокированным пока приложение не вернет фокус
+            pass
 
     def show_game_info(self, game):
         """
