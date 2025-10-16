@@ -728,8 +728,9 @@ echo "✅ Игра завершена"
         return f'"{emulator_path}" -fullscreen -- "{game_path}"'
 
     def _get_ppsspp_launch_command(self, emulator_path: str, game_path: Path, config_dir: Path) -> str:
-        """Создает команду запуска для PPSSPP (PSP)"""
-        return f'XDG_CONFIG_HOME="{config_dir}" "{emulator_path}" "{game_path}"'
+        """Создает команду запуска для PPSSPP (PSP) - ТОЛЬКО ДЛЯ FLATPAK"""
+        # Для PPSSPP всегда используем flatpak run, даже если emulator_path это Flatpak ID
+        return f'XDG_CONFIG_HOME="{config_dir}" flatpak run {emulator_path} "{game_path}"'
 
     # === МЕТОДЫ ДЛЯ СОЗДАНИЯ ЛАУНЧЕРОВ ДЛЯ ПОЛЬЗОВАТЕЛЬСКИХ ИГР ===
 
