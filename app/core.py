@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QApplication
 
 logger = logging.getLogger('Модуль путей')
 
-APP_VERSION = "0.1.96-beta"
+APP_VERSION = "0.1.97-beta"
 USER_HOME = os.path.expanduser("~")
 
 # Определяем базовые пути
