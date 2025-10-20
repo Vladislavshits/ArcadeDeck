@@ -1,9 +1,0 @@
-{
-  "graphics": {
-    "renderer": "OpenGL",
-    "resolution_scale": 1
-  },
-  "audio": {
-    "volume": 100
-  }
-}

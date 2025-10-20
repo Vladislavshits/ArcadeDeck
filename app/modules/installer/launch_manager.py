@@ -482,7 +482,6 @@ class LaunchManager:
     def _create_simple_ps3_launcher(self, game_data: dict, game_path: Path, game_type: str) -> bool:
         """
         Создает простой лаунчер для PS3 игры с использованием реестра.
-        Обновлён для использования правильного command_template для 'eboot'.
         """
         try:
             game_id = game_data.get('id')
@@ -512,11 +511,14 @@ class LaunchManager:
             template_vars = {
                 'emulator_path': f'"{emulator_path}"',
                 'game_path': f'"{str(game_path)}"',
-                # Другие переменные, если они нужны в шаблонах PS3
             }
 
             launch_command = command_template.format(**template_vars)
 
+            # === ВАЖНО: Используем правильный путь к конфигам PS3 ===
+            from core import get_users_subpath
+            ps3_config_dir = Path(get_users_subpath("configs")) / "PS3" / "rpcs3"
+            ps3_config_dir.mkdir(parents=True, exist_ok=True)
 
             # Добавляем переменные окружения из реестра
             env_vars = profile.get('env_variables', {})
@@ -530,26 +532,28 @@ class LaunchManager:
 
             # Создаем скрипт запуска
             script_content = f"""#!/bin/bash
-cd "{self.project_root}"
+    cd "{self.project_root}"
 
-# Настройки окружения для RPCS3
-export XDG_CONFIG_HOME="{Path(get_users_subpath("configs")) / "PS3"}"
-export SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS="0"
+    # === ВАЖНО: Правильный путь к конфигам PS3 ===
+    export XDG_CONFIG_HOME="{ps3_config_dir.parent}"  # Папка PS3, содержащая rpcs3
+    export XDG_DATA_HOME="{ps3_config_dir}"
+    export SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS="0"
 
-# Дополнительные переменные окружения из реестра
-{env_script}
+    # Дополнительные переменные окружения из реестра
+    {env_script}
 
-echo "🎮 Запуск {game_title}..."
-echo "🚀 Команда: {launch_command}"
+    echo "🎮 Запуск {game_title}..."
+    echo "🚀 Команда: {launch_command}"
+    echo "📁 Каталог настроек: {ps3_config_dir}"
 
-# Запуск игры
-{launch_command}
+    # Запуск игры
+    {launch_command}
 
-# Действия после завершения игры
-{post_actions_script}
+    # Действия после завершения игры
+    {post_actions_script}
 
-echo "🔚 Игра завершена"
-"""
+    echo "🔚 Игра завершена"
+    """
 
             # Сохраняем скрипт
             launcher_path = self.scripts_dir / f"{game_id}.sh"
@@ -559,12 +563,13 @@ echo "🔚 Игра завершена"
             launcher_path.chmod(0o755)
 
             logger.info(f"✅ Создан лаунчер: {launcher_path}")
+            logger.info(f"📁 Каталог настроек PS3: {ps3_config_dir}")
 
             # Обновляем информацию об игре
             self.installed_games[game_id] = {
                 'title': game_title,
                 'platform': 'PS3',
-                'install_path': str(game_path), # Путь теперь указывает на EBOOT.BIN
+                'install_path': str(game_path),
                 'install_date': time.time(),
                 'emulator': 'rpcs3',
                 'game_type': game_type,
@@ -723,8 +728,9 @@ echo "✅ Игра завершена"
         return f'"{emulator_path}" -fullscreen -- "{game_path}"'
 
     def _get_ppsspp_launch_command(self, emulator_path: str, game_path: Path, config_dir: Path) -> str:
-        """Создает команду запуска для PPSSPP (PSP)"""
-        return f'XDG_CONFIG_HOME="{config_dir}" "{emulator_path}" "{game_path}"'
+        """Создает команду запуска для PPSSPP (PSP) - ТОЛЬКО ДЛЯ FLATPAK"""
+        # Для PPSSPP всегда используем flatpak run, даже если emulator_path это Flatpak ID
+        return f'XDG_CONFIG_HOME="{config_dir}" flatpak run {emulator_path} "{game_path}"'
 
     # === МЕТОДЫ ДЛЯ СОЗДАНИЯ ЛАУНЧЕРОВ ДЛЯ ПОЛЬЗОВАТЕЛЬСКИХ ИГР ===
 

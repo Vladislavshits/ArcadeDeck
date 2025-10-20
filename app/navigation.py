@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import QWidget, QApplication, QPushButton
 import logging
 from enum import Enum, auto
 import sdl2
+import sdl2.ext
 
 logger = logging.getLogger('ArcadeDeck.Navigation')
 
@@ -31,6 +32,8 @@ class NavigationController(QObject):
         self.main_window = main_window
         self.current_layer = NavigationLayer.MAIN
         self.previous_layer = None
+        self._active = True
+        self._input_blocked = False  # 🔥 НОВЫЙ ФЛАГ: блокировка ввода
 
         # Инициализация структур данных
         self.layer_widgets = {
@@ -82,10 +85,14 @@ class NavigationController(QObject):
 
         logger.info("🕹️ Инициализация SDL2 для геймпада...")
 
+        # 🔥 ВАЖНО: Инициализируем ТОЛЬКО геймпад, не всю SDL
         if sdl2.SDL_Init(sdl2.SDL_INIT_GAMECONTROLLER) != 0:
             error_msg = sdl2.SDL_GetError().decode()
             logger.warning(f"❌ Ошибка инициализации SDL2: {error_msg}")
             return
+
+        # Включаем опрос событий (это важно!)
+        sdl2.SDL_StartTextInput()
 
         # Поиск подключенных контроллеров
         controller_count = sdl2.SDL_NumJoysticks()
@@ -112,8 +119,54 @@ class NavigationController(QObject):
 
     # ==================== ОБРАБОТКА СОБЫТИЙ ====================
 
+    def set_active(self, active):
+        """Включает/выключает обработку ввода"""
+        self._active = active
+        logger.debug(f"Навигационный контроллер {'активен' if active else 'неактивен'}")
+
+    def block_input(self, blocked):
+        """🔥 НОВЫЙ МЕТОД: Блокирует весь ввод (для запуска игр)"""
+        self._input_blocked = blocked
+        logger.info(f"🎮 Ввод геймпада {'заблокирован' if blocked else 'разблокирован'}")
+
+    def _is_input_allowed(self):
+        """🔥 ВАЖНО: Проверяет, разрешен ли ввод в текущий момент"""
+        # 1. Проверяем глобальную блокировку (для запуска игр)
+        if self._input_blocked:
+            return False
+
+        # 2. Проверяем активность контроллера
+        if not self._active:
+            return False
+
+        # 3. Проверяем, активно ли приложение
+        if not self._is_app_active():
+            return False
+
+        return True
+
+    def _is_app_active(self):
+        """Проверяет, активно ли приложение и в фокусе"""
+        if not self.main_window or not self.main_window.isVisible():
+            return False
+
+        # Проверяем, является ли окно активным
+        if not self.main_window.isActiveWindow():
+            return False
+
+        # Дополнительная проверка для Qt
+        app = QApplication.instance()
+        if app and app.activeWindow() != self.main_window:
+            return False
+
+        return True
+
     def _poll_controller_events(self):
         """Опрос событий геймпада через SDL2"""
+        # 🔥 ВАЖНО: Проверяем разрешение на ввод ПЕРЕД обработкой
+        if not self._is_input_allowed():
+            return
+
         event = sdl2.SDL_Event()
         while sdl2.SDL_PollEvent(event):
             if event.type == sdl2.SDL_CONTROLLERBUTTONDOWN:
@@ -125,6 +178,10 @@ class NavigationController(QObject):
 
     def _handle_controller_button(self, button, pressed):
         """Обработка нажатия/отпускания кнопки геймпада"""
+        # 🔥 Двойная проверка
+        if not self._is_input_allowed():
+            return
+
         self.button_state[button] = pressed
         if pressed:
             logger.debug(f"🎮 Кнопка нажата: {button}")
@@ -132,6 +189,10 @@ class NavigationController(QObject):
 
     def _handle_controller_axis(self, axis, value):
         """Обработка движения осей геймпада"""
+        # 🔥 Двойная проверка
+        if not self._is_input_allowed():
+            return
+
         try:
             normalized = value / 32767.0 if value >= 0 else value / 32768.0
         except Exception as e:
@@ -153,6 +214,10 @@ class NavigationController(QObject):
 
     def handle_key_event(self, event):
         """Обработка событий клавиатуры (для отладки)"""
+        # 🔥 Проверяем разрешение на ввод
+        if not self._is_input_allowed():
+            return False
+
         key_map = {
             Qt.Key.Key_Up: 'UP',
             Qt.Key.Key_Down: 'DOWN',
@@ -168,9 +233,8 @@ class NavigationController(QObject):
 
         button_name = key_map.get(event.key())
         if button_name:
-            sdl_button = self.key_mapping[button_name]
             logger.debug(f"⌨️ Клавиша преобразована в: {button_name}")
-            return self._process_button_press(sdl_button)
+            return self._process_button_press(button_name)
 
         return False
 
@@ -179,8 +243,11 @@ class NavigationController(QObject):
     def _process_button_press(self, button):
         """
         ГЛАВНЫЙ обработчик нажатий кнопок
-        Четкая последовательность приоритетов: 1-2-3
         """
+        # 🔥 ФИНАЛЬНАЯ проверка
+        if not self._is_input_allowed():
+            return False
+
         logger.debug(f"🔄 Обработка кнопки {button} в слое {self.current_layer.name}")
 
         # === 1. СПЕЦИАЛЬНЫЕ РЕЖИМЫ (высший приоритет) ===
