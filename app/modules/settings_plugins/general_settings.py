@@ -89,57 +89,46 @@ class PathToggleWidget(QFrame):
         project_root = Path(__file__).parent.parent.parent.parent
         return project_root / "users"
 
-    def get_sd_card_path(self):
-        """Путь к SD-карте на Steam Deck с автоматическим определением"""
+    def get_sd_card_path(self, target_subdir: Path = Path("ArcadeDeck/users")) -> Path | None:
+        """
+        Получает путь к целевой поддиректории на SD-карте, смонтированной на Steam Deck.
+        """
+        BASE_MOUNT_PATH = Path("/run/media/deck")
 
-        # Основной путь монтирования на Steam Deck
-        base_path = Path("/run/media/deck")
+        if not BASE_MOUNT_PATH.is_dir():
+            logger.warning(f"⚠️ Путь монтирования SD-карты не существует или не является директорией: {BASE_MOUNT_PATH}")
+            self._show_sd_card_warning() # Выделяем показ предупреждения в отдельный метод
+            return None
 
-        if base_path.exists():
-            # Ищем все поддиректории в /run/media/deck/
-            sd_cards = [d for d in base_path.iterdir() if d.is_dir()]
+        try:
+            # На Steam Deck ожидается только одна SD-карта, монтируемая как поддиректория
+            # Например, /run/media/deck/ИМЯ_КАРТЫ/
+            # Итерируем, чтобы найти первую поддиректорию (саму SD-карту)
+            sd_card_mounts = [d for d in BASE_MOUNT_PATH.iterdir() if d.is_dir()]
 
-            if sd_cards:
-                # Берем первую найденную SD-карту
-                sd_card_path = sd_cards[0]
+            if not sd_card_mounts:
+                logger.info(f"ℹ️ SD-карта не найдена в {BASE_MOUNT_PATH}/. Нет поддиректорий.")
+                self._show_sd_card_warning()
+                return None
 
-                # Проверяем, что это действительно съемное устройство
-                try:
-                    # Используем команду lsblk для проверки типа устройства
-                    result = subprocess.run([
-                        'lsblk', '-o', 'MOUNTPOINT,LABEL,FSTYPE,SIZE', '-J'
-                    ], capture_output=True, text=True)
+            # Берем первый (и, как ожидается, единственный) путь монтирования SD-карты
+            sd_card_path = sd_card_mounts[0]
 
-                    if result.returncode == 0:
-                        import json
-                        devices = json.loads(result.stdout)
+            # Формируем полный целевой путь
+            sd_path = sd_card_path / target_subdir
 
-                        # Ищем наше устройство в выводе lsblk
-                        for device in devices.get('blockdevices', []):
-                            if device.get('mountpoint') == str(sd_card_path):
-                                # Это съемное устройство (SD-карта)
-                                sd_path = sd_card_path / "ArcadeDeck" / "users"
-                                return sd_path
+            logger.info(f"✅ Найдена SD-карта: {sd_card_path.name}. Целевой путь: {sd_path}")
+            return sd_path
 
-                except Exception as e:
-                    logger.warning(f"Не удалось проверить тип устройства: {e}")
-                    # Если не удалось проверить, все равно используем найденный путь
-                    sd_path = sd_card_path / "ArcadeDeck" / "users"
-                    return sd_path
+        except Exception as e:
+            # Ловим общие ошибки, например, проблемы с правами доступа или чтением директории
+            logger.error(f"❌ Произошла ошибка при поиске SD-карты: {e}", exc_info=True)
+            self._show_sd_card_warning()
+            return None
 
-        # Альтернативные пути (для совместимости)
-        alternative_paths = [
-            "/run/media/mmcblk0p1",
-            "/run/media/mmcblk1p1",
-            "/run/media/mmcblk2p1",
-        ]
-
-        for path in alternative_paths:
-            if os.path.exists(path):
-                sd_path = Path(path) / "ArcadeDeck" / "users"
-                return sd_path
-
-        # Если SD-карта не найдена, показываем предупреждение
+    # В классе, где находится get_sd_card_path, можно добавить вспомогательный метод:
+    def _show_sd_card_warning(self):
+        """Отображает стандартное предупреждение о недоступности SD-карты."""
         QMessageBox.warning(
             self,
             "SD-карта не найдена",
@@ -150,7 +139,6 @@ class PathToggleWidget(QFrame):
             "• Карта должна быть доступна по пути: /run/media/deck/[ИМЯ_КАРТЫ]/\n\n"
             "После подключения карты повторите выбор."
         )
-        return None
 
     def load_current_settings(self):
         """Загружает текущие настройки пути"""

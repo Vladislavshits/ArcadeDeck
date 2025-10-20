@@ -245,6 +245,7 @@ class GameInfoPage(QWidget):
 
         self.delete_action = self.context_menu.addAction("🗑️ Удалить игру")
         self.change_cover_action = self.context_menu.addAction("🎨 Изменить обложку")
+        self.add_to_steam_action = self.context_menu.addAction("🎮 Добавить игру в Steam")
         self.menu_button.setMenu(self.context_menu)
 
         # Кнопка назад
@@ -261,8 +262,53 @@ class GameInfoPage(QWidget):
         self.action_button.clicked.connect(self.on_action)
         self.delete_action.triggered.connect(self.on_delete)
         self.change_cover_action.triggered.connect(self.on_change_cover)
+        self.add_to_steam_action.triggered.connect(self.on_add_to_steam)
 
         return button_panel
+
+    def on_add_to_steam(self):
+        """Handle add to Steam action from menu"""
+        if not self.game_data:
+            logger.warning("⚠️ Попытка добавить в Steam без данных игры")
+            return
+
+        try:
+            from app.modules.module_logic.add_to_steam import add_game_to_steam
+
+            # Получаем project_root из родительского окна
+            try:
+                project_root = self.window().project_root
+            except AttributeError:
+                project_root = Path(".")
+
+            # Вызываем функцию добавления в Steam
+            success = add_game_to_steam(self.game_data, project_root)
+
+            if success:
+                QMessageBox.information(
+                    self,
+                    "Успех! 🎉",
+                    f"Игра '{self.game_data.get('title', '')}' успешно добавлена в Steam!\n\n"
+                    "Перезагрузите Steam для отображения игры."
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Ошибка",
+                    "Не удалось добавить игру в Steam.\n\n"
+                    "Убедитесь, что:\n"
+                    "• Команда 'steamos-add-to-steam' доступна\n"
+                    "• Игра установлена\n"
+                    "• Проверьте логи для подробностей"
+                )
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка при добавлении в Steam: {e}")
+            QMessageBox.critical(
+                self,
+                "Ошибка",
+                f"Произошла непредвиденная ошибка:\n{str(e)}"
+            )
 
     def _update_action_button_style(self):
         """Обновляет стиль кнопки действия в зависимости от статуса"""

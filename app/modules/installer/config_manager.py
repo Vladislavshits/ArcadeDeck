@@ -133,7 +133,7 @@ class ConfigManager:
     def apply_config(self, game_id: str, platform: str, emulator_name: str) -> bool:
         """
         Универсальное применение конфигурации для игры
-        Теперь копирует ВСЮ папку эмулятора с готовыми конфигами!
+        Копирует всю папку с готовыми конфигами и обновляет пути!
         """
         if self._cancelled:
             return False
@@ -141,22 +141,20 @@ class ConfigManager:
         self._log(f"🎯 Применение конфига для {game_id} ({platform}) эмулятор: {emulator_name}")
 
         platform_dir = self.project_root / 'app' / 'emulators' / platform
-        target_dir = self.project_root / 'users' / 'configs' / platform
+
+        # ИСПРАВЛЕНИЕ: Используем get_users_subpath вместо жесткого пути
+        from core import get_users_subpath
+        target_dir = Path(get_users_subpath("configs")) / platform
 
         # СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ PCSX2
         if emulator_name.lower() == 'pcsx2':
             emulator_folders = [
-                # 1. Основная папка PCSX2 с подпапками
                 platform_dir / 'PCSX2',
-                # 2. Папка с именем эмулятора (для совместимости)
                 platform_dir / emulator_name,
-                # 3. Папка games/эмулятор
                 platform_dir / 'games' / emulator_name,
-                # 4. Папка с настройками по умолчанию
                 platform_dir / 'preset_default'
             ]
         else:
-            # Стандартная логика для других эмуляторов
             emulator_folders = [
                 platform_dir / emulator_name,
                 platform_dir / 'games' / emulator_name,
@@ -165,7 +163,6 @@ class ConfigManager:
 
         for source_folder in emulator_folders:
             if source_folder.exists() and source_folder.is_dir():
-                # СОХРАНЯЕМ ОРИГИНАЛЬНОЕ ИМЯ ПАПКИ, а не используем emulator_name
                 target_emulator_folder = target_dir / source_folder.name
 
                 self._log(f"📁 Найдена папка эмулятора: {source_folder}")
@@ -183,44 +180,120 @@ class ConfigManager:
                             shutil.copy2(item, target_item)
 
                     self._log(f"✅ Папка эмулятора скопирована: {target_emulator_folder}")
+
+                    # ОБНОВЛЯЕМ ПУТИ В КОНФИГАХ ПОСЛЕ КОПИРОВАНИЯ
+                    self._update_emulator_config_paths(target_emulator_folder, platform, emulator_name)
+
                 else:
                     self._log(f"[TEST MODE] Копирование папки: {source_folder} -> {target_emulator_folder}")
 
                 return True
 
-        # Fallback: старая логика с отдельными конфигами
-        return self._apply_legacy_config(game_id, platform, emulator_name)
-
-    def _apply_legacy_config(self, game_id: str, platform: str, emulator_name: str) -> bool:
-        """Старая логика для обратной совместимости"""
-        emulator_config = self._get_emulator_config(emulator_name)
-        config_format = emulator_config['format']
-
-        platform_dir = self.project_root / 'app' / 'emulators' / platform
-        target_dir = self.project_root / 'users' / 'configs' / platform
-
-        # Старая логика поиска отдельных конфигов
-        config_sources = [
-            (platform_dir / 'games' / f"{game_id}.{config_format}", f"{game_id}.{config_format}"),
-            (platform_dir / f"preset_default.{config_format}", f"{game_id}.{config_format}"),
-        ]
-
-        for source_path, target_filename in config_sources:
-            if source_path.exists():
-                target_path = target_dir / target_filename
-                self._log(f"📄 Найден конфиг: {source_path}")
-
-                if not self.test_mode:
-                    target_path.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(source_path, target_path)
-                    self._log(f"✅ Конфиг скопирован: {target_path}")
-                else:
-                    self._log(f"[TEST MODE] Копирование конфига: {source_path} -> {target_path}")
-
-                return True
-
-        self._log(f"⚠️ Не найден подходящий конфиг для {platform}/{game_id}")
+        self._log(f"⚠️ Не найдена папка эмулятора для {platform}/{emulator_name}")
         return False
+
+    def _update_emulator_config_paths(self, emulator_folder: Path, platform: str, emulator_name: str):
+        """Обновляет пути в конфигах эмуляторов в соответствии с текущим путем users"""
+        try:
+            from core import get_users_path
+
+            # Получаем базовый путь к users
+            users_base_path = Path(get_users_path())
+            self._log(f"🔄 Обновление путей в конфигах для {emulator_name}. Базовый путь: {users_base_path}")
+
+            if emulator_name.lower() == 'duckstation' and platform.upper() == 'PS1':
+                self._update_duckstation_config(emulator_folder, users_base_path)
+            elif emulator_name.lower() == 'pcsx2' and platform.upper() == 'PS2':
+                self._update_pcsx2_config(emulator_folder, users_base_path)
+            elif emulator_name.lower() == 'rpcs3' and platform.upper() == 'PS3':
+                self._update_rpcs3_config(emulator_folder, users_base_path)
+
+        except Exception as e:
+            self._log(f"⚠️ Не удалось обновить пути в конфигах: {e}")
+
+    def _update_duckstation_config(self, emulator_folder: Path, users_base_path: Path):
+        """Обновляет пути в конфиге DuckStation (PS1)"""
+        try:
+            config_file = emulator_folder / "settings.ini"
+            if not config_file.exists():
+                self._log(f"⚠️ Конфиг DuckStation не найден: {config_file}")
+                return
+
+            config = configparser.ConfigParser()
+            config.read(config_file)
+
+            # Обновляем путь к BIOS
+            new_bios_path = users_base_path / "bios" / "duckstation"
+            if config.has_section('BIOS'):
+                config.set('BIOS', 'searchdirectory', str(new_bios_path))
+                self._log(f"✅ Обновлен путь к BIOS DuckStation: {new_bios_path}")
+
+            # Сохраняем изменения
+            with open(config_file, 'w') as f:
+                config.write(f)
+
+            self._log("✅ Конфиг DuckStation обновлен")
+
+        except Exception as e:
+            self._log(f"❌ Ошибка обновления конфига DuckStation: {e}")
+
+    def _update_pcsx2_config(self, emulator_folder: Path, users_base_path: Path):
+        """Обновляет пути в конфиге PCSX2 (PS2)"""
+        try:
+            config_file = emulator_folder / "PCSX2.ini"
+            if not config_file.exists():
+                self._log(f"⚠️ Конфиг PCSX2 не найден: {config_file}")
+                return
+
+            config = configparser.ConfigParser()
+            config.read(config_file)
+
+            # Обновляем путь к BIOS (относительный путь от папки конфигов)
+            if config.has_section('Folders'):
+                # Вычисляем относительный путь от папки конфигов к папке bios
+                configs_path = emulator_folder.parent  # platform/configs/
+                bios_relative_path = os.path.relpath(
+                    users_base_path / "bios" / "pcsx2",
+                    configs_path
+                )
+                config.set('Folders', 'Bios', bios_relative_path)
+                self._log(f"✅ Обновлен путь к BIOS PCSX2: {bios_relative_path}")
+
+            # Сохраняем изменения
+            with open(config_file, 'w') as f:
+                config.write(f)
+
+            self._log("✅ Конфиг PCSX2 обновлен")
+
+        except Exception as e:
+            self._log(f"❌ Ошибка обновления конфига PCSX2: {e}")
+
+    def _update_rpcs3_config(self, emulator_folder: Path, users_base_path: Path):
+        """Обновляет пути в конфиге RPCS3 (PS3)"""
+        try:
+            # RPCS3 хранит конфиги в подпапке GuiConfigs
+            config_file = emulator_folder / "GuiConfigs" / "CurrentSettings.ini"
+            if not config_file.exists():
+                self._log(f"⚠️ Конфиг RPCS3 не найден: {config_file}")
+                return
+
+            config = configparser.ConfigParser()
+            config.read(config_file)
+
+            # Обновляем путь к BIOS
+            new_bios_path = users_base_path / "bios" / "rpcs3"
+            if config.has_section('main_window'):
+                config.set('main_window', 'lastExplorePathPUP', str(new_bios_path))
+                self._log(f"✅ Обновлен путь к BIOS RPCS3: {new_bios_path}")
+
+            # Сохраняем изменения
+            with open(config_file, 'w') as f:
+                config.write(f)
+
+            self._log("✅ Конфиг RPCS3 обновлен")
+
+        except Exception as e:
+            self._log(f"❌ Ошибка обновления конфига RPCS3: {e}")
 
     def _apply_single_config(self, source_path: Path, target_path: Path,
                            config_format: str, game_id: str = None) -> bool:

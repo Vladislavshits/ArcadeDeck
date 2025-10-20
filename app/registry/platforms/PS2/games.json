@@ -15,5 +15,22 @@
     "developer": "Polyphony Digital",
     "genre": "Автосимулятор + Гонки",
     "rating": "9.8/10"
+  },
+      {
+    "id": "Ttekken_5",
+    "title": "Tekken 5",
+    "platform": "PS2",
+    "platform_module": "PS2",
+    "preferred_emulator": "pcsx2",
+    "image_path": "images/crash_bandicoot_1.png",
+    "description": "Пятая номерная часть культового файтинга, выпущенная в честь 10-летия серии. Сюжет продолжает историю Дзина Кадзамы, стремящегося обрести контроль над дьявольским геном, а турнир организует его прадед Дзимпати Мисима. Игра представила 7 новых персонажей и в общей сложности 33 бойца, а также получила знаменитое обновление Dark Resurrection..",
+    "torrent_url": "magnet:?xt=urn:btih:97C7471AA2D38406D00EF7111A697331A1DD92F7&tr=http%3A%2F%2Fbt3.t-ru.org%2Fann%3Fmagnet&dn=%5BPS2%5D%20Tekken%205%20%5BENG%7CNTSC%5D",
+    "preset": "Config.ymi",
+    "size_bytes": 4200000000,
+    "year": "2005",
+    "language": "English",
+    "developer": "Housemarque",
+    "genre": "Изометрический шутер",
+    "rating": "9.8/10"
   }
 ]
