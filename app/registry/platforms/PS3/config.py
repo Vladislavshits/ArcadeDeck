@@ -3,7 +3,7 @@ def get_config():
     return {
         "name": "RPCS3",
         "install_method": "appimage",
-        "appimage_url": "https://github.com/RPCS3/rpcs3-binaries-linux/releases/download/build-9e49b9100fab7293c5f616f6aebc91799461c26c/rpcs3-v0.0.38-18185-9e49b910_linux64.AppImage",
+        "appimage_url": "https://github.com/RPCS3/rpcs3-binaries-linux/releases/download/build-3c1ebe9f4ad940b6f08de641f7b309be39fff92a/rpcs3-v0.0.38-18261-3c1ebe9f_linux64.AppImage",
         "appimage_filename": "rpcs3.AppImage",
         "install_command": [
             "wget", "https://github.com/RPCS3/rpcs3-binaries-linux/releases/download/build-9e49b9100fab7293c5f616f6aebc91799461c26c/rpcs3-v0.0.38-18185-9e49b910_linux64.AppImage",

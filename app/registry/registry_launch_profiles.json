@@ -126,11 +126,13 @@
   },
   "melonds": {
     "name": "melonds",
-    "launch_method": "flatpak",
-    "flatpak_id": "net.kuribo64.melonDS",
-    "command_template": "XDG_CONFIG_HOME={config_dir} flatpak run {flatpak_id} {game_path}",
+    "installation_type": "appimage",
+    "launch_method": "appimage",
+    "appimage_url": "https://github.com/melonDS-emu/melonDS/releases/latest/download/melonDS-x86_64.AppImage",
+    "appimage_filename": "melonDS-x86_64.AppImage",
+    "command_template": "{emulator_path} -f {game_path}",
     "config_source_dir": "{project_root}/app/emulators/NDS/",
-    "config_files": ["melonds.ini"],
+    "config_files": ["melonDS.toml"],
     "env_variables": {
       "SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS": "0"
     },

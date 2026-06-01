@@ -340,81 +340,82 @@ class BIOSDownloadThread(QThread):
         return extracted_files
 
     def cancel(self):
+        """🆕 ОТМЕНА ЗАГРУЗКИ BIOS"""
         self._cancelled = True
+        logger.info("🛑 Отмена загрузки BIOS...")
 
 
 class BIOSManager:
     """
     Класс для управления файлами BIOS.
     """
-
     def __init__(self, project_root: Path):
+        super().__init__()
         self.project_root = project_root
-        self.registry_path = self.project_root / 'app' / 'registry' / 'registry_bios.json'
-        self.aliases_path = self.project_root / 'app' / 'registry' / 'registry_platform_aliases.json'
         self._cancelled = False
         self.download_thread = None
-        self.platform_aliases = self._load_platform_aliases()
+        self.download_success = False
+        logger.info("BIOSManager инициализирован (конфиги загружаются в install.py)")
 
-    def _load_platform_aliases(self):
-        """Загружает алиасы платформ"""
-        try:
-            if self.aliases_path.exists():
-                with open(self.aliases_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    return data.get('platform_aliases', {})
-        except Exception as e:
-            logger.error(f"❌ Ошибка загрузки алиасов: {e}")
-        return {}
+    def _on_bios_download_finished(self, success: bool, message: str):
+        """Вызывается при завершении загрузки BIOS"""
+        self.download_success = success
+        logger.info(f"Загрузка BIOS завершена: {success} — {message}")
 
-    def _resolve_platform_alias(self, platform: str) -> str:
-        """Преобразует алиас платформы в реальный ключ"""
-        # Прямой поиск
-        if platform in self.platform_aliases:
-            resolved = self.platform_aliases[platform]
-            logger.info(f"🔁 Преобразовали алиас '{platform}' -> '{resolved}'")
-            return resolved
+        # Пробрасываем прогресс дальше (например, в InstallThread)
+        if hasattr(self, 'progress_updated'):
+            self.progress_updated.emit(100 if success else 0, message)
 
-        # Поиск по значению (обратный поиск)
-        for alias, real_platform in self.platform_aliases.items():
-            if real_platform == platform:
-                logger.info(f"🔁 Нашли алиас для '{platform}': '{alias}'")
-                return alias
+    def _on_bios_download_error(self, error_msg: str):
+        """Вызывается при ошибке загрузки"""
+        self.download_success = False
+        logger.error(f"Ошибка загрузки BIOS: {error_msg}")
+        if hasattr(self, 'progress_updated'):
+            self.progress_updated.emit(0, f"Ошибка: {error_msg}")
 
-        # Если не нашли, возвращаем оригинал
-        return platform
+    def _download_and_install_bios(self, bios_info: dict, target_dir: Path, platform: str, progress_callback=None) -> bool:
+        """Загружает и устанавливает необходимые файлы"""
+        if self._cancelled:
+            return False
 
-    def ensure_bios_for_platform(self, platform: str, progress_callback=None) -> bool:
+        download_url = bios_info.get('bios_url')
+        if not download_url:
+            return False
+
+        logger.info(f"Загрузка файлов для {platform}")
+
+        self.download_thread = BIOSDownloadThread(bios_info, target_dir, platform)
+
+        # Пробрасываем прогресс из потока загрузки
+        if progress_callback:
+            self.download_thread.progress_updated.connect(progress_callback)
+
+        # Подключаем наши обработчики
+        self.download_thread.finished.connect(self._on_bios_download_finished)
+        self.download_thread.error_occurred.connect(self._on_bios_download_error)
+
+        self.download_thread.start()
+        return True  # ← Теперь возвращаем True сразу — поток работает асинхронно
+
+    def ensure_bios_for_platform(self, platform: str, bios_config: dict = None, progress_callback=None) -> bool:
         """
-        Проверяет наличие необходимых файлов для указанной платформы.
+        Проверяет наличие необходимых файлов для указанной платформы. Принимает готовый конфиг из installer
         """
         if self._cancelled:
             return False
 
         logger.info(f"🔍 Проверка необходимых файлов для: {platform}")
 
-        # Преобразуем платформу через алиасы
-        resolved_platform = self._resolve_platform_alias(platform)
-        logger.info(f"🔍 Поиск файлов для платформы: {resolved_platform}")
-
-        # Загружаем реестр
-        registry_data = self._load_bios_registry()
-        if registry_data is None:
-            return True
-
-        # Ищем информацию для платформы
-        bios_info = registry_data.get(resolved_platform) or registry_data.get(platform)
-
-        if not bios_info:
+        if not bios_config:
             logger.info(f"ℹ️ Для {platform} не требуются дополнительные файлы")
             return True
 
         # === ОСОБАЯ ЛОГИКА ДЛЯ PS3 ===
-        if platform.upper() == 'PS3' or resolved_platform.upper() == 'PS3':
-            return self._ensure_ps3_bios(bios_info, progress_callback)
+        if platform.upper() == 'PS3':
+            return self._ensure_ps3_bios(bios_config, progress_callback)  # 🆕 ПЕРЕДАЕМ CALLBACK
 
         # Стандартная логика для других платформ
-        return self._ensure_standard_bios(bios_info, resolved_platform, progress_callback)
+        return self._ensure_standard_bios(bios_config, platform, progress_callback)  # 🆕 ПЕРЕДАЕМ CALLBACK
 
     def _verify_ps3_system_files(self, ps3_config_dir: Path) -> bool:
         """
@@ -444,7 +445,7 @@ class BIOSManager:
             logger.info(f"📁 Объем системных файлов недостаточен: {size_mb:.1f} MB")
             return False
 
-        logger.info(f"✅ Системные файлы готовы к работе")
+        logger.info(f"Системные файлы готовы к работе")
         return True
 
     def _ensure_ps3_bios(self, bios_info: dict, progress_callback=None) -> bool:
@@ -463,9 +464,9 @@ class BIOSManager:
 
             # Проверяем, не подготовлены ли уже системные файлы
             if self._verify_ps3_system_files(ps3_config_dir):
-                logger.info("✅ Системные файлы уже подготовлены")
+                logger.info("Системные файлы уже подготовлены")
                 if progress_callback:
-                    progress_callback(100, "✅ Системные файлы готовы")
+                    progress_callback(100, "Системные файлы готовы")
                 return True
 
             download_url = bios_info.get('bios_url')
@@ -497,19 +498,6 @@ class BIOSManager:
         # Скачиваем файлы
         return self._download_and_install_bios(bios_info, bios_dir, platform, progress_callback)
 
-    def _load_bios_registry(self):
-        """Загружает реестр BIOS"""
-        if not self.registry_path.exists():
-            logger.info("ℹ️ registry_bios.json не найден — пропускаю проверку")
-            return None
-
-        try:
-            with open(self.registry_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception as e:
-            logger.error(f"❌ Ошибка чтения registry_bios.json: {e}")
-            return None
-
     def _download_and_install_bios(self, bios_info: dict, target_dir: Path, platform: str, progress_callback=None) -> bool:
         """Загружает и устанавливает необходимые файлы"""
         if self._cancelled:
@@ -518,34 +506,26 @@ class BIOSManager:
         download_url = bios_info.get('bios_url')
         if not download_url:
             return False
-
         logger.info(f"⬇️ Загрузка файлов для {platform}")
 
         # Создаем и запускаем поток загрузки
         self.download_thread = BIOSDownloadThread(bios_info, target_dir, platform)
-
         if progress_callback:
             self.download_thread.progress_updated.connect(progress_callback)
 
         # Обработчики завершения
         self.download_success = False
 
-        def on_finished(success, message):
-            self.download_success = success
-
-        def on_error(error_msg):
-            self.download_success = False
-
-        self.download_thread.finished.connect(on_finished)
-        self.download_thread.error_occurred.connect(on_error)
+        self.download_thread.finished.connect(self._on_bios_download_finished)
+        self.download_thread.error_occurred.connect(self._on_bios_download_error)
 
         self.download_thread.start()
-        self.download_thread.wait()
-
-        return self.download_success
+        return True
 
     def cancel(self):
+        """🆕 ОТМЕНА ВСЕХ ОПЕРАЦИЙ BIOS"""
         self._cancelled = True
         if self.download_thread and self.download_thread.isRunning():
             self.download_thread.cancel()
-            self.download_thread.wait()
+            self.download_thread.wait(1000)  # Даем время на graceful shutdown
+        logger.info("🛑 BIOSManager: все операции отменены")

@@ -1,13 +1,10 @@
-#!/usr/bin/env python3
-# app/updater.py
-
 # Импорты стандартных библиотек Python
 import sys
 import os
 import hashlib
 import json
 import logging
-logger = logging.getLogger('Updater')
+logger = logging.getLogger('Модуль обновления ПО')
 import re
 import shutil
 import subprocess
@@ -42,13 +39,15 @@ enforce_virtualenv()
 from core import APP_VERSION, STYLES_DIR, THEME_FILE
 from settings import app_settings
 from app.ui_assets.theme_manager import theme_manager
+from navigation import NavigationController, NavigationLayer
 
 # Настройки пользователя
-CONFIG_DIR = os.path.join(os.path.expanduser("~"), "ArcadeDeck")
+CONFIG_DIR = os.path.join(os.path.expanduser("~"), "ArcadeDeck", "app", "config")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "updater.json")
 
 
 class Updater(QObject):
+    UPDATE_CACHE_FILE = os.path.join(CONFIG_DIR, "update_check_cache.json")
     update_available = pyqtSignal(dict)
 
     def __init__(self, parent=None):
@@ -61,6 +60,43 @@ class Updater(QObject):
 
         self.update_channel = "stable"  # По умолчанию стабильный канал
         self.latest_info = None
+
+    def should_check_for_updates(self):
+        """Проверяет, нужно ли делать запрос на GitHub"""
+        if not os.path.exists(self.UPDATE_CACHE_FILE):
+            return True
+
+        try:
+            with open(self.UPDATE_CACHE_FILE, 'r', encoding='utf-8') as f:
+                cache = json.load(f)
+
+            last_check_str = cache.get("last_check")
+            if not last_check_str:
+                return True
+
+            last_check = datetime.fromisoformat(last_check_str.replace('Z', '+00:00'))
+            hours_since_check = (datetime.now().astimezone() - last_check).total_seconds() / 3600
+
+            # Проверяем не чаще, чем раз в 6 часов
+            return hours_since_check >= 6
+
+        except Exception as e:
+            logger.debug(f"Ошибка чтения кеша обновлений: {e}")
+            return True
+
+    def save_update_check_cache(self, latest_version=None):
+        """Сохраняет время последней проверки"""
+        data = {
+            "last_check": datetime.now().astimezone().isoformat(),
+            "latest_version": latest_version or APP_VERSION.lstrip('v'),
+            "channel": self.update_channel
+        }
+        try:
+            os.makedirs(CONFIG_DIR, exist_ok=True)
+            with open(self.UPDATE_CACHE_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f)
+        except Exception as e:
+            logger.debug(f"Не удалось сохранить кеш обновлений: {e}")
 
     def set_update_channel(self, channel):
         """Устанавливает канал обновлений (stable/beta)"""
@@ -91,11 +127,16 @@ class Updater(QObject):
 
     def check_for_updates(self):
         """Проверяет наличие обновлений с учетом выбранного канала"""
+        # ← НОВАЯ ПРОВЕРКА
+        if not self.should_check_for_updates():
+            logger.debug("Проверка обновлений пропущена (недавно уже проверяли)")
+            return None
+
         try:
             skipped_versions = self.get_skip_config()
             update_info = None
             latest_version = None
-            app_version = version.parse(APP_VERSION.lstrip('v'))  # Инициализируем здесь!
+            app_version = version.parse(APP_VERSION.lstrip('v'))
 
             # Для стабильной версии
             if not self.is_beta:
@@ -104,7 +145,8 @@ class Updater(QObject):
                     f"{self.github_repo}/releases/latest"
                 )
 
-                response = requests.get(latest_url, timeout=15)
+                # ← Таймаут снижен до 5 секунд!
+                response = requests.get(latest_url, timeout=5)
                 response.raise_for_status()
                 latest_release = response.json()
 
@@ -112,6 +154,7 @@ class Updater(QObject):
 
                 if latest_version in skipped_versions:
                     logger.debug(f"Версия {latest_version} пропущена пользователем")
+                    self.save_update_check_cache()  # ← сохраняем кеш
                     return None
 
                 latest_version_parsed = version.parse(latest_version)
@@ -155,7 +198,8 @@ class Updater(QObject):
                 releases_url = (
                     f"https://api.github.com/repos/{self.github_repo}/releases"
                 )
-                response = requests.get(releases_url, timeout=15)
+
+                response = requests.get(releases_url, timeout=3)
                 response.raise_for_status()
                 releases = response.json()
 
@@ -166,6 +210,7 @@ class Updater(QObject):
 
                 if not beta_releases:
                     logger.debug("Нет доступных бета-релизов")
+                    self.save_update_check_cache()  # ← сохраняем кеш
                     return None
 
                 sorted_releases = sorted(
@@ -181,6 +226,7 @@ class Updater(QObject):
                     logger.debug(
                         f"Бета-версия {latest_version} пропущена пользователем"
                         )
+                    self.save_update_check_cache()  # ← сохраняем кеш
                     return None
 
                 latest_version_parsed = version.parse(latest_version)
@@ -218,18 +264,26 @@ class Updater(QObject):
             if update_info:
                 logger.info(f"Найдено обновление: {update_info['version']}")
                 self.latest_info = update_info
+                self.save_update_check_cache(latest_version)  # ← сохраняем с новой версией
                 self.update_available.emit(update_info)
                 return update_info
             else:
                 self.latest_info = None
                 logger.debug("Подходящих обновлений не найдено")
+                self.save_update_check_cache()  # ← сохраняем кеш
                 return None
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Ошибка сети при проверке обновлений: {e}")
+        except requests.exceptions.Timeout:
+            logger.info("Таймаут при проверке обновлений — пропускаем")
+            self.save_update_check_cache()  # ← всё равно обновляем кеш!
+            return None
+        except requests.exceptions.ConnectionError:
+            logger.info("Нет интернета — проверка обновлений пропущена")
+            self.save_update_check_cache()
             return None
         except Exception as e:
             logger.error(f"Неизвестная ошибка при проверке обновлений: {e}")
+            self.save_update_check_cache()  # ← важно!
             return None
 
     def get_skip_config(self):
@@ -349,8 +403,9 @@ class UpdateDownloaderThread(QThread):
 
 class UpdateDialog(QDialog):
     def __init__(self, current_version, new_version, changelog,
-                 download_url, install_dir, asset_name, parent=None):
+                 download_url, install_dir, asset_name, parent=None, nav_controller=None):
         super().__init__(parent)
+        self.nav_controller = nav_controller  # ← Сохраняем
         self.setWindowTitle("Доступно обновление!")
         self.setMinimumSize(500, 400)
         self.download_url = download_url
@@ -359,6 +414,7 @@ class UpdateDialog(QDialog):
         self.asset_name = asset_name
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)  # ← Отступы
 
         title = QLabel(f"Доступна новая версия: {new_version}")
         title.setFont(QFont("Arial", 18, QFont.Weight.Bold))
@@ -395,6 +451,26 @@ class UpdateDialog(QDialog):
 
         # Применяем текущую тему
         self.apply_theme(theme_manager.current_theme)
+
+        if self.nav_controller:
+            self.integrate_with_navigation()
+
+    def integrate_with_navigation(self):
+            """Подключает кнопки к NavigationController"""
+            if not self.nav_controller:
+                return
+
+            buttons = [self.later_button, self.skip_button, self.install_button]
+            self.nav_controller.switch_layer(NavigationLayer.DIALOG)
+            self.nav_controller.register_widgets(NavigationLayer.DIALOG, buttons)
+            self.nav_controller.set_focus(NavigationLayer.DIALOG, 0)
+            self.nav_controller.update_hints()
+
+            # При закрытии — возврат на MAIN
+            def on_finished():
+                if self.nav_controller.current_layer == NavigationLayer.DIALOG:
+                    self.nav_controller.return_to_previous_layer()
+            self.finished.connect(on_finished)
 
     def apply_theme(self, theme_name):
         """Применяет указанную тему к диалогу"""
@@ -437,6 +513,9 @@ class UpdateDialog(QDialog):
             json.dump({'skipped_versions': skipped_versions}, f)
 
         self.reject()
+
+        if self.nav_controller:
+            self.nav_controller.return_to_previous_layer()
 
     def start_download(self):
         """Начинает процесс скачивания и установки"""
@@ -484,6 +563,9 @@ class UpdateDialog(QDialog):
         """Вызывается при успешной установке"""
         self.progress_dialog.close()
         self.accept()
+
+        if self.nav_controller:
+            self.nav_controller.return_to_previous_layer()
 
         # Показываем сообщение об успехе
         QMessageBox.information(

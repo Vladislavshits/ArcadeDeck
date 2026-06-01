@@ -18,6 +18,27 @@ from core import update_installation_paths, get_users_path
 # Название модуля в логе
 logger = logging.getLogger('Плагин общих настроек')
 
+
+class FocusButton(QPushButton):
+    """Кнопка с поддержкой фокуса для навигации"""
+    def __init__(self, text="", parent=None):
+        super().__init__(text, parent)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setProperty("focused", False)
+
+    def focusInEvent(self, event):
+        self.setProperty("focused", True)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        super().focusInEvent(event)
+
+    def focusOutEvent(self, event):
+        self.setProperty("focused", False)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        super().focusOutEvent(event)
+
+
 class PathToggleWidget(QFrame):
     """Виджет переключения пути установки игр"""
     pathChanged = pyqtSignal(str)
@@ -39,26 +60,25 @@ class PathToggleWidget(QFrame):
 
         # Контейнер для кнопок в одном ряду
         self.container = QFrame()
-        self.container.setObjectName("PathButtonsFrame")
 
         container_layout = QHBoxLayout(self.container)
         container_layout.setContentsMargins(10, 10, 10, 20)
-        container_layout.setSpacing(20)  # Сохраняем отступ 20px между кнопками
+        container_layout.setSpacing(20)
 
         # Кнопка "По умолчанию"
-        self.default_btn = QPushButton("По умолчанию")
+        self.default_btn = FocusButton("По умолчанию")
         self.default_btn.setObjectName("path_button")
         self.default_btn.setCheckable(True)
         self.default_btn.clicked.connect(lambda: self.select_path("default"))
 
         # Кнопка "SD-карта"
-        self.sd_card_btn = QPushButton("SD-карта")
+        self.sd_card_btn = FocusButton("SD-карта")
         self.sd_card_btn.setObjectName("path_button")
         self.sd_card_btn.setCheckable(True)
         self.sd_card_btn.clicked.connect(lambda: self.select_path("sd_card"))
 
         # Кнопка "Выбрать вручную"
-        self.custom_btn = QPushButton("Выбрать вручную")
+        self.custom_btn = FocusButton("Выбрать вручную")
         self.custom_btn.setObjectName("path_button")
         self.custom_btn.setCheckable(True)
         self.custom_btn.clicked.connect(self.select_custom_path)

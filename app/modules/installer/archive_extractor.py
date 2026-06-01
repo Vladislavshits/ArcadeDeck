@@ -6,7 +6,8 @@ import time
 import subprocess
 import shutil
 
-logger = logging.getLogger('ArchiveExtractor')
+logger = logging.getLogger('Модуль распаковки архивов')
+
 
 class ArchiveExtractor(QThread):
     progress_updated = pyqtSignal(int, str)
@@ -15,9 +16,14 @@ class ArchiveExtractor(QThread):
     files_extracted = pyqtSignal(list)
 
     def __init__(self, game_data: dict, download_dir: Path, parent=None):
+        """
+        download_dir теперь может быть:
+         - Path к директории (обычный случай: папка, куда libtorrent пишет файлы)
+         - Path к самому архивному файлу (если вызывающий передаёт файл напрямую)
+        """
         super().__init__(parent)
-        self.game_data = game_data
-        self.download_dir = download_dir
+        self.game_data = game_data or {}
+        self.download_dir = Path(download_dir)
         self._cancelled = False
         self.last_update_time = 0
         self.update_interval = 0.5
@@ -29,213 +35,146 @@ class ArchiveExtractor(QThread):
     def _ensure_dependencies(self):
         """Проверяет наличие необходимых зависимостей"""
         try:
-            import rarfile
+            import rarfile  # noqa: F401
             logger.info("✅ rarfile доступен")
         except ImportError:
             logger.warning("⚠️ rarfile не установлен. RAR архивы могут не работать")
 
     def _is_archive_file(self, file_path: Path) -> bool:
         """
-        Определяет, является ли файл архивом по расширению.
+        Определяет, является ли файл архивом по расширению или сигнатуре.
         """
+        if not file_path or not file_path.exists() or not file_path.is_file():
+            return False
+
         # Существующие расширения архивов
-        archive_extensions = [
+        archive_extensions = {
             '.zip', '.rar', '.7z', '.tar',
             '.gz', '.bz2', '.xz', '.tgz',
             '.tbz2', '.txz', '.tar.gz', '.tar.bz2', '.tar.xz',
             '.cab', '.arj', '.lzh', '.lha'
-        ]
+        }
 
-        # Проверка на PKG (для PS3)
+        # Исключаем PKG для PS3 — это контейнер, не архив
         if file_path.suffix.lower() == '.pkg':
-            logger.info(f"📦 Обнаружен PKG файл: {file_path.name}")
-            return False  # Не распаковывать PKG!
+            return False
 
         if file_path.suffix.lower() in archive_extensions:
-            logger.info(f"📋 Определен архив по расширению: {file_path.suffix}")
+            logger.debug(f"[ArchiveExtractor] Расширение {file_path.suffix} распознано как архив.")
             return True
 
-        # Проверка сигнатур
+        # Проверка сигнатур (безопасно: читаем небольшое количество байт)
         try:
             with open(file_path, 'rb') as f:
-                header = f.read(12)
-
-            archive_signatures = {
-                b'PK\x03\x04': 'ZIP',
-                b'Rar!\x1A\x07\x00': 'RAR5',
-                b'Rar!\x1A\x07\x01': 'RAR5',
-                b'Rar!\x1A\x07': 'RAR',
-                b'7z\xBC\xAF\x27\x1C': '7ZIP',
-                b'\x1F\x8B\x08': 'GZIP',
-                b'BZh': 'BZIP2',
-                b'\xFD7zXZ\x00': 'XZ',
-                b'# archiver': 'ARJ',
-                b'!<arch>': 'AR (Unix)',
-                b'\x60\xEA': 'AR (Unix)',
-                b'MSZIP': 'CAB (Microsoft)',
-                b'MSCF': 'CAB (Microsoft)',
-                b'-lh': 'LHA/LZH',
-                b'-lz': 'LHA/LZH'
-            }
-
-            for signature, format_name in archive_signatures.items():
-                if header.startswith(signature):
-                    logger.info(f"📋 Обнаружена сигнатура архива: {format_name}")
-                    return True
-
-            # Проверка для TAR архивов
-            if len(header) >= 512:
-                if header[257:262] == b'ustar' or header[257:263] == b'ustar ':
-                    logger.info("📋 Обнаружена сигнатура TAR")
-                    return True
-
-                if header[257:263] == b'ustar\x00':
-                    logger.info("📋 Обнаружена сигнатура TAR (GNU)")
-                    return True
-
+                header = f.read(16)
+            # Сопоставления сигнатур
+            if header.startswith(b'PK\x03\x04'):
+                return True
+            if header.startswith(b'Rar!'):
+                return True
+            if header.startswith(b'7z\xBC\xAF\x27\x1C'):
+                return True
+            if header.startswith(b'\x1F\x8B\x08'):  # gzip
+                return True
+            if header.startswith(b'BZh'):
+                return True
         except Exception as e:
-            logger.warning(f"⚠️ Не удалось прочитать сигнатуру файла: {e}")
+            logger.debug(f"[ArchiveExtractor] Не удалось прочитать сигнатуру {file_path}: {e}")
 
-        logger.info(f"📋 Файл не является архивом: {file_path.suffix}")
         return False
 
     def _check_archive_integrity(self, archive_path: Path) -> bool:
-        """Проверяет целостность архива"""
+        """Проверяет целостность архива (мягкая проверка)."""
         try:
             import libarchive
-            # Простая проверка - пытаемся прочитать entries
+            # Простая проверка - пытаемся прочитать несколько entries
             with libarchive.file_reader(str(archive_path)) as archive:
                 entry_count = 0
                 for entry in archive:
                     entry_count += 1
-                    if entry_count > 10:  # Проверяем только первые 10 файлов
+                    if entry_count > 5:
                         break
-            logger.info(f"✅ Архив прошел базовую проверку целостности")
             return True
-        except Exception as e:
-            logger.error(f"❌ Архив поврежден: {e}")
+        except Exception:
+            # Не фатальная — вернём False, но дальше попробуем другие методы
             return False
 
     def _extract_rar_with_unrar(self, archive_path: Path):
-        """Распаковывает RAR архив с помощью unrar (системная утилита)"""
+        """Распаковывает RAR архив с помощью системного unrar."""
         try:
-            # Проверяем наличие unrar
-            unrar_path = shutil.which('unrar')
+            unrar_path = shutil.which('unrar') or shutil.which('unrar-free')
             if not unrar_path:
-                unrar_path = shutil.which('unrar-free')
-                if not unrar_path:
-                    raise Exception("unrar не установлен в системе. Установите: sudo pacman -S unrar")
+                raise Exception("unrar не установлен в системе")
 
-            logger.info(f"🔧 Использую unrar: {unrar_path}")
-
-            # Подсчет файлов для прогресса
-            result = subprocess.run([
-                unrar_path, 'lb', str(archive_path)
-            ], capture_output=True, text=True, check=True)
-
-            file_list = result.stdout.strip().split('\n')
-            total_files = len([f for f in file_list if f.strip()])
-
+            # Сначала получим список файлов для прогресса
+            result = subprocess.run([unrar_path, 'lb', str(archive_path)], capture_output=True, text=True, check=True)
+            file_list = [ln for ln in result.stdout.splitlines() if ln.strip()]
+            total_files = len(file_list)
             if total_files == 0:
                 logger.warning("⚠️ RAR архив пуст")
-                return
+                return False
 
-            logger.info(f"📊 В RAR архиве {total_files} файлов")
             self.progress_updated.emit(0, f"📦 Распаковка RAR ({total_files} файлов)...")
-
-            # Распаковка
-            result = subprocess.run([
-                unrar_path, 'x', '-y', str(archive_path), str(self.download_dir)
-            ], capture_output=True, text=True, check=True)
-
-            logger.info("✅ RAR распаковка через unrar завершена")
+            subprocess.run([unrar_path, 'x', '-y', str(archive_path), str(self.download_dir)], capture_output=True, text=True, check=True)
 
             # Собираем список распакованных файлов
-            self.extracted_files = []
-            for file_path in self.download_dir.rglob('*'):
-                if file_path.is_file() and file_path != archive_path:
-                    self.extracted_files.append(file_path)
-
+            self.extracted_files = [p for p in self.download_dir.rglob('*') if p.is_file() and p != archive_path]
+            return True
         except subprocess.CalledProcessError as e:
-            raise Exception(f"Ошибка unrar: {e.stderr}")
+            raise Exception(f"unrar error: {e.stderr}")
         except Exception as e:
-            raise Exception(f"Ошибка распаковки RAR: {e}")
+            logger.debug(f"[ArchiveExtractor] _extract_rar_with_unrar failed: {e}")
+            return False
 
     def _extract_with_rarfile(self, archive_path: Path):
-        """Распаковка RAR через rarfile (Python библиотека)"""
+        """Распаковка через rarfile (python)."""
         try:
             import rarfile
-            logger.info("🔄 Пробую распаковку через rarfile...")
-
-            # Настраиваем путь к unrar если нужно
             unrar_path = shutil.which('unrar')
             if unrar_path:
                 rarfile.UNRAR_TOOL = unrar_path
-                logger.info(f"🔧 Установлен путь к unrar: {unrar_path}")
 
             with rarfile.RarFile(str(archive_path)) as rf:
-                file_list = rf.namelist()
-                total_files = len(file_list)
-
-                logger.info(f"📊 В RAR архиве {total_files} файлов")
+                members = rf.namelist()
+                total_files = len(members)
                 self.progress_updated.emit(0, f"📦 Распаковка RAR ({total_files} файлов)...")
-
-                # Распаковка
                 rf.extractall(path=str(self.download_dir))
 
-            # Собираем список распакованных файлов
-            self.extracted_files = []
-            for file_path in self.download_dir.rglob('*'):
-                if file_path.is_file() and file_path != archive_path:
-                    self.extracted_files.append(file_path)
-
-            logger.info(f"✅ Rarfile распаковал {len(self.extracted_files)} файлов")
+            self.extracted_files = [p for p in self.download_dir.rglob('*') if p.is_file() and p != archive_path]
             return True
-
         except ImportError:
-            logger.warning("⚠️ rarfile не установлен")
+            logger.debug("[ArchiveExtractor] rarfile не установлен")
             return False
         except Exception as e:
-            logger.error(f"❌ Ошибка rarfile: {e}")
+            logger.debug(f"[ArchiveExtractor] rarfile extraction failed: {e}")
             return False
 
     def _extract_with_libarchive(self, archive_path: Path):
-        """Распаковка через libarchive"""
+        """Распаковка через libarchive."""
         try:
             import libarchive
             self.extracted_files = []
-
-            logger.info(f"📦 Распаковываю архив {archive_path.name} через libarchive...")
-            self.progress_updated.emit(0, "📊 Подсчет файлов в архиве...")
-
-            # Подсчет файлов и общего размера
-            total_files = 0
             total_size = 0
+            total_files = 0
             with libarchive.file_reader(str(archive_path)) as archive:
                 for entry in archive:
                     if not entry.isdir:
                         total_files += 1
-                        total_size += entry.size
+                        total_size += getattr(entry, 'size', 0)
 
             if total_files == 0:
-                logger.warning("⚠️ Архив пуст")
                 self.progress_updated.emit(100, "✅ Архив пуст")
-                return
+                return True  # считаем это успешным
 
-            logger.info(f"📊 В архиве {total_files} файлов, общий размер: {self._format_size(total_size)}")
             self.progress_updated.emit(0, f"📦 Распаковка {total_files} файлов...")
-
-            # Распаковка
-            extracted_files = 0
             extracted_size = 0
-            start_time = time.time()
-            self.last_update_time = start_time
+            self.last_update_time = time.time()
 
             with libarchive.file_reader(str(archive_path)) as archive:
                 for entry in archive:
+                    # 🆕 ПРОВЕРКА ОТМЕНЫ ВО ВРЕМЯ РАСПАКОВКИ
                     if self._cancelled:
                         break
-
                     if entry.isdir:
                         target_dir = self.download_dir / entry.pathname
                         target_dir.mkdir(parents=True, exist_ok=True)
@@ -246,273 +185,264 @@ class ArchiveExtractor(QThread):
 
                     with open(target_file, 'wb') as f:
                         for block in entry.get_blocks():
+                            # 🆕 ПРОВЕРКА ОТМЕНЫ ПРИ ЧТЕНИИ БЛОКОВ
                             if self._cancelled:
                                 break
                             f.write(block)
                             extracted_size += len(block)
 
-                    # Добавляем файл в список распакованных
                     self.extracted_files.append(target_file)
-                    extracted_files += 1
 
-                    # Обновляем прогресс с ограниченной частотой
+                    # Периодическое обновление прогресса
                     current_time = time.time()
                     if current_time - self.last_update_time >= self.update_interval:
-                        progress_percent = int((extracted_size / total_size) * 100) if total_size > 0 else 0
-                        remaining_size = total_size - extracted_size
-
-                        self.progress_updated.emit(
-                            progress_percent,
-                            f"📦 Распаковка: {progress_percent}% ({self._format_size(remaining_size)})"
-                        )
+                        percent = int((extracted_size / total_size) * 100) if total_size > 0 else 0
+                        self.progress_updated.emit(percent, f"📦 Распаковка: {percent}%")
                         self.last_update_time = current_time
 
-            # Финальное обновление
-            if not self._cancelled:
-                logger.info(f"✅ Распаковано {extracted_files} файлов через libarchive")
-                self.progress_updated.emit(100, f"✅ Распаковано {extracted_files} файлов")
-
+            self.progress_updated.emit(100, "✅ Распаковка завершена")
+            return True
         except Exception as e:
-            raise Exception(f"Ошибка libarchive: {e}")
+            logger.debug(f"[ArchiveExtractor] libarchive failed: {e}")
+            return False
 
     def _is_ps3_pkg_file(self, file_path: Path) -> bool:
-        """Определяет, является ли файл PS3 PKG"""
         if file_path.suffix.lower() == '.pkg':
-            logger.info(f"📦 Обнаружен PS3 PKG файл: {file_path.name}")
             return True
         return False
 
     def _is_ps3_iso_file(self, file_path: Path) -> bool:
-        """Определяет, является ли файл PS3 ISO"""
         if file_path.suffix.lower() == '.iso':
-            # Дополнительная проверка для PS3 ISO
             try:
                 with open(file_path, 'rb') as f:
                     header = f.read(16)
-                    # Проверяем сигнатуры PS3 ISO
                     if header.startswith(b'PS3') or b'PLAYSTATION' in header.upper():
-                        logger.info(f"🎮 Обнаружен PS3 ISO файл: {file_path.name}")
                         return True
-            except:
+            except Exception:
                 pass
         return False
 
     def _is_ps3_folder_structure(self, file_path: Path) -> bool:
-        """Определяет, является ли папка структурой PS3 игры"""
         if file_path.is_dir():
-            # Проверяем наличие ключевых файлов PS3
             ps3_files = [
                 file_path / "EBOOT.BIN",
                 file_path / "USRDIR" / "EBOOT.BIN",
                 file_path / "PS3_GAME" / "PARAM.SFO",
                 file_path / "PARAM.SFO"
             ]
-
-            for ps3_file in ps3_files:
-                if ps3_file.exists():
-                    logger.info(f"📁 Обнаружена папка PS3 игры: {file_path.name}")
+            for pf in ps3_files:
+                if pf.exists():
                     return True
         return False
 
     def _get_ps3_game_type(self, file_path: Path) -> str:
-        """Определяет тип PS3 игры"""
         if self._is_ps3_pkg_file(file_path):
             return 'pkg'
-        elif self._is_ps3_iso_file(file_path):
+        if self._is_ps3_iso_file(file_path):
             return 'iso'
-        elif self._is_ps3_folder_structure(file_path):
+        if self._is_ps3_folder_structure(file_path):
             return 'folder'
-        else:
-            return 'unknown'
-
-    def _should_extract_ps3_file(self, file_path: Path) -> bool:
-        """
-        Определяет, нужно ли распаковывать файл для PS3.
-        PKG - не распаковываем, остальное - по ситуации.
-        """
-        ps3_type = self._get_ps3_game_type(file_path)
-
-        if ps3_type == 'pkg':
-            logger.info(f"🚫 PS3 PKG файл не требует распаковки: {file_path.name}")
-            return False
-        elif ps3_type == 'iso':
-            logger.info(f"✅ PS3 ISO файл оставляем как есть: {file_path.name}")
-            return False
-        elif ps3_type == 'folder':
-            logger.info(f"📁 Папка PS3 игры уже готова: {file_path.name}")
-            return False
-        else:
-            # Для неизвестных типов проверяем, является ли файл архивом
-            return self._is_archive_file(file_path)
+        return 'unknown'
 
     def _extract_archive(self, archive_path: Path):
-        """Умная распаковка с несколькими fallback'ами"""
-        # Сначала проверяем целостность архива
-        if not self._check_archive_integrity(archive_path):
-            logger.warning("⚠️ Архив не прошел проверку целостности")
+        """Главная логика распаковки с несколькими fallback-методами."""
+        # Не прерываем на целостности — просто логируем
+        ok = self._check_archive_integrity(archive_path)
+        if not ok:
+            logger.warning("⚠️ Архив не прошёл базовую проверку целостности. Попробуем распаковать всё равно.")
 
-        # Определяем приоритет методов в зависимости от типа архива
         archive_ext = archive_path.suffix.lower()
-
         if archive_ext == '.rar':
-            # Для RAR архивов пробуем в таком порядке:
-            methods = [
-                self._extract_with_rarfile,    # 1. rarfile (Python)
-                self._extract_rar_with_unrar,  # 2. unrar (системная утилита)
-                self._extract_with_libarchive  # 3. libarchive (fallback)
-            ]
+            methods = [self._extract_with_rarfile, self._extract_rar_with_unrar, self._extract_with_libarchive]
         else:
-            # Для других архивов:
-            methods = [
-                self._extract_with_libarchive,  # 1. libarchive (основной)
-                self._extract_with_rarfile,     # 2. rarfile (для совместимости)
-                self._extract_rar_with_unrar    # 3. unrar (fallback)
-            ]
+            methods = [self._extract_with_libarchive, self._extract_with_rarfile, self._extract_rar_with_unrar]
 
         last_error = None
-        for method in methods:
+        for m in methods:
+            # 🆕 ПРОВЕРКА ОТМЕНЫ ПЕРЕД КАЖДЫМ МЕТОДОМ
+            if self._cancelled:
+                logger.info("🛑 Распаковка отменена пользователем")
+                return
+
             try:
-                logger.info(f"🔄 Пробую метод: {method.__name__}")
-                result = method(archive_path)
-                if result is not False:  # Если метод не вернул явный False
-                    logger.info(f"✅ Метод {method.__name__} успешен")
+                logger.debug(f"[ArchiveExtractor] Попытка метода: {m.__name__} для {archive_path}")
+                res = m(archive_path)
+                if res is not False:
+                    logger.debug(f"[ArchiveExtractor] Метод {m.__name__} успешен")
                     return
             except Exception as e:
                 last_error = e
-                logger.warning(f"⚠️ Метод {method.__name__} не сработал: {e}")
+                logger.debug(f"[ArchiveExtractor] Метод {m.__name__} выдал ошибку: {e}")
                 continue
 
         raise Exception(f"Все методы распаковки не сработали. Последняя ошибка: {last_error}")
 
-    def _format_size(self, bytes_size):
-        """Форматирует размер в читаемый вид"""
-        for unit in ['Б', 'КБ', 'МБ', 'ГБ']:
-            if bytes_size < 1024.0:
-                return f"{bytes_size:.1f}{unit}"
-            bytes_size /= 1024.0
-        return f"{bytes_size:.1f}ТБ"
-
-    def _get_expected_filename(self) -> str:
-        """Получает ожидаемое имя файла из данных игры"""
+    def _get_expected_filename(self) -> str | None:
+        """
+        Возвращает ожидаемое имя файла из game_data, если оно задано.
+        Если torrent_url / id не указаны — возвращает None (не ожидаем фиксированного имени).
+        """
         try:
             torrent_url = self.game_data.get("torrent_url", "")
+            if torrent_url and isinstance(torrent_url, str):
+                if torrent_url.startswith("magnet:"):
+                    import re
+                    match = re.search(r"dn=([^&]+)", torrent_url)
+                    if match:
+                        return match.group(1)
+                else:
+                    from urllib.parse import unquote, urlparse
+                    parsed = urlparse(torrent_url)
+                    filename = unquote(parsed.path.split("/")[-1])
+                    if filename:
+                        return filename
+            # Если нет torrent_url — не ждем конкретного имени
+            return None
+        except Exception:
+            return None
 
-            if torrent_url.startswith("magnet:"):
-                import re
-                match = re.search(r"dn=([^&]+)", torrent_url)
-                if match:
-                    return match.group(1)
-
-            elif torrent_url:
-                from urllib.parse import unquote, urlparse
-                parsed_url = urlparse(torrent_url)
-                filename = unquote(parsed_url.path.split("/")[-1])
-                if filename:
-                    return filename
-
-            return f"{self.game_data.get('id', 'game')}.zip"
-
-        except Exception as e:
-            logger.warning(f"⚠️ Не удалось получить имя файла из торрента: {e}")
-            return f"{self.game_data.get('id', 'game')}.zip"
-
-    def _get_downloaded_file(self) -> Path:
-        """Находит скачанный файл в директории по ожидаемому имени"""
+    def _get_downloaded_file(self) -> Path | None:
+        """
+        Находит скачанный файл в директории:
+        - Если download_dir указывает на файл — возвращаем его.
+        - Если задан ожидаемый filename — пытаемся его найти.
+        - Иначе ищем любой архивный файл; если нет — возвращаем самый большой файл.
+        """
         try:
-            expected_filename = self._get_expected_filename()
-            logger.info(f"🔍 Ожидаемый файл: {expected_filename}")
+            # Если вызвали с файлом — используем его
+            if self.download_dir.exists() and self.download_dir.is_file():
+                logger.info(f"🔍 Получен файл напрямую: {self.download_dir.name}")
+                return self.download_dir
 
-            files = list(self.download_dir.iterdir())
-            if not files:
+            expected_filename = self._get_expected_filename()
+            if expected_filename:
+                logger.info(f"🔍 Ожидаемый файл: {expected_filename}")
+
+            logger.info(f"📁 Поиск в директории: {self.download_dir}")
+
+            all_files = [p for p in self.download_dir.rglob('*') if p.is_file() and not p.name.startswith('.')]
+            if not all_files:
                 logger.error("❌ Директория загрузки пуста")
                 return None
 
-            # Сначала ищем точное совпадение
-            for file_path in files:
-                if (file_path.is_file() and not file_path.name.startswith('.') and
-                    file_path.name == expected_filename):
-                    logger.info(f"✅ Найден целевой файл: {file_path.name}")
-                    return file_path
+            logger.info(f"📋 Найдено файлов для проверки: {len(all_files)}")
+            for f in all_files:
+                logger.debug(f"  - {f.relative_to(self.download_dir)}")
 
-            # Если точного совпадения нет, ищем по частичному совпадению
-            for file_path in files:
-                if (file_path.is_file() and not file_path.name.startswith('.') and
-                    expected_filename.split('.')[0] in file_path.name):
-                    logger.info(f"🔍 Найден похожий файл: {file_path.name}")
-                    return file_path
+            # Если есть ожидаемое имя — ищем точное совпадение (рекурсивно)
+            if expected_filename:
+                for f in all_files:
+                    if f.name == expected_filename:
+                        logger.info(f"✅ Найден целевой файл (точное совпадение): {f}")
+                        return f
+                base = expected_filename.split('.')[0]
+                for f in all_files:
+                    if base in f.name:
+                        logger.info(f"🔍 Найден похожий файл: {f}")
+                        return f
 
-            # Fallback: возвращаем первый подходящий файл
-            for file_path in files:
-                if file_path.is_file() and not file_path.name.startswith('.'):
-                    logger.warning(f"⚠️ Точное совпадение не найдено, использую: {file_path.name}")
-                    return file_path
+            # Ищем любой архивный файл
+            archive_files = [f for f in all_files if self._is_archive_file(f)]
+            if archive_files:
+                # Выбираем самый большой архив
+                chosen = max(archive_files, key=lambda p: p.stat().st_size)
+                logger.info(f"📦 Выбираем архив: {chosen.relative_to(self.download_dir)}")
+                return chosen
 
-            logger.error("❌ Не найден файл для обработки")
-            return None
+            # Если архивов нет — возвращаем самый большой файл как последний fallback
+            chosen = max(all_files, key=lambda p: p.stat().st_size)
+            logger.info(f"⚠️ Архивы не найдены — возвращаем самый большой файл: {chosen.relative_to(self.download_dir)}")
+            return chosen
 
         except Exception as e:
-            logger.error(f"❌ Ошибка поиска скачанного файла: {e}")
+            logger.error(f"❌ Ошибка поиска скачанного файла: {e}", exc_info=True)
             return None
 
     def run(self):
+        # 🆕 ПРОВЕРКА ОТМЕНЫ ПЕРЕД НАЧАЛОМ
         if self._cancelled:
             self.progress_updated.emit(0, "❌ Распаковка отменена")
             return
 
+        logger.info(f"🔍 Запущен ArchiveExtractor. Путь: {self.download_dir}")
+
+        # Получаем файл (или используем переданный файл)
         downloaded_file = self._get_downloaded_file()
         if not downloaded_file:
             self.error_occurred.emit("Не найден скачанный файл")
             return
 
-        logger.info(f"📄 Обрабатываю файл: {downloaded_file.name}")
+        logger.info(f"📄 Обрабатываю: {downloaded_file}")
 
-        # ОСОБАЯ ЛОГИКА ДЛЯ PS3 ИГР
+        # Специальная логика для PS3
         if self.game_data.get('platform') == 'PS3':
             ps3_type = self._get_ps3_game_type(downloaded_file)
-            logger.info(f"🎮 Тип PS3 игры: {ps3_type}")
-
+            logger.info(f"🎮 PS3 тип: {ps3_type}")
             if ps3_type == 'pkg':
-                message = f"📦 PS3 PKG файл готов к установке: {downloaded_file.name}"
-                logger.info(message)
-                self.progress_updated.emit(100, message)
+                self.progress_updated.emit(100, f"📦 PS3 PKG: {downloaded_file.name}")
                 self.finished.emit()
                 return
-            elif ps3_type in ['iso', 'folder']:
-                message = f"✅ PS3 {ps3_type.upper()} готов к запуску: {downloaded_file.name}"
-                logger.info(message)
-                self.progress_updated.emit(100, message)
+            if ps3_type in ('iso', 'folder'):
+                self.progress_updated.emit(100, f"✅ PS3 {ps3_type.upper()}: {downloaded_file.name}")
                 self.finished.emit()
                 return
 
-        # Стандартная логика для других случаев
-        is_archive = self._is_archive_file(downloaded_file)
-
-        if not is_archive:
-            message = f"✅ Файл не является архивом, оставляем как есть: {downloaded_file.name}"
-            logger.info(message)
-            self.progress_updated.emit(100, message)
+        # Если файл не архив — ничего не распаковываем
+        if not self._is_archive_file(downloaded_file):
+            self.progress_updated.emit(100, f"✅ Не архив: {downloaded_file.name}")
             self.finished.emit()
             return
 
-        # Распаковываем архив
+        # Распаковываем найденный архив в ту же директорию, где он лежит (downloaded_file.parent)
         try:
-            logger.info(f"📦 Начинаю распаковку: {downloaded_file.name}")
+            logger.info(f"📦 Начинаю распаковку: {downloaded_file}")
             self.progress_updated.emit(0, f"Подготовка к распаковке: {downloaded_file.name}")
+
+            # ВАЖНО: целевая директория — родитель архива (чтобы распаковать "туда, где лежит архив")
+            target_dir = downloaded_file.parent
+            # временно сохраняем текущий download_dir, чтобы методы работали одинаково
+            prev_download_dir = self.download_dir
+            self.download_dir = target_dir
+
             self._extract_archive(downloaded_file)
 
+            # Восстанавливаем
+            self.download_dir = prev_download_dir
+
+            # ПРОВЕРКА ОТМЕНЫ ПОСЛЕ РАСПАКОВКИ
             if not self._cancelled:
                 logger.info("✅ Распаковка завершена")
-                # Отправляем список распакованных файлов
                 self.files_extracted.emit(self.extracted_files)
-                self.progress_updated.emit(100, "✅ Распаковка завершена")
+                self.progress_updated.emit(100, "Распаковка завершена")
+
+                # 🗑️ Удаляем архивный файл после успешной распаковки
+                try:
+                    if downloaded_file.exists():
+                        downloaded_file.unlink()
+                        logger.info(f"🗑️ Архив удалён: {downloaded_file.name}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Не удалось удалить архив {downloaded_file.name}: {e}")
+
                 self.finished.emit()
+            else:
+                logger.info("Распаковка отменена пользователем")
+                self.progress_updated.emit(0, "❌ Распаковка отменена")
 
         except Exception as e:
             if not self._cancelled:
                 error_msg = f"Ошибка при распаковке: {e}"
-                logger.error(f"❌ {error_msg}")
+                logger.error(error_msg, exc_info=True)
                 self.error_occurred.emit(error_msg)
 
     def cancel(self):
+        """ОТМЕНА С ОЧИСТКОЙ"""
+        logger.info(f"Отмена {self.__class__.__name__}")
         self._cancelled = True
-        logger.info("🚫 Запрос отмены распаковки")
+
+        # Останавливаем активные процессы
+        if hasattr(self, '_process') and self._process:
+            try:
+                self._process.terminate()
+                self._process.wait(1000)
+            except:
+                pass

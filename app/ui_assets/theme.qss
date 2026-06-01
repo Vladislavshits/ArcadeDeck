@@ -1,0 +1,1005 @@
+/* ОБЩИЕ СТИЛИ ДЛЯ ОКОН И ДИАЛОГОВ */
+QMainWindow, QDialog, QWidget {
+    font-family: Arial;
+    margin: 0px;
+    padding: 0px;
+}
+
+/* ФОНЫ ДЛЯ ТЕМНОЙ ТЕМЫ */
+.dark-theme QMainWindow,
+.dark-theme QDialog,
+.dark-theme QWidget {
+    background-color: #18181A;
+    color: #e0e0e0;
+}
+
+/* ФОНЫ ДЛЯ СВЕТЛОЙ ТЕМЫ */
+.light-theme QMainWindow,
+.light-theme QDialog,
+.light-theme QWidget {
+    background-color: #f3f3f3;
+    color: #333333;
+}
+
+
+/* СТИЛИ ДЛЯ ПОЛЯ ВВОДА ПОИСКА */
+#SearchInput {
+    font-size: 24px;
+    padding: 20px;
+    border-radius: 16px;
+    border: 2px solid transparent;
+}
+
+.dark-theme #SearchInput {
+    background-color: #27282B;
+    color: white;
+}
+
+.dark-theme #SearchInput:focus,
+.dark-theme #SearchInput[focused="true"] {
+    border-color: rgba(100, 181, 246, 1);
+    background-color: #2a2b2e;
+}
+
+.light-theme #SearchInput {
+    background-color: #ffffff;
+    color: #333333;
+}
+
+.light-theme #SearchInput:focus,
+.light-theme #SearchInput[focused="true"] {
+    border-color: rgba(100, 181, 246, 1);
+    background-color: #f8f8f8;
+}
+
+/* СТИЛИ ДЛЯ ПОДСКАЗКИ ПОИСКА */
+#SearchHint {
+    font-size: 14px;
+    padding: 10px;
+    opacity: 0.8;
+}
+
+.dark-theme #SearchHint {
+    color: #cccccc;
+}
+
+.light-theme #SearchHint {
+    color: #666666;
+}
+
+/* СТИЛИ ДЛЯ РЕЗУЛЬТАТОВ ПОИСКА */
+#SearchResultItem {
+    background: transparent;
+    margin: 2px 0;
+    border: 1px solid transparent;
+}
+
+.dark-theme #SearchResultItem:hover {
+    background-color: rgba(100, 181, 246, 0.1);
+}
+
+.dark-theme #SearchResultItem[focused="true"] {
+    background-color: rgba(100, 181, 246, 0.2);
+    border: 2px solid rgba(100, 181, 246, 1);
+}
+
+.light-theme #SearchResultItem:hover {
+    background-color: rgba(66, 133, 244, 0.05);
+}
+
+.light-theme #SearchResultItem[focused="true"] {
+    background-color: rgba(66, 133, 244, 0.1);
+    border: 2px solid rgba(100, 181, 246, 1);
+}
+
+/* ЗАГОЛОВОК РЕЗУЛЬТАТА ПОИСКА */
+#SearchResultTitle {
+    font-size: 18px;
+    background: transparent;
+    padding: 5px;
+}
+
+.dark-theme #SearchResultTitle {
+    color: #ffffff;
+}
+
+.light-theme #SearchResultTitle {
+    color: #333333;
+}
+
+/* БЕЙДЖ ПЛАТФОРМЫ В ПОИСКЕ */
+#PlatformBadge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.dark-theme #PlatformBadge {
+    background-color: #444444;
+    color: #ffffff;
+}
+
+.light-theme #PlatformBadge {
+    background-color: #e0e0e0;
+    color: #333333;
+}
+
+/* ТЕГИ ПЛАТФОРМ */
+.dark-theme QPushButton#PlatformTag {
+    padding: 6px 25px !important;  /* Ещё меньше "воздуха" */
+    min-width: 70px;
+    max-width: 120px;
+    border-radius: 20px;
+    font-size: 14px;
+    color: white;
+}
+
+.dark-theme QPushButton#PlatformTag:checked {
+    background-color: #4a4a4a !important;
+    border: 0px solid rgba(100, 181, 246, 1);
+}
+
+.dark-theme QPushButton#PlatformTag:hover,
+.dark-theme QPushButton#PlatformTag:focus,
+.dark-theme QPushButton#PlatformTag[focused="true"] {
+    background-color: #4a4a4a;
+}
+
+/* ТЕГИ ПЛАТФОРМ — светлая тема */
+.light-theme QPushButton#PlatformTag {
+    padding: 6px 25px !important;
+    min-width: 70px;
+    max-width: 120px;
+    border-radius: 20px;
+    font-size: 14px;
+    background-color: #ddd;
+    color: #333;
+}
+
+.light-theme QPushButton#PlatformTag:checked {
+    background-color: #4285f4 !important;
+    color: white;
+}
+
+.light-theme QPushButton#PlatformTag:hover,
+.light-theme QPushButton#PlatformTag:focus,
+.light-theme QPushButton#PlatformTag[focused="true"] {
+    background-color: #eee;
+}
+
+/* ПЛИТКИ ИГР — карточка: прозрачная кнопка, рамка только у обложки */
+.dark-theme QPushButton#GameTile,
+.light-theme QPushButton#GameTile {
+    background: transparent;
+    border: none;
+    padding: 0px;
+    margin: 0px;
+    min-width: 240;
+    min-height: 430;
+}
+
+.dark-theme QPushButton#GameTile:hover,
+.dark-theme QPushButton#GameTile:focus,
+.dark-theme QPushButton#GameTile[focused="true"],
+.light-theme QPushButton#GameTile:hover,
+.light-theme QPushButton#GameTile:focus,
+.light-theme QPushButton#GameTile[focused="true"] {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+.dark-theme QPushButton#GameTile QLabel#GameCover {
+    border: 2px solid #45454b;
+    border-radius: 12px;
+}
+
+.dark-theme QPushButton#GameTile:hover QLabel#GameCover,
+.dark-theme QPushButton#GameTile[focused="true"] QLabel#GameCover {
+    border: 3px solid rgba(100, 181, 246, 1);
+}
+
+.dark-theme QPushButton#GameTile QLabel#GameTitle {
+    color: #e8e8e8;
+    font-size: 14px;
+    font-weight: bold;
+    background: transparent;
+}
+
+.dark-theme QPushButton#GameTile[focused="true"] QLabel#GameTitle {
+    color: #ffffff;
+}
+
+.light-theme QPushButton#GameTile QLabel#GameCover {
+    border: 2px solid #c8c8c8;
+    border-radius: 12px;
+}
+
+.light-theme QPushButton#GameTile:hover QLabel#GameCover,
+.light-theme QPushButton#GameTile[focused="true"] QLabel#GameCover {
+    border: 3px solid rgba(100, 181, 246, 1);
+}
+
+.light-theme QPushButton#GameTile QLabel#GameTitle {
+    color: #333333;
+    font-size: 14px;
+    font-weight: bold;
+    background: transparent;
+}
+
+.light-theme QPushButton#GameTile[focused="true"] QLabel#GameTitle {
+    color: #111111;
+}
+
+/* ОБЩИЕ СТИЛИ ДЛЯ МЕТА-ПЛАШЕК */
+QFrame#MetaTile {
+    border-radius: 12px;
+    min-width: 150px;
+    max-width: 240px;
+    min-height: 80px;
+    max-height: 80px;
+}
+
+/* Мета-плашки для тёмной темы */
+.dark-theme QFrame#MetaTile {
+    background-color: #252525;
+}
+
+.dark-theme QFrame#MetaTile QLabel {
+    background-color: transparent;
+    color: #ffffff;
+}
+
+.dark-theme QFrame#MetaTile QLabel[objectName="meta_value"] {
+    font-size: 18px;
+    font-weight: bold;
+    color: #ffffff;
+}
+
+.dark-theme QFrame#MetaTile QLabel[objectName="meta_label"] {
+    font-size: 12px;
+    color: #cccccc;
+}
+
+/* Мета-плашки для светлой темы */
+.light-theme QFrame#MetaTile {
+    background-color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.light-theme QFrame#MetaTile QLabel {
+    background-color: transparent;
+    color: #333333;
+}
+
+.light-theme QFrame#MetaTile QLabel[objectName="meta_value"] {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333333;
+}
+
+.light-theme QFrame#MetaTile QLabel[objectName="meta_label"] {
+    font-size: 12px;
+    color: #666666;
+}
+
+/* Фокус для мета-плашек */
+.dark-theme QFrame#MetaTile[focused="true"] {
+    border: 2px solid rgba(100, 181, 246, 1);
+    background-color: #252525;
+}
+
+.light-theme QFrame#MetaTile[focused="true"] {
+    border: 2px solid rgba(100, 181, 246, 1);
+    background-color: #f8f8f8;
+}
+
+/* Ховер эффекты */
+.dark-theme QFrame#MetaTile:hover {
+    background-color: #252525;
+    border-color: #3a3a3a;
+}
+
+.light-theme QFrame#MetaTile:hover {
+    background-color: #f8f8f8;
+    border-color: #d0d0d0;
+}
+
+/* СТИЛИ ДЛЯ СТРАНИЦЫ НАСТРОЕК */
+SettingsPage {
+    background-color: #210101;
+}
+
+/* ЛЕВАЯ ПАНЕЛЬ С ПЛИТКАМИ */
+#SettingsSidebar {
+background-color: transparent;
+border-radius: 10px;
+}
+
+/* ЗАГОЛОВОК СТРАНИЦЫ НАСТРОЕК */
+#SettingsTitle {
+font-size: 20px;
+font-weight: bold;
+padding: 15px 10px;
+margin-bottom: 5px;
+}
+
+.dark-theme #SettingsTitle {
+    color: #ffffff;
+}
+
+.light-theme #SettingsTitle {
+    color: #333333;
+}
+
+/* ОБЛАСТЬ ПРОКРУТКИ ПЛИТОК */
+#SettingsTilesScroll {
+background-color: transparent;
+border: none;
+border-radius: 8px;
+}
+
+#SettingsTilesScroll QWidget {
+background-color: transparent;
+}
+
+/* ПЛИТКИ НАСТРОЕК */
+QFrame#SettingsTile {
+    border-radius: 10px;
+    text-align: center;
+    font-size: 14px;
+    min-height: 112px;
+    max-height: 150px;
+    min-width: 200px;
+    max-width: 300px;
+    margin: 2px 5px;
+    padding: 8px;
+}
+
+.dark-theme QFrame#SettingsTile {
+    background-color: #252525;
+    color: #ffffff;
+}
+
+.dark-theme QFrame#SettingsTile[focused="true"] {
+    background-color: #3d3d3d;
+    border: 3px solid rgba(100, 181, 246, 1);
+    font-weight: bold;
+}
+
+.dark-theme QFrame#SettingsTile:hover {
+    background-color: #353535;
+    border: 2px solid #555555;
+}
+
+.light-theme QFrame#SettingsTile {
+    background-color: #ffffff;
+    color: #333333;
+}
+
+.light-theme QFrame#SettingsTile[focused="true"] {
+    background-color: #f8f8f8;
+    border: 5px solid rgba(100, 181, 246, 1);
+    font-weight: bold;
+}
+
+.light-theme QFrame#SettingsTile:hover {
+    background-color: #f0f0f0;
+    border: 2px solid #cccccc;
+}
+
+/* ТЕКСТ В ПЛИТКАХ НАСТРОЕК */
+QFrame#SettingsTile QLabel {
+    background-color: transparent;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 3px;
+    margin: 0;
+}
+
+.dark-theme QFrame#SettingsTile QLabel {
+    color: #ffffff;
+}
+
+.light-theme QFrame#SettingsTile QLabel {
+    color: #333333;
+}
+
+/* ПРАВАЯ ПАНЕЛЬ ДЕТАЛЬНЫХ НАСТРОЕК */
+#SettingsDetailsPanel {
+background-color: transparent;
+}
+
+/* ОБЛАСТЬ ДЕТАЛЬНЫХ НАСТРОЕК */
+#SettingsDetails {
+background-color: transparent;
+border: none;
+border-radius: 10px;
+padding: 15px;
+}
+
+/* ЗАГОЛОВКИ РАЗДЕЛОВ В НАСТРОЙКАХ */
+QLabel[objectName^="carousel_title"],
+QLabel[objectName^="details_title"] {
+    font-size: 18px;
+    font-weight: bold;
+    padding: 10px;
+}
+
+.dark-theme QLabel[objectName^="carousel_title"],
+.dark-theme QLabel[objectName^="details_title"] {
+    color: #ffffff;
+}
+
+.light-theme QLabel[objectName^="carousel_title"],
+.light-theme QLabel[objectName^="details_title"] {
+    color: #333333;
+}
+
+/* СТИЛИ ДЛЯ КОНТЕКСТНЫХ МЕНЮ В ТЕМНОЙ ТЕМЕ */
+.dark-theme QMenu {
+    background-color: #252525;
+    border-radius: 8px;
+    padding: 5px;
+}
+
+.dark-theme QMenu::item {
+    background-color: transparent;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 4px;
+    font-size: 16px;
+    min-width: 150px;
+}
+
+.dark-theme QMenu::item:selected {
+    background-color: rgba(100, 181, 246, 1);
+    color: white;
+}
+
+.dark-theme QMenu::item:disabled {
+    color: #888;
+}
+
+/* СТИЛИ ДЛЯ КОНТЕКСТНЫХ МЕНЮ В СВЕТЛОЙ ТЕМЕ */
+.light-theme QMenu {
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 5px;
+}
+
+.light-theme QMenu::item {
+    background-color: transparent;
+    color: #333333;
+    padding: 15px 20px;
+    border-radius: 4px;
+    font-size: 16px;
+    min-width: 150px;
+}
+
+.light-theme QMenu::item:selected {
+    background-color: rgba(100, 181, 246, 1);
+    color: white;
+}
+
+.light-theme QMenu::item:disabled {
+    color: #aaa;
+}
+
+/* СТИЛИ ДЛЯ КНОПОК ВЫБОРА ТЕМЫ */
+QPushButton#themeButton {
+    border-radius: 10px;
+    font-size: 18px;
+    min-height: 200px;
+    min-width: 300px;
+    color: white;
+    border: 2px solid rgba(100, 181, 246, 1);
+}
+
+QPushButton#themeButton:checked {
+    color: white;
+}
+
+QPushButton#themeButton:hover {
+    background-color: #353535;
+}
+
+/* НОВЫЕ СТИЛИ ДЛЯ ФОКУСА КНОПОК ТЕМЫ */
+QPushButton#themeButton[focused="true"] {
+    border: 4px solid rgba(100, 181, 246, 1);
+    background-color: rgba(100, 181, 246, 0.25);
+}
+
+QPushButton#themeButton:checked[focused="true"] {
+    border: 4px solid #ffffff;
+}
+
+/* Для светлой темы */
+.light-theme QPushButton#themeButton {
+    background-color: #ffffff;
+    border: 2px solid rgba(100, 181, 246, 1);
+}
+
+.light-theme QPushButton#themeButton:checked {
+    color: black;
+}
+
+.light-theme QPushButton#themeButton:hover {
+    background-color: #f0f0f0;
+}
+
+.light-theme QPushButton#themeButton[focused="true"] {
+    border: 4px solid rgba(100, 181, 246, 1);
+    background-color: rgba(66, 133, 244, 0.25);
+}
+
+.light-theme QPushButton#themeButton:checked[focused="true"] {
+    border: 4px solid rgba(100, 181, 246, 1);
+}
+
+/* СТИЛИ ДЛЯ КНОПОК МАСТЕРА */
+QWizard QPushButton {
+    background-color: rgba(100, 181, 246, 1);
+    color: white;
+    border-radius: 25px;
+    font-size: 20px;
+    min-width: 150px;
+    min-height: 50px;
+    padding: 10px 30px;
+}
+
+QWizard QPushButton:hover {
+    background-color: #3a75d4;
+}
+
+QWizard QPushButton:pressed {
+    background-color: #2a65c4;
+}
+
+/* СТИЛИ ДЛЯ ПРОГРЕСС-БАРА */
+QProgressDialog {
+    background-color: #252525;
+    border-radius: 10px;
+}
+
+QProgressDialog QLabel {
+    font-size: 16px;
+    color: #e0e0e0;
+}
+
+QProgressDialog QProgressBar {
+    min-height: 20px;
+    border-radius: 10px;
+    background-color: #1b1b1b;
+}
+
+QProgressDialog QProgressBar::chunk {
+    background-color: rgba(100, 181, 246, 1);
+    border-radius: 10px;
+}
+
+/* СТИЛИ ДЛЯ QProgressBar (в InstallDialog */
+QProgressBar {
+    background-color: #252525;
+    border-radius: 16px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: #ffffff;
+    min-height: 32px;
+}
+
+QProgressBar::chunk {
+    background-color: rgba(100, 181, 246, 1);
+    border-radius: 16px;
+}
+
+.light-theme QProgressBar {
+    background-color: #e0e0e0;
+    color: #333333;
+}
+
+.light-theme QProgressBar::chunk {
+    background-color: rgba(100, 181, 246, 1);
+}
+
+/* Центрирование текста в QLabel */
+QLabel {
+    text-align: center;
+}
+
+.dark-theme QLabel {
+    color: #e0e0e0;
+}
+
+.light-theme QLabel {
+    color: #333333;
+}
+
+/* Специально для заголовка в InstallDialog */
+#InstallDialog QLabel[objectName="title_label"],
+.dark-theme QLabel QFont[size="36"] {
+    color: #ffffff;
+}
+
+.light-theme QLabel QFont[size="36"] {
+    color: #333333;
+}
+
+/* Скроллбар для карусели обложек */
+QScrollArea {
+    background-color: #2a2a2a;
+    border-radius: 12px;
+}
+
+QScrollBar:horizontal {
+    height: 12px;
+    background: #1a1a1a;
+    border-radius: 6px;
+    margin: 0px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #555;
+    border-radius: 6px;
+    min-width: 30px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #777;
+}
+
+.light-theme QScrollArea {
+    background-color: #f0f0f0;
+}
+
+.light-theme QScrollBar:horizontal {
+    background: #ddd;
+}
+
+.light-theme QScrollBar::handle:horizontal {
+    background: #aaa;
+}
+
+.light-theme QScrollBar::handle:horizontal:hover {
+    background: #999;
+}
+
+/* Общие стили для кнопок */
+QPushButton {
+    font-family: "Segoe UI", "Roboto", sans-serif;
+    font-size: 17px;
+    font-weight: 600;
+    min-height: 45px;
+    min-width: 170px;
+    border-radius: 16px;
+    padding: 12px 32px;
+    border: none;
+    color: white;
+    background: rgba(0, 181, 246, 1);
+    transition: all 0.2s ease;
+}
+
+QPushButton:pressed {
+    background: rgba(80, 160, 230, 1);
+    transform: translateY(1px);
+}
+
+.dark-theme QPushButton {
+    background: #2d2d30;
+    border: 2px solid transparent;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dark-theme QPushButton:hover {
+    background: #3a3a3d;
+    border-color: rgba(100, 181, 246, 0.6);
+    box-shadow: 0 8px 24px rgba(100, 181, 246, 0.25);
+}
+
+.dark-theme QPushButton[focused="true"] {
+    background: #3a3a3d;
+    border: 3px solid rgba(100, 181, 246, 1);
+    box-shadow: 0 0 0 4px rgba(100, 181, 246, 0.4), 0 8px 24px rgba(100, 181, 246, 0.3);
+}
+
+.light-theme QPushButton {
+    background: rgba(255, 255, 255, 0.85);
+    color: #333;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.light-theme QPushButton:hover {
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+.light-theme QPushButton[focused="true"] {
+    box-shadow: 0 0 0 4px rgba(100, 181, 246, 0.5), 0 12px 40px rgba(100, 181, 246, 0.2);
+}
+
+/* СТИЛИ ДЛЯ ТЕКСТОВЫХ ПОЛЕЙ */
+QTextEdit {
+    border-radius: 8px;
+    font-size: 14px;
+    padding: 8px;
+    background-color: #252525;
+    color: white;
+}
+
+/* Стили для заголовка плагина */
+#PluginTitle {
+font-size: 24px;
+font-weight: bold;
+padding: 10px;
+margin-bottom: 20px;
+border-bottom: 2px solid palette(mid);
+}
+
+.dark-theme #PluginTitle {
+    color: #e0e0e0;
+}
+
+.light-theme #PluginTitle {
+    color: #333333;
+}
+
+.dark-theme #BackButton {
+    background-color: rgba(100, 181, 246, 1);
+    color: white;
+    border: 1px solid rgba(100, 181, 246, 1);
+}
+
+.light-theme #BackButton {
+    background-color: rgba(100, 181, 246, 1);
+    color: white;
+    border: 1px solid rgba(100, 181, 246, 1);
+}
+
+.dark-theme #BackButton:hover {
+    background-color: #3a75d4;
+}
+
+.light-theme #BackButton:hover {
+    background-color: #3a75d4;
+}
+
+/* СТИЛИ ДЛЯ КОНТЕЙНЕРА ПЕРЕКЛЮЧАТЕЛЯ ТЕМЫ */
+AppearanceSettingsPage QFrame#ThemeToggleFrame {
+    background-color: #272727;
+    border-radius: 8px;
+}
+
+.dark-theme AppearanceSettingsPage QFrame#ThemeToggleFrame {
+    background-color: #272727;
+}
+
+.light-theme AppearanceSettingsPage QFrame#ThemeToggleFrame {
+    background-color: #ffffff;
+}
+
+/* Для приветственного окна */
+WelcomeWizard QFrame#ThemeButtonsFrame {
+    background-color: transparent;
+    border: none;
+}
+
+QFrame#ThemeButtonsFrame {
+    background-color: transparent;
+    border-radius: 10px;
+    padding: 10px;
+}
+
+/* СТИЛИ ДЛЯ СКРОЛЛБАРА */
+QScrollBar:vertical {
+    background-color: #2a2a2a;
+    width: 15px;
+    margin: 0px;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #444444;
+    border-radius: 7px;
+    min-height: 20px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #555555;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    border: none;
+    background: none;
+}
+
+.dark-theme QScrollBar:vertical {
+    background-color: #2a2a2a;
+}
+
+.dark-theme QScrollBar::handle:vertical {
+    background-color: #444444;
+}
+
+.light-theme QScrollBar:vertical {
+    background-color: #f0f0f0;
+}
+
+.light-theme QScrollBar::handle:vertical {
+    background-color: #c0c0c0;
+}
+
+#PlatformBadge {
+    background: #666;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 18px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+/* СТИЛИ ДЛЯ КНОПОК ВЫБОРА ПУТИ */
+QPushButton#path_button {
+    min-height: 44px;
+    min-width: 170px;
+    border-radius: 8px;
+    font-size: 16px;
+    padding: 10px 16px;
+    color: white;
+}
+
+QPushButton#path_button:hover {
+    background-color: #3a75d4;
+}
+
+QPushButton#path_button:pressed {
+    background-color: #2a65c4;
+}
+
+/* Контейнер для кнопок пути */
+#PathButtonsFrame {
+background-color: transparent;
+border-radius: 10px;
+padding: 10px;
+}
+
+/* СТИЛИ ДЛЯ КНОПОК ВЫБОРА ПУТИ В ВЫБРАННОМ СОСТОЯНИИ */
+QPushButton#path_button:checked {
+    color: white;
+    border: 2px solid #ffffff;
+}
+
+/* СТИЛИ ДЛЯ ФОКУСА ЭЛЕМЕНТОВ */
+.dark-theme QPushButton[focused="true"],
+.dark-theme QWizard QPushButton[focused="true"],
+.dark-theme QToolButton[focused="true"],
+.dark-theme QFrame[focused="true"] {
+    outline: none;
+    border: 3px solid rgba(100, 181, 246, 1);
+    background-color: rgba(107, 186, 250, 0.15);
+}
+
+.light-theme QPushButton[focused="true"],
+.light-theme QToolButton[focused="true"],
+.light-theme QFrame[focused="true"] {
+    outline: none;
+    border: 2px solid rgba(100, 181, 246, 1);
+    background-color: rgba(66, 133, 244, 0.15);
+}
+
+/* Немного подчёркиваем фокус при наведении */
+.dark-theme QPushButton[focused="true"]:hover,
+.light-theme QPushButton[focused="true"]:hover {
+    background-color: rgba(66, 133, 244, 0.25);
+}
+
+/* ============================================= */
+/* СТИЛИ ДЛЯ ПЛАШЕК РЕЗУЛЬТАТОВ ПОИСКА          */
+/* ============================================= */
+
+#SearchResultItem {
+min-height: 70px;
+border-radius: 12px;
+margin: 5px 8px;
+background: transparent;
+}
+
+#SearchResultItem:hover,
+#SearchResultItem[focused="true"] {
+min-height: 70px;
+}
+
+/* Убираем артефакты фона у всех дочерних элементов */
+#SearchResultItem,
+#SearchResultItem QLabel,
+#SearchResultItem > QWidget {
+background: transparent !important;
+}
+
+/* СТИЛИ ДЛЯ QLineEdit (поля ввода) */
+QLineEdit {
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 16px;
+    border: 2px solid transparent;
+}
+
+.dark-theme QLineEdit {
+    background-color: #2d2d30;
+    color: #ffffff;
+    border: 2px solid #3a3a3d;
+}
+
+.dark-theme QLineEdit:focus,
+.dark-theme QLineEdit[focused="true"] {
+    border: 2px solid rgba(100, 181, 246, 1);
+    background-color: #3a3a3d;
+}
+
+.light-theme QLineEdit {
+    background-color: #ffffff;
+    color: #333333;
+    border: 2px solid #d0d0d0;
+}
+
+.light-theme QLineEdit:focus,
+.light-theme QLineEdit[focused="true"] {
+    border: 2px solid rgba(100, 181, 246, 1);
+    background-color: #f8f8f8;
+}
+
+/* СТИЛИ ДЛЯ QComboBox (выпадающий список) */
+QComboBox {
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 16px;
+    min-height: 40px;
+}
+
+.dark-theme QComboBox {
+    background-color: #2d2d30;
+    color: #ffffff;
+    border: 2px solid #3a3a3d;
+}
+
+.dark-theme QComboBox:focus,
+.dark-theme QComboBox[focused="true"] {
+    border: 2px solid rgba(100, 181, 246, 1);
+    background-color: #3a3a3d;
+}
+
+.light-theme QComboBox {
+    background-color: #ffffff;
+    color: #333333;
+    border: 2px solid #d0d0d0;
+}
+
+.light-theme QComboBox:focus,
+.light-theme QComboBox[focused="true"] {
+    border: 2px solid rgba(100, 181, 246, 1);
+    background-color: #f8f8f8;
+}
+
+/* Стрелка выпадающего списка (можно оставить как есть) */
+QComboBox::drop-down {
+    border: none;
+    width: 30px;
+}
+
+QComboBox::down-arrow {
+    image: none;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid;
+    margin-right: 12px;
+}
+
+.dark-theme QComboBox::down-arrow {
+    border-top-color: #aaaaaa;
+}
+
+.light-theme QComboBox::down-arrow {
+    border-top-color: #666666;
+}

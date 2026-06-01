@@ -34,5 +34,23 @@
     "developer": "Evolution Studios",
     "genre": "Гонки",
     "rating": "8,5/10"
+  },
+    {
+    "id": "god_of_war3",
+    "title": "God of War 3",
+    "platform": "PS3",
+    "platform_module": "PS3",
+    "preferred_emulator": "rpcs3",
+    "game_type": "folder",
+    "image_path": "images/crash_bandicoot_1.png",
+    "description": "Погрузитесь в эпическую битву с богами и вознеситесь на Олимп вместе с Кратосом и армией титанов, чтобы свергнуть Зевса. Используйте легендарные Клинки Изгнанника, магию и ярость в зрелищных сражениях. Преодолевайте грандиозные препятствия и сразитесь с могущественными врагами из греческих мифов в этой кульминации знаменитой саги.",
+    "torrent_url": "magnet:?xt=urn:btih:18641781603a218f044a56e1bbc031071a60fdb0&dn=BCES00510&tr=http%3a%2f%2fbt4.t-ru.org%2fann&tr=http%3a%2f%2fretracker.local%2fannounce",
+    "preset": "Config.ymi",
+    "size_bytes": 9073118413,
+    "year": "2010",
+    "language": "Русский",
+    "developer": "Santa Monica",
+    "genre": "Слэшер",
+    "rating": "8,5/10"
   }
 ]

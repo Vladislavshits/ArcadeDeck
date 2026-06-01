@@ -135,6 +135,7 @@ class ConfigManager:
         Универсальное применение конфигурации для игры
         Копирует всю папку с готовыми конфигами и обновляет пути!
         """
+        # 🆕 ПРОВЕРКА ОТМЕНЫ
         if self._cancelled:
             return False
 
@@ -162,6 +163,10 @@ class ConfigManager:
             ]
 
         for source_folder in emulator_folders:
+            # 🆕 ПРОВЕРКА ОТМЕНЫ ПЕРЕД КАЖДОЙ ПАПКОЙ
+            if self._cancelled:
+                return False
+
             if source_folder.exists() and source_folder.is_dir():
                 target_emulator_folder = target_dir / source_folder.name
 
@@ -173,6 +178,10 @@ class ConfigManager:
 
                     # Рекурсивно копируем все файлы и папки
                     for item in source_folder.iterdir():
+                        # 🆕 ПРОВЕРКА ОТМЕНЫ ПЕРЕД КАЖДЫМ ФАЙЛОМ
+                        if self._cancelled:
+                            return False
+
                         target_item = target_emulator_folder / item.name
                         if item.is_dir():
                             shutil.copytree(item, target_item, dirs_exist_ok=True)
@@ -223,7 +232,7 @@ class ConfigManager:
             config.read(config_file)
 
             # Обновляем путь к BIOS
-            new_bios_path = users_base_path / "bios" / "duckstation"
+            new_bios_path = users_base_path / "bios" / "PS1"
             if config.has_section('BIOS'):
                 config.set('BIOS', 'searchdirectory', str(new_bios_path))
                 self._log(f"✅ Обновлен путь к BIOS DuckStation: {new_bios_path}")
@@ -298,6 +307,7 @@ class ConfigManager:
     def _apply_single_config(self, source_path: Path, target_path: Path,
                            config_format: str, game_id: str = None) -> bool:
         """Применяет одиночный конфиг с обработчиком формата"""
+        # ПРОВЕРКА ОТМЕНЫ
         if self._cancelled:
             return False
 
@@ -317,5 +327,6 @@ class ConfigManager:
             return False
 
     def cancel(self):
-        """Отмена операции"""
+        """ОТМЕНА ВСЕХ ОПЕРАЦИЙ КОНФИГОВ"""
         self._cancelled = True
+        logger.info("🛑 ConfigManager: все операции отменены")

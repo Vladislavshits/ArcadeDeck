@@ -4,46 +4,77 @@ import logging
 import json
 
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout,
+    QDialog, QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout,
     QMenu, QToolButton, QMessageBox, QFileDialog, QFrame,
-    QGridLayout
+    QApplication, QSizePolicy, QScrollArea
 )
 from PyQt6.QtGui import QPixmap, QFont
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal, QRect, QPoint, QSize, QTimer
 from pathlib import Path
 
 # Импорт пути игровых данных
 from core import get_users_path
 
-logger = logging.getLogger('ArcadeDeck')
+# Импорт модуля навигации
+from navigation import NavigationLayer
+
+from app.modules.module_logic.game_art_manager import GameArtManager
+
+from app.modules.ui.message_dialog import show_info, show_error, show_warning, show_question
+
+logger = logging.getLogger('Экран "Об игре"')
+
 
 class GameInfoPage(QWidget):
-    """Page for displaying game information - PS5 Style Minimalistic"""
+    coverUpdated = pyqtSignal(str)
+    """Страница информации об игре"""
     def __init__(self, game_data=None, parent=None):
         super().__init__(parent)
         self.game_data = game_data
         self.is_installed = False
 
-        # Initialize callbacks
+        # Установка коллбеков
         self._back_callback = None
         self._action_callback = None
         self._delete_callback = None
         self._change_cover_callback = None
+        self.meta_panel = None
+
+        # Эти лейблы хранят значения, без префиксов и иконок
+        self.year_label = QLabel("—")
+        self.language_label = QLabel("—")
+        self.platform_label = QLabel("—")
+        self.size_label = QLabel("—")
+        self.rating_label = QLabel("—")
+        self.developer_label = QLabel("—")
+        self.fps_label = QLabel("—")
+        self.genre_label = QLabel("—")
+
+        self.meta_tiles_row1 = []  # Плитки для первой строки
+        self.meta_tiles_row2 = []  # Плитки для второй строки
+
+        # Настройки размеров плиток метаданных (удобный блок для кастомизации)
+        # Эти значения будут адаптироваться в _adapt_to_screen_size
+        # Вы можете изменить базовые значения здесь для глобальной настройки
+        self.meta_tile_width = 150  # Базовая ширина плитки для первого ряда
+        self.meta_tile_width_row2 = 250  # БОЛЬШАЯ ширина для второго ряда с длинным текстом
+        self.meta_tile_height = 80  # Базовая высота плитки
+        self.meta_tile_spacing = 15  # Расстояние между плитками
+        self.meta_container_margins = (10, 10, 10, 10)  # Отступы контейнера (left, top, right, bottom)
+        self.meta_value_font_size = 16  # Базовый размер шрифта для значения (жирный)
+        self.meta_label_font_size = 12  # Базовый размер шрифта для лейбла (нормальный)
+        self.meta_tile_border_radius = 12  # Радиус скругления плиток
 
         self._init_ui()
+
+        # Настройка начальной навигации
+        self._refresh_navigation_widgets()
 
         if game_data:
             self.set_game(game_data, is_installed=False)
 
     def _init_ui(self):
         """Initialize PS5 style minimalistic UI"""
-        # Основной фон
-        self.setStyleSheet("""
-            GameInfoPage {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #000000, stop:0.3 #1a1a1a, stop:1 #2d2d2d);
-            }
-        """)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(40, 30, 40, 30)
@@ -51,13 +82,6 @@ class GameInfoPage(QWidget):
 
         # Главная карточка
         main_card = QFrame()
-        main_card.setStyleSheet("""
-            QFrame {
-                background: rgba(20, 20, 20, 0.95);
-                border-radius: 20px;
-                border: 1px solid #333;
-            }
-        """)
 
         card_layout = QVBoxLayout(main_card)
         card_layout.setContentsMargins(30, 25, 30, 25)
@@ -85,17 +109,10 @@ class GameInfoPage(QWidget):
         cover_layout = QVBoxLayout(cover_widget)
         cover_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Обложка игры (адаптивный размер)
+        # Обложка игры
         self.cover_label = QLabel()
         self.cover_label.setMinimumSize(300, 450)
         self.cover_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.cover_label.setStyleSheet("""
-            QLabel {
-                background: #1a1a1a;
-                border-radius: 15px;
-                border: 2px solid #444;
-            }
-        """)
         cover_layout.addWidget(self.cover_label)
 
         return cover_widget
@@ -103,19 +120,12 @@ class GameInfoPage(QWidget):
     def _create_info_section(self):
         """Создает правую секцию с информацией и кнопками"""
         info_widget = QFrame()
-        info_widget.setStyleSheet("QFrame { background: transparent; }")
         info_layout = QVBoxLayout(info_widget)
         info_layout.setSpacing(25)
 
-        # Название игры (БЕЗ ВЕРХНЕГО РЕГИСТРА)
+        # Название игры
         self.title_label = QLabel("Grand Theft Auto: San Andreas")
         self.title_label.setFont(QFont("Arial", 32, QFont.Weight.Bold))
-        self.title_label.setStyleSheet("""
-            color: #ffffff;
-            padding: 0;
-            margin: 0;
-            background: transparent;
-        """)
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.title_label.setWordWrap(True)
         info_layout.addWidget(self.title_label)
@@ -124,20 +134,16 @@ class GameInfoPage(QWidget):
         self.description_label = QLabel("Загрузка описания...")
         self.description_label.setWordWrap(True)
         self.description_label.setFont(QFont("Arial", 16))
-        self.description_label.setStyleSheet("""
-            color: #cccccc;
-            line-height: 1.6;
-            padding: 0;
-            margin: 0;
-            background: transparent;
-        """)
         self.description_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         self.description_label.setMinimumHeight(150)
         info_layout.addWidget(self.description_label)
 
-        # Панель метаданных (ПОД ОПИСАНИЕМ)
-        meta_panel = self._create_meta_panel()
-        info_layout.addWidget(meta_panel)
+        # Два горизонтальных скроллера с плитками метаданных
+        meta_scroll_area1 = self._create_meta_scroll_area(row=1)
+        info_layout.addWidget(meta_scroll_area1)
+        
+        meta_scroll_area2 = self._create_meta_scroll_area(row=2)
+        info_layout.addWidget(meta_scroll_area2)
 
         info_layout.addStretch()
 
@@ -145,61 +151,116 @@ class GameInfoPage(QWidget):
         button_panel = self._create_button_panel()
         info_layout.addWidget(button_panel)
 
+        self.menu_panel = self._create_game_menu_panel()
+
         return info_widget
 
-    def _create_meta_panel(self):
-        """Создает панель метаданных"""
-        meta_panel = QFrame()
-        meta_panel.setStyleSheet("""
-            QFrame {
-                background: rgba(30, 30, 30, 0.8);
-                border-radius: 12px;
-                padding: 15px;
-                margin: 10px 0;
-            }
-        """)
+    def _create_meta_scroll_area(self, row=1):
+        """Создает горизонтальный скроллер для плиток метаданных"""
+        scroll_area = QScrollArea()
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setFixedHeight(100)  # Фиксированная высота для скроллера
+        
+        # Контейнер для плиток
+        container = QWidget()
+        
+        if row == 1:
+            self.meta_layout_row1 = QHBoxLayout(container)
+            self.meta_layout_row1.setSpacing(self.meta_tile_spacing)
+            self.meta_layout_row1.setContentsMargins(*self.meta_container_margins)
+            self.meta_layout_row1.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        else:
+            self.meta_layout_row2 = QHBoxLayout(container)
+            self.meta_layout_row2.setSpacing(self.meta_tile_spacing)
+            self.meta_layout_row2.setContentsMargins(*self.meta_container_margins)
+            self.meta_layout_row2.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        
+        scroll_area.setWidget(container)
+        scroll_area.setWidgetResizable(True)
+        
+        return scroll_area
 
-        meta_layout = QGridLayout(meta_panel)
-        meta_layout.setHorizontalSpacing(20)
-        meta_layout.setVerticalSpacing(10)
-        meta_layout.setContentsMargins(10, 10, 10, 10)
+    def _create_meta_panels(self):
+        """Создает две строки плиток метаданных в горизонтальных скроллерах"""
+        
+        # Очищаем старые плитки
+        for tile in self.meta_tiles_row1:
+            tile.deleteLater()
+        for tile in self.meta_tiles_row2:
+            tile.deleteLater()
+            
+        self.meta_tiles_row1.clear()
+        self.meta_tiles_row2.clear()
 
-        # Метаданные в 2 колонки для лучшего отображения на Steam Deck
-        self.year_label = self._create_meta_label("📅 Год: —")
-        self.language_label = self._create_meta_label("🌐 Язык: —")
-        self.platform_label = self._create_meta_label("🎮 Платформа: —")
-        self.size_label = self._create_meta_label("💾 Размер: —")
-        self.rating_label = self._create_meta_label("⭐ Рейтинг: —")
-        self.developer_label = self._create_meta_label("👨‍💻 Разработчик: —")
-        self.genre_label = self._create_meta_label("🎭 Жанр: —")
+        # Первая строка: основные метаданные
+        meta_items_row1 = [
+            ("FPS", self.fps_label),
+            ("Платформа", self.platform_label),
+            ("Размер", self.size_label),
+            ("Год", self.year_label),
+            ("Рейтинг", self.rating_label),
+        ]
 
-        # Распределяем по 2 колонкам для лучшего отображения
-        meta_layout.addWidget(self.platform_label, 0, 0)
-        meta_layout.addWidget(self.size_label, 0, 1)
-        meta_layout.addWidget(self.year_label, 1, 0)
-        meta_layout.addWidget(self.rating_label, 1, 1)
-        meta_layout.addWidget(self.language_label, 2, 0)
-        meta_layout.addWidget(self.genre_label, 2, 1)
-        meta_layout.addWidget(self.developer_label, 3, 0, 1, 2)  # Занимает обе колонки
+        # Вторая строка: дополнительные метаданные (с увеличенной шириной)
+        meta_items_row2 = [
+            ("Язык", self.language_label),
+            ("Разработчик", self.developer_label),
+            ("Жанр", self.genre_label),
+        ]
 
-        return meta_panel
+        # Создаем плитки для первой строки
+        for label_text, value_label in meta_items_row1:
+            tile = self._create_meta_tile(label_text, value_label, row=1)
+            self.meta_layout_row1.addWidget(tile)
+            self.meta_tiles_row1.append(tile)
 
-    def _create_meta_label(self, text):
-        """Создает метку для метаданных с оптимальными настройками"""
-        label = QLabel(text)
-        label.setFont(QFont("Arial", 12))
-        label.setStyleSheet("""
-            QLabel {
-                color: #e0e0e0;
-                background: transparent;
-                padding: 8px 5px;
-                margin: 0;
-            }
-        """)
-        label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        label.setWordWrap(True)
-        label.setMinimumHeight(35)
-        return label
+        # Создаем плитки для второй строки (с увеличенной шириной)
+        for label_text, value_label in meta_items_row2:
+            tile = self._create_meta_tile(label_text, value_label, row=2)
+            self.meta_layout_row2.addWidget(tile)
+            self.meta_tiles_row2.append(tile)
+
+    def _create_meta_tile(self, label_text, value_label, row=1):
+        """Создает одну плитку метаданных"""
+        # Выбираем ширину в зависимости от ряда
+        if row == 1:
+            tile_width = self.meta_tile_width
+        else:
+            tile_width = self.meta_tile_width_row2
+            
+        tile = QFrame()
+        tile.setObjectName("MetaTile")
+        tile.setProperty("class", f"{self.window().property('class')}")
+        tile.setFixedSize(tile_width, self.meta_tile_height)
+
+        tile_layout = QVBoxLayout(tile)
+        tile_layout.setContentsMargins(12, 10, 12, 10)
+        tile_layout.setSpacing(5)
+
+        # Значение
+        value_label.setObjectName("meta_value")
+        value_label.setFont(QFont("Arial", self.meta_value_font_size, QFont.Weight.Bold))
+        value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        value_label.setWordWrap(True)
+        
+        # Для второго ряда уменьшаем шрифт если текст слишком длинный
+        if row == 2:
+            text = value_label.text()
+            if len(text) > 15:  # Если текст длиннее 15 символов
+                value_label.setFont(QFont("Arial", self.meta_value_font_size - 2, QFont.Weight.Bold))
+
+        # Лейбл
+        label_label = QLabel(label_text)
+        label_label.setObjectName("meta_label")
+        label_label.setFont(QFont("Arial", self.meta_label_font_size))
+        label_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label_label.setWordWrap(True)
+
+        tile_layout.addWidget(value_label)
+        tile_layout.addWidget(label_label)
+
+        return tile
 
     def _create_button_panel(self):
         """Создает панель кнопок"""
@@ -207,7 +268,6 @@ class GameInfoPage(QWidget):
         button_panel.setStyleSheet("QFrame { background: transparent; }")
 
         button_layout = QHBoxLayout(button_panel)
-        button_layout.setSpacing(15)
         button_layout.setContentsMargins(0, 0, 0, 0)
         button_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
@@ -215,62 +275,147 @@ class GameInfoPage(QWidget):
         self.action_button = QPushButton("ИГРАТЬ")
         self.action_button.setMinimumSize(180, 60)
         self.action_button.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        self.action_button.setProperty("focused", False)
 
-        # Кнопка меню
-        self.menu_button = QToolButton()
-        self.menu_button.setText("⚙")
-        self.menu_button.setMinimumSize(70, 60)
+        self.menu_button = QPushButton("⚙")
+        self.menu_button.setFixedSize(80, 60)
         self.menu_button.setFont(QFont("Arial", 20, QFont.Weight.Bold))
-        self.menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-
-        # Контекстное меню
-        self.context_menu = QMenu(self.menu_button)
-        self.context_menu.setStyleSheet("""
-            QMenu {
-                background: #2a2a2a;
-                border: 1px solid #444;
-                border-radius: 8px;
-                padding: 8px;
-            }
-            QMenu::item {
-                padding: 12px 25px;
-                border-radius: 6px;
-                color: #ddd;
-                font-size: 14px;
-            }
-            QMenu::item:selected {
-                background: rgba(0, 122, 204, 0.3);
-            }
-        """)
-
-        self.delete_action = self.context_menu.addAction("🗑️ Удалить игру")
-        self.change_cover_action = self.context_menu.addAction("🎨 Изменить обложку")
-        self.add_to_steam_action = self.context_menu.addAction("🎮 Добавить игру в Steam")
-        self.menu_button.setMenu(self.context_menu)
+        self.menu_button.pressed.connect(
+            self.open_menu_from_gamepad
+        )
 
         # Кнопка назад
         self.back_button = QPushButton("НАЗАД")
         self.back_button.setMinimumSize(140, 60)
         self.back_button.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        self.back_button.setProperty("focused", False)
 
         button_layout.addWidget(self.action_button)
         button_layout.addWidget(self.menu_button)
         button_layout.addWidget(self.back_button)
 
-        # Connect signals
-        self.back_button.clicked.connect(self.on_back)
         self.action_button.clicked.connect(self.on_action)
-        self.delete_action.triggered.connect(self.on_delete)
-        self.change_cover_action.triggered.connect(self.on_change_cover)
-        self.add_to_steam_action.triggered.connect(self.on_add_to_steam)
+        self.back_button.clicked.connect(self.on_back)
 
         return button_panel
+
+    def open_menu_from_gamepad(self):
+        self.menu_button.clearFocus()
+
+        QApplication.processEvents()
+
+        self.show_menu_dialog()
+
+    def _create_game_menu_panel(self):
+        """Контекстное меню игры через QDialog"""
+
+        dialog = QDialog(self)
+        dialog.setObjectName("GameMenuDialog")
+        dialog.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+        dialog.setModal(True)
+
+        # Без системного title bar
+        dialog.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint |
+            Qt.WindowType.Dialog
+        )
+
+        dialog.setFixedSize(500, 320)
+
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+
+        # --- Кнопки ---
+        self.btn_add_to_steam = QPushButton("🎮 Добавить в Steam")
+        self.btn_change_cover = QPushButton("🎨 Изменить обложку")
+        self.btn_delete_game = QPushButton("🗑️ Удалить игру")
+        self.btn_close_menu = QPushButton("❌ Закрыть")
+
+        self.menu_buttons = [
+            self.btn_add_to_steam,
+            self.btn_change_cover,
+            self.btn_delete_game,
+            self.btn_close_menu
+        ]
+
+        for btn in self.menu_buttons:
+            btn.setMinimumHeight(52)
+            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            layout.addWidget(btn)
+
+        # --- Signals ---
+        self.btn_add_to_steam.clicked.connect(self.on_add_to_steam)
+        self.btn_change_cover.clicked.connect(self.on_change_cover)
+        self.btn_delete_game.clicked.connect(self.on_delete)
+
+        self.btn_close_menu.clicked.connect(dialog.close)
+
+        dialog.finished.connect(self.on_menu_closed)
+
+        return dialog
+
+    def show_menu_dialog(self):
+        """Показывает диалоговое меню"""
+
+        if hasattr(self.window(), 'navigation_controller'):
+            nav = self.window().navigation_controller
+
+            nav.register_widgets(
+                NavigationLayer.DIALOG,
+                self.menu_buttons
+            )
+
+            nav.switch_layer(NavigationLayer.DIALOG)
+
+        # ВАЖНО: сначала показать окно
+        self.menu_panel.show()
+
+        # Активируем окно
+        self.menu_panel.activateWindow()
+        self.menu_panel.raise_()
+
+        # Даём Qt обработать show()
+        QApplication.processEvents()
+
+        # Ставим фокус
+        self.btn_add_to_steam.setFocus(
+            Qt.FocusReason.OtherFocusReason
+        )
+
+        # Запускаем modal loop
+        self.menu_panel.open()
+
+    def on_menu_closed(self):
+        """Восстановление навигации после закрытия меню"""
+
+        logger.info("📋 Меню закрыто")
+
+        if hasattr(self.window(), 'navigation_controller'):
+            nav = self.window().navigation_controller
+
+            nav.switch_layer(NavigationLayer.GAME_INFO)
+
+            QTimer.singleShot(
+                0,
+                lambda: nav.set_focus(
+                    NavigationLayer.GAME_INFO,
+                    1 if self.is_installed else 0
+                )
+            )
 
     def on_add_to_steam(self):
         """Handle add to Steam action from menu"""
         if not self.game_data:
             logger.warning("⚠️ Попытка добавить в Steam без данных игры")
             return
+
+        # Закрываем меню
+        if hasattr(self, 'menu_panel') and self.menu_panel.isVisible():
+            self.menu_panel.close()
+
+        nav = self.window().navigation_controller if hasattr(self.window(), 'navigation_controller') else None
 
         try:
             from app.modules.module_logic.add_to_steam import add_game_to_steam
@@ -285,105 +430,86 @@ class GameInfoPage(QWidget):
             success = add_game_to_steam(self.game_data, project_root)
 
             if success:
-                QMessageBox.information(
+                show_info(
                     self,
                     "Успех! 🎉",
                     f"Игра '{self.game_data.get('title', '')}' успешно добавлена в Steam!\n\n"
-                    "Перезагрузите Steam для отображения игры."
+                    "Перезагрузите Steam для отображения игры.",
+                    nav_controller=nav
                 )
             else:
-                QMessageBox.warning(
+                show_warning(
                     self,
                     "Ошибка",
                     "Не удалось добавить игру в Steam.\n\n"
                     "Убедитесь, что:\n"
-                    "• Команда 'steamos-add-to-steam' доступна\n"
+                    "• Команда 'steamos-add-to-steam' доступа\n"
                     "• Игра установлена\n"
-                    "• Проверьте логи для подробностей"
+                    "• Проверьте логи для подробностей",
+                    nav_controller=nav
                 )
 
         except Exception as e:
             logger.error(f"❌ Ошибка при добавлении в Steam: {e}")
-            QMessageBox.critical(
+            show_error(
                 self,
                 "Ошибка",
-                f"Произошла непредвиденная ошибка:\n{str(e)}"
+                f"Произошла непредвиденная ошибка:\n{str(e)}",
+                nav_controller=nav
             )
 
-    def _update_action_button_style(self):
-        """Обновляет стиль кнопки действия в зависимости от статуса"""
-        if not hasattr(self, 'is_installed'):
-            self.is_installed = False
+    def set_game(self, game_data: dict, is_installed: bool):
+        """Установка данных игры + ОБЛОЖКА"""
+        self.game_data = game_data
+        self.is_installed = is_installed
 
-        if self.is_installed:
-            style = """
-                QPushButton {
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #007acc, stop:1 #005a9e);
-                    color: white;
-                    border: none;
-                    border-radius: 12px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #0098ff, stop:1 #007acc);
-                }
-                QPushButton:pressed {
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #005a9e, stop:1 #004a80);
-                }
-            """
-        else:
-            style = """
-                QPushButton {
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #4CAF50, stop:1 #45a049);
-                    color: white;
-                    border: none;
-                    border-radius: 12px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #5CBF60, stop:1 #55B059);
-                }
-                QPushButton:pressed {
-                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #3D8B40, stop:1 #368039);
-                }
-            """
-        self.action_button.setStyleSheet(style)
-
-    def set_game(self, game_data, is_installed=False):
-        """Set game data to display with enhanced metadata"""
-        self.game_data = game_data or {}
-        self.is_installed = bool(is_installed)
-
-        # Основные данные (БЕЗ ВЕРХНЕГО РЕГИСТРА)
-        self.title_label.setText(self.game_data.get("title", "Без названия"))
-        self.description_label.setText(self.game_data.get("description", "Нет описания"))
-
+        # Заполняем текст
+        self.title_label.setText(game_data.get('title', 'Без названия'))
+        self.description_label.setText(game_data.get('description', 'Описание недоступно'))
+        
         # Метаданные
-        self.year_label.setText(f"📅 Год: {self.game_data.get('year', '—')}")
-        self.language_label.setText(f"🌐 Язык: {self.game_data.get('language', '—')}")
-        self.platform_label.setText(f"🎮 Платформа: {self.game_data.get('platform', '—')}")
+        self.year_label.setText(game_data.get('year', '—'))
+        self.language_label.setText(game_data.get('language', '—'))
+        self.platform_label.setText(game_data.get('platform', '—'))
+        self.size_label.setText(self._format_size(game_data.get('size_bytes', 0)))
+        self.rating_label.setText(game_data.get('rating', '—'))
+        self.developer_label.setText(game_data.get('developer', '—'))
+        self.genre_label.setText(game_data.get('genre', '—'))
+        self.fps_label.setText(game_data.get('fps', '—'))  # или 'fps_limit', 'target_fps' — как будет в JSON
 
-        # Форматирование размера
-        size_bytes = self.game_data.get('size_bytes')
-        size_display = self._format_size(size_bytes) if size_bytes else self.game_data.get('size', '—')
-        self.size_label.setText(f"💾 Размер: {size_display}")
+        # Создаем плитки метаданных
+        self._create_meta_panels()
 
-        self.rating_label.setText(f"⭐ Рейтинг: {self.game_data.get('rating', '—')}")
-        self.developer_label.setText(f"👨‍💻 Разработчик: {self.game_data.get('developer', '—')}")
-        self.genre_label.setText(f"🎭 Жанр: {self.game_data.get('genre', '—')}")
+        # Загружаем обложку после полного построения UI
+        QTimer.singleShot(0, lambda: self._load_cover(game_data))
 
-        # Обновить обложку и кнопки
-        self.update_cover_image()
-        self.update_installation_status(self.is_installed)
+        # Кнопка действия - обновляем
+        self.update_installation_status(is_installed)
+
+    def _load_cover(self, game_data: dict):
+        """Единая функция загрузки обложки — вызывается при set_game и после смены обложки"""
+        try:
+            project_root = self.window().project_root
+        except AttributeError:
+            project_root = Path(".")
+
+        art_manager = GameArtManager(project_root)
+        pixmap = art_manager.refresh_game_cover_optimized(
+            game_data,
+            container_size=(300, 450)  # размер cover_label
+        )
+
+        if pixmap:
+            self.cover_label.setPixmap(pixmap)
+            logger.info(f"Обложка успешно отображена на экране 'Об игре'")
+        else:
+            # Плейсхолдер
+            placeholder = QPixmap(300, 450)
+            placeholder.fill(Qt.GlobalColor.darkGray)
+            self.cover_label.setPixmap(placeholder)
+            logger.info(f"Установлен плейсхолдер (обложка не найдена)")
 
     def resizeEvent(self, event):
-        """Обработчик изменения размера окна"""
         super().resizeEvent(event)
         self._adapt_to_screen_size()
 
@@ -391,7 +517,7 @@ class GameInfoPage(QWidget):
         """Адаптирует интерфейс к размеру экрана"""
         screen_width = self.width()
 
-        # Адаптивные размеры в зависимости от ширины экрана
+        # Адаптация плиток метаданных и экрана
         if screen_width < 1280:
             # Маленький экран (Steam Deck портретный режим)
             cover_width = 280
@@ -400,6 +526,14 @@ class GameInfoPage(QWidget):
             meta_font_size = 11  # Уменьшен для Steam Deck
             button_height = 50
             main_margins = (20, 20, 20, 20)
+            self.meta_tile_width = 120
+            self.meta_tile_width_row2 = 205  # Увеличенная ширина для второго ряда
+            self.meta_tile_height = 70
+            self.meta_tile_spacing = 10
+            self.meta_container_margins = (5, 5, 5, 5)
+            self.meta_value_font_size = 14
+            self.meta_label_font_size = 10
+            self.meta_tile_border_radius = 8
             meta_padding = "10px"  # Меньше padding для маленьких экранов
         elif screen_width < 1920:
             # Средний экран
@@ -409,6 +543,14 @@ class GameInfoPage(QWidget):
             meta_font_size = 12
             button_height = 55
             main_margins = (30, 25, 30, 25)
+            self.meta_tile_width = 140
+            self.meta_tile_width_row2 = 170  # Увеличенная ширина для второго ряда
+            self.meta_tile_height = 75
+            self.meta_tile_spacing = 12
+            self.meta_container_margins = (8, 8, 8, 8)
+            self.meta_value_font_size = 15
+            self.meta_label_font_size = 11
+            self.meta_tile_border_radius = 10
             meta_padding = "12px"
         else:
             # Большой экран
@@ -418,6 +560,14 @@ class GameInfoPage(QWidget):
             meta_font_size = 13
             button_height = 60
             main_margins = (40, 30, 40, 30)
+            self.meta_tile_width = 160
+            self.meta_tile_width_row2 = 200  # Увеличенная ширина для второго ряда
+            self.meta_tile_height = 80
+            self.meta_tile_spacing = 15
+            self.meta_container_margins = (10, 10, 10, 10)
+            self.meta_value_font_size = 16
+            self.meta_label_font_size = 12
+            self.meta_tile_border_radius = 12
             meta_padding = "15px"
 
         # Применяем размеры
@@ -428,45 +578,13 @@ class GameInfoPage(QWidget):
         self.title_label.setFont(QFont("Arial", title_font_size, QFont.Weight.Bold))
         self.description_label.setFont(QFont("Arial", desc_font_size))
 
-        # Обновляем метаданные
-        meta_widgets = [
-            self.year_label, self.language_label, self.platform_label,
-            self.size_label, self.rating_label, self.developer_label, self.genre_label
-        ]
-        for widget in meta_widgets:
-            widget.setFont(QFont("Arial", meta_font_size))
-            # Обновляем минимальную высоту для меток
-            widget.setMinimumHeight(max(30, int(button_height * 0.6)))
-
-        # Обновляем стиль панели метаданных
-        meta_style = f"""
-            QFrame {{
-                background: rgba(30, 30, 30, 0.8);
-                border-radius: 12px;
-                padding: {meta_padding};
-                margin: 10px 0;
-            }}
-        """
-        # Находим панель метаданных и обновляем её стиль
-        for i in range(self.layout().count()):
-            main_card = self.layout().itemAt(i).widget()
-            if isinstance(main_card, QFrame):
-                for j in range(main_card.layout().count()):
-                    content_layout = main_card.layout().itemAt(j)
-                    if content_layout and hasattr(content_layout, 'count'):
-                        for k in range(content_layout.count()):
-                            widget = content_layout.itemAt(k).widget()
-                            if isinstance(widget, QFrame) and hasattr(widget, 'layout'):
-                                for m in range(widget.layout().count()):
-                                    meta_panel = widget.layout().itemAt(m).widget()
-                                    if isinstance(meta_panel, QFrame):
-                                        meta_panel.setStyleSheet(meta_style)
-                                        break
-
         # Обновляем отступы основного layout
         main_layout = self.layout()
         if main_layout:
             main_layout.setContentsMargins(*main_margins)
+
+        # Обновляем панель метаданных
+        self._update_meta_panel_safe()
 
         # Обновляем размеры кнопок
         self.action_button.setMinimumSize(180, button_height)
@@ -476,6 +594,56 @@ class GameInfoPage(QWidget):
         # Обновляем обложку при изменении размера
         if hasattr(self, 'game_data') and self.game_data:
             self.update_cover_image()
+
+    def _update_meta_panel_safe(self):
+        """Безопасное обновление панели метаданных"""
+        try:
+            # Обновляем размеры и стили всех плиток первого ряда
+            for tile in self.meta_tiles_row1:
+                if hasattr(tile, 'setFixedSize'):
+                    tile.setFixedSize(self.meta_tile_width, self.meta_tile_height)
+                    
+                    # Обновляем шрифты внутри плитки
+                    layout = tile.layout()
+                    if layout and layout.count() >= 2:
+                        value_label = layout.itemAt(0).widget()
+                        label_label = layout.itemAt(1).widget()
+                        if isinstance(value_label, QLabel):
+                            value_label.setFont(QFont("Arial", self.meta_value_font_size, QFont.Weight.Bold))
+                        if isinstance(label_label, QLabel):
+                            label_label.setFont(QFont("Arial", self.meta_label_font_size))
+
+            # Обновляем размеры и стили всех плиток второго ряда
+            for tile in self.meta_tiles_row2:
+                if hasattr(tile, 'setFixedSize'):
+                    tile.setFixedSize(self.meta_tile_width_row2, self.meta_tile_height)
+
+                    # Обновляем шрифты внутри плитки
+                    layout = tile.layout()
+                    if layout and layout.count() >= 2:
+                        value_label = layout.itemAt(0).widget()
+                        label_label = layout.itemAt(1).widget()
+                        if isinstance(value_label, QLabel):
+                            # Для длинного текста уменьшаем шрифт
+                            text = value_label.text()
+                            if len(text) > 15:
+                                value_label.setFont(QFont("Arial", self.meta_value_font_size - 2, QFont.Weight.Bold))
+                            else:
+                                value_label.setFont(QFont("Arial", self.meta_value_font_size, QFont.Weight.Bold))
+                        if isinstance(label_label, QLabel):
+                            label_label.setFont(QFont("Arial", self.meta_label_font_size))
+
+            # Обновляем spacing и margins для layout'ов
+            if hasattr(self, 'meta_layout_row1'):
+                self.meta_layout_row1.setSpacing(self.meta_tile_spacing)
+                self.meta_layout_row1.setContentsMargins(*self.meta_container_margins)
+            if hasattr(self, 'meta_layout_row2'):
+                self.meta_layout_row2.setSpacing(self.meta_tile_spacing)
+                self.meta_layout_row2.setContentsMargins(*self.meta_container_margins)
+
+            logger.info("Meta panels updated successfully")
+        except Exception as e:
+            logger.error(f"Error updating meta panels: {e}")
 
     def _format_size(self, size_bytes):
         """Форматирует размер в читаемый формат"""
@@ -488,95 +656,112 @@ class GameInfoPage(QWidget):
 
     def update_installation_status(self, is_installed):
         """Обновить кнопки в зависимости от статуса установки"""
+        old_installed = self.is_installed
         self.is_installed = is_installed
+
+        # Сохраняем текущий фокус ДО изменений
+        current_focus_widget = QApplication.focusWidget()
+
         self.action_button.setText("ИГРАТЬ" if self.is_installed else "УСТАНОВИТЬ")
-        self._update_action_button_style()
 
         # Показываем/скрываем кнопку меню
         self.menu_button.setVisible(self.is_installed)
-        self.delete_action.setEnabled(self.is_installed)
-        self.change_cover_action.setEnabled(self.is_installed)
+
+        self.btn_delete_game.setEnabled(self.is_installed)
+        self.btn_change_cover.setEnabled(self.is_installed)
+        self.btn_add_to_steam.setEnabled(self.is_installed)
+
+        # === КРИТИЧНО ВАЖНО ===
+        self._refresh_navigation_widgets()
+
+        # Восстанавливаем фокус ТОЛЬКО если он был на наших кнопках
+        if (current_focus_widget and
+            current_focus_widget in [self.action_button, self.menu_button, self.back_button]):
+            QTimer.singleShot(10, lambda: current_focus_widget.setFocus(Qt.FocusReason.OtherFocusReason))
+
+    def _refresh_navigation_widgets(self):
+        """Обновить список виджетов для навигации"""
+        if hasattr(self, 'window') and hasattr(self.window(), 'navigation_controller'):
+            nav = self.window().navigation_controller
+            
+            # Собираем актуальный список виджетов
+            widgets = [self.action_button, self.back_button]
+
+            if self.is_installed:
+                widgets.insert(1, self.menu_button)
+            
+            # Регистрируем обновленный список
+            nav.register_widgets(NavigationLayer.GAME_INFO, widgets)
+            
+            # Устанавливаем фокус на первую кнопку
+            if self.isVisible():
+                nav.set_focus(NavigationLayer.GAME_INFO, 0)
 
     def update_cover_image(self):
-        """Обновить изображение обложки"""
+        """Обновить изображение обложки через GameArtManager с единым масштабированием"""
         logger.info(f"🖼️ Обновление обложки для игры: {self.game_data.get('title')}")
 
-        custom_cover_path = self.get_custom_cover_path()
-
-        if custom_cover_path and os.path.exists(custom_cover_path):
-            logger.info(f"✅ Используется пользовательская обложка: {custom_cover_path}")
-            try:
-                pixmap = QPixmap(custom_cover_path)
-                if pixmap.isNull():
-                    logger.warning(f"⚠️ Не удалось загрузить пользовательскую обложку: {custom_cover_path}")
-                    raise Exception("Invalid image file")
-            except Exception as e:
-                logger.error(f"❌ Ошибка загрузки пользовательской обложки: {e}")
-                custom_cover_path = None
-
-        if not custom_cover_path:
-            image_path = self.game_data.get("image_path")
-            if image_path and os.path.exists(image_path):
-                logger.info(f"📋 Используется стандартная обложка: {image_path}")
-                try:
-                    pixmap = QPixmap(image_path)
-                    if pixmap.isNull():
-                        logger.warning(f"⚠️ Не удалось загрузить стандартную обложку: {image_path}")
-                        raise Exception("Invalid image file")
-                except Exception as e:
-                    logger.error(f"❌ Ошибка загрузки стандартной обложки: {e}")
-                    self.cover_label.clear()
-                    return
-            else:
-                logger.warning(f"⚠️ Обложка не найдена для игры: {self.game_data.get('title')}")
-                self.cover_label.clear()
-                return
-
-        self.cover_label.setPixmap(pixmap.scaled(
-            self.cover_label.size(),
-            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-            Qt.TransformationMode.SmoothTransformation
-        ))
-        logger.info(f"✅ Обложка успешно обновлена")
+        cover_pixmap = None
+        
+        # Получаем обложку исключительно через GameArtManager
+        if hasattr(self, 'window') and hasattr(self.window(), 'game_data_manager'):
+            manager = self.window().game_data_manager
+            if manager and hasattr(manager, 'art_manager'):
+                cover_pixmap = manager.art_manager.refresh_game_cover(
+                    self.game_data, 
+                    (self.cover_label.width(), self.cover_label.height())
+                )
+        
+        # Устанавливаем обложку с единым масштабированием
+        if cover_pixmap and not cover_pixmap.isNull():
+            # Масштабирование: KeepAspectRatioByExpanding + центрирование
+            scaled_pixmap = cover_pixmap.scaled(
+                self.cover_label.size(),
+                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            
+            # Создаем прозрачный QPixmap для центрирования
+            final_pixmap = QPixmap(self.cover_label.size())
+            final_pixmap.fill(Qt.GlobalColor.transparent)
+            
+            # Вычисляем позицию для центрирования
+            x = (final_pixmap.width() - scaled_pixmap.width()) // 2
+            y = (final_pixmap.height() - scaled_pixmap.height()) // 2
+            
+            # Рисуем центрированное изображение
+            from PyQt6.QtGui import QPainter
+            painter = QPainter(final_pixmap)
+            painter.drawPixmap(x, y, scaled_pixmap)
+            painter.end()
+            
+            self.cover_label.setPixmap(final_pixmap)
+            logger.info("✅ Обложка успешно обновлена через GameArtManager")
+        else:
+            # Очищаем лейбл если обложка не найдена
+            self.cover_label.clear()
+            logger.warning("⚠️ Обложка не найдена через GameArtManager")
 
     def get_custom_cover_path(self):
-        """Получить путь к пользовательской обложке игры"""
+        """Получить путь к пользовательской обложке игры через GameArtManager"""
         if not self.game_data:
             logger.warning("⚠️ Нет данных игры для поиска обложки")
             return None
 
-        game_id = self.game_data.get('id')
-        platform = self.game_data.get('platform')
-
-        if not all([game_id, platform]):
-            logger.warning(f"⚠️ Неполные данные игры для поиска обложки: game_id={game_id}, platform={platform}")
-            return None
-
-        try:
-            project_root = self.window().project_root
-        except AttributeError:
-            project_root = Path(".")
-
-        # ИСПРАВЛЕНО: используем путь из настроек
-        from core import get_users_subpath
-        images_dir = Path(get_users_subpath("images")) / platform / game_id
-        logger.info(f"🔍 Поиск обложки в: {images_dir}")
-
-        try:
-            images_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"📁 Директория для обложек создана/проверена: {images_dir}")
-        except Exception as e:
-            logger.error(f"❌ Ошибка создания директории для обложек: {e}")
-            return None
-
-        image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.webp']
-        for ext in image_extensions:
-            cover_path = images_dir / f"cover{ext}"
-            if cover_path.exists():
-                logger.info(f"✅ Найдена обложка: {cover_path}")
-                return str(cover_path)
-
-        logger.info(f"📭 Пользовательская обложка не найдена в: {images_dir}")
+        # Используем GameArtManager для получения пути к обложке
+        if hasattr(self, 'window') and hasattr(self.window(), 'game_data_manager'):
+            manager = self.window().game_data_manager
+            if manager and hasattr(manager, 'art_manager'):
+                platform = self.game_data.get('platform')
+                title = self.game_data.get('title')
+                
+                if platform and title:
+                    cover_path = manager.art_manager.get_cover_path(platform, title)
+                    if cover_path:
+                        logger.info(f"✅ Обложка найдена через GameArtManager: {cover_path}")
+                        return cover_path
+        
+        logger.info("📭 Обложка не найдена через GameArtManager")
         return None
 
     def on_change_cover(self):
@@ -584,9 +769,14 @@ class GameInfoPage(QWidget):
         if not self.game_data:
             logger.warning("⚠️ Попытка изменить обложку без данных игры")
             return
+        # Закрываем меню, чтобы не было конфликта слоёв
+        if hasattr(self, 'menu_panel') and self.menu_panel.isVisible():
+            self.menu_panel.close()
 
         logger.info(f"🎨 Запрос на изменение обложки для игры: {self.game_data.get('title')}")
 
+        # Определяем nav один раз в начале
+        nav = self.window().navigation_controller if hasattr(self.window(), 'navigation_controller') else None
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Выберите новую обложку",
@@ -602,10 +792,11 @@ class GameInfoPage(QWidget):
         file_ext = Path(file_path).suffix.lower()
         if file_ext not in valid_extensions:
             logger.warning(f"⚠️ Неверный формат файла: {file_ext}")
-            QMessageBox.warning(
+            show_warning(
                 self,
                 "Неверный формат",
-                f"Пожалуйста, выберите изображение в одном из форматов: {', '.join(valid_extensions)}"
+                f"Пожалуйста, выберите изображение в одном из форматов: {', '.join(valid_extensions)}",
+                nav_controller=nav
             )
             return
 
@@ -615,11 +806,7 @@ class GameInfoPage(QWidget):
 
             if not game_id or not platform:
                 logger.error("❌ Не удалось определить ID игры или платформу")
-                QMessageBox.warning(
-                    self,
-                    "Ошибка",
-                    "Не удалось определить ID игры или платформу"
-                )
+                show_warning(self, "Ошибка", "Не удалось определить ID игры или платформу", nav_controller=nav)
                 return
 
             try:
@@ -627,7 +814,7 @@ class GameInfoPage(QWidget):
             except AttributeError:
                 project_root = Path(".")
 
-            # ИСПРАВЛЕНО: используем путь из настроек
+            # Используем путь из настроек
             from core import get_users_subpath
             cover_dir = Path(get_users_subpath("images")) / platform / game_id
             cover_dir.mkdir(parents=True, exist_ok=True)
@@ -652,22 +839,12 @@ class GameInfoPage(QWidget):
             if self.change_cover_callback:
                 self.change_cover_callback(self.game_data, str(destination_path))
 
-            QMessageBox.information(
-                self,
-                "Успех! 🎉",
-                "Обложка успешно обновлена!\n\n"
-                f"Файл: {cover_filename}\n"
-                f"Путь: {cover_dir}"
-            )
+            show_info(self, "Успех! 🎉", f"Обложка успешно обновлена!\n\nФайл: {cover_filename}\nПуть: {cover_dir}", nav_controller=nav)
             logger.info(f"✅ Обложка успешно изменена и уведомление показано")
 
         except Exception as e:
             logger.error(f"❌ Ошибка при сохранении обложки: {e}")
-            QMessageBox.critical(
-                self,
-                "Ошибка",
-                f"Не удалось сохранить обложку:\n{str(e)}"
-            )
+            show_error(self, "Ошибка", f"Не удалось сохранить обложку:\n{str(e)}", nav_controller=nav)
 
     def _update_registry_with_cover_path(self, cover_dir_path):
         """Обновить реестр установленных игр с путем к папке обложек"""
@@ -832,22 +1009,73 @@ class GameInfoPage(QWidget):
             self.set_game(game_data, game_data.get('is_installed', False))
 
     def on_back(self):
-        """Handle back button click"""
-        if self.back_callback:
-            self.back_callback()
+            """Handle back button click"""
+            if hasattr(self, 'window') and hasattr(self.window(), 'navigation_controller'):
+                nav = self.window().navigation_controller
+                nav.switch_layer(NavigationLayer.MAIN)  # Переключаем слой, как при B
+                logger.info("📚 Возврат из информации об игре в библиотеку по кнопке 'Назад'")
+            if self.back_callback:
+                self.back_callback()  # Вызываем show_library или аналог
 
     def on_action(self):
-        """Handle action button click"""
+        """Обработка кнопки действия (Установить/Играть)"""
+        if not self.game_data:
+            return
+            
+        if self.is_installed:
+            # Запуск игры
+            self._launch_installed_game()
+        else:
+            # Установка игры
+            self._show_standard_installation()
+
+    def _show_standard_installation(self):
+        logger.info(f"🎮 Начинаем установку: {self.game_data.get('title')}")
+        try:
+            parent_window = self.window()
+            if not hasattr(parent_window, 'project_root'):
+                logger.error("❌ Не найден project_root")
+                if self.action_callback:
+                    self.action_callback(self.game_data, self.is_installed)
+                return
+
+            from app.modules.installer.install import InstallDialog
+
+            self._install_dialog = InstallDialog(  # <-- сохраняем как атрибут
+                game_data=self.game_data,
+                project_root=parent_window.project_root,
+                parent=parent_window
+            )
+            self._install_dialog.installation_finished.connect(
+                lambda: self.update_installation_status(True)
+            )
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка показа диалога установки: {e}")
+            if self.action_callback:
+                self.action_callback(self.game_data, self.is_installed)
+
+    def _launch_installed_game(self):
+        """Запуск установленной игры"""
         if self.action_callback:
             self.action_callback(self.game_data, self.is_installed)
 
     def on_delete(self):
-        """Handle delete action from menu"""
         if not self.game_data:
             return
 
+        # Закрываем меню
+        if hasattr(self, 'menu_panel') and self.menu_panel.isVisible():
+            self.menu_panel.close()
+
         game_title = self.game_data.get("title", "эту игру")
-        reply = QMessageBox.question(
+        nav = self.window().navigation_controller if hasattr(self.window(), 'navigation_controller') else None
+
+        # Даём время меню закрыться
+        QTimer.singleShot(100, lambda: self._confirm_delete(game_title, nav))
+
+    def _confirm_delete(self, game_title, nav):
+        if show_question(
             self,
             "Подтверждение удаления",
             f"Вы уверены, что хотите удалить '{game_title}'?\n\n"
@@ -856,11 +1084,8 @@ class GameInfoPage(QWidget):
             "• Скрипт запуска\n"
             "• Папка с обложками\n"
             "• Запись в реестре",
-            QMessageBox.StandardButton.No | QMessageBox.StandardButton.Yes,
-            QMessageBox.StandardButton.No
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
+            nav_controller=nav
+        ):
             try:
                 self._delete_game_files(self.game_data)
                 self._remove_from_registry(self.game_data)
@@ -871,19 +1096,11 @@ class GameInfoPage(QWidget):
                 if self.delete_callback:
                     self.delete_callback(self.game_data)
 
-                QMessageBox.information(
-                    self,
-                    "Успех",
-                    f"Игра '{game_title}' успешно удалена!"
-                )
+                show_info(self, "Успех", f"Игра '{game_title}' успешно удалена!", nav_controller=nav)
 
             except Exception as e:
                 logger.error(f"❌ Ошибка при удалении игры: {e}")
-                QMessageBox.critical(
-                    self,
-                    "Ошибка",
-                    f"Не удалось полностью удалить игру:\n{str(e)}"
-                )
+                show_error(self, "Ошибка", f"Не удалось полностью удалить игру:\n{str(e)}", nav_controller=nav)
 
     # Properties for callbacks
     @property

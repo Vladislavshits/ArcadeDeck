@@ -2,16 +2,13 @@ def get_config():
     """Возвращает конфигурацию модуля Nintendo DS"""
     return {
         "name": "MelonDS",
-        "install_method": "flatpak",
-        "flatpak_id": "net.kuribo64.melonDS",
-        "install_command": ["flatpak", "install", "--user", "-y", "net.kuribo64.melonDS"],
-        "supported_formats": [".nds", ".srl", ".dsi", ".ids", ".7z", ".zip"],
-        "needs_extraction": True,  # для архивов
+        "install_method": "appimage",
+        "appimage_url": "https://github.com/melonDS-emu/melonDS/releases/download/1.1/melonDS-1.1-appimage-x86_64.zip",
+        "appimage_filename": "melonDS-x86_64.AppImage",
+        "supported_formats": [".nds", ".srl", ".7z", ".zip"],
+        "needs_extraction": True,
         "bios_required": True,
         "bios_files": ["bios7.bin", "bios9.bin", "firmware.bin"],
         "platform_name": "Nintendo DS",
-        "emulator": "melonds",
-        "description": "Портативная консоль с двумя экранами и сенсорным управлением",
-        "touch_controls": True,
-        "dual_screen": True
+        "emulator": "melonds"
     }
