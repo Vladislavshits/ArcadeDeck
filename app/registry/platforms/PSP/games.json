@@ -270,5 +270,22 @@
     "developer": "Traveller's Tales",
     "genre": "Платформер, Приключение",
     "rating": "8.4/10"
+  },
+  {
+    "id": "rocky_balboa",
+    "title": "Rocky Balboa",
+    "platform": "PSP",
+    "platform_module": "PSP",
+    "preferred_emulator": "ppsspp",
+    "image_path": "images/system_placeholder.png",
+    "description": "Постаревший Рокки Бальбоа, владелец ресторана, решает вернуться на ринг для благотворительного боя с действующим чемпионом. Несмотря на возраст и сомнения сына, он выходит на бой, чтобы доказать свою силу духа. Противостояние длится все раунды, заканчиваясь взаимным уважением бойцов.",
+    "torrent_url": "magnet:?xt=urn:btih:43891E3A67526D80CFF4A7465703D3F6C5AADEA9&dn=Rocky_Balboa_rus.rar&tr=http%3A%2F%2Fbt.allfon.net%3A2710%2F000000010036298a65916b57c662f4ee%2Fannounce",
+    "preset": "rocky_balboa.json",
+    "size_bytes": 322961408,
+    "year": "2007",
+    "language": "Русский",
+    "developer": "Ubisoft",
+    "genre": "Экшен, Файтинг",
+    "rating": "6/10"
   }
 ]

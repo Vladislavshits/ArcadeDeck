@@ -776,28 +776,30 @@ QPushButton#LargeAddGameArea QLabel[text="+"] {
 
 /* СТИЛИ ДЛЯ РЕЗУЛЬТАТОВ ПОИСКА */
 #SearchResultItem {
-    background: transparent;
-    padding: 15px;
+background: transparent;
+padding: 15px;
+min-height: 60px;
+max-height: 60px;
 }
 
 #SearchResultItem:hover {
-    background: #0078d4;
-    border-radius: 5px;
+background: #0078d4;
+border-radius: 5px;
 }
 
 #SearchResultTitle {
-    color: white;
-    font-size: 18px;
-    background: transparent;
+color: white;
+font-size: 18px;
+background: transparent;
 }
 
 #PlatformBadge {
-    background: #666;
-    color: white;
-    padding: 4px 12px;
-    border-radius: 18px;
-    font-size: 12px;
-    font-weight: bold;
+background: #666;
+color: white;
+padding: 4px 12px;
+border-radius: 18px;
+font-size: 12px;
+font-weight: bold;
 }
 
 /* СТИЛИ ДЛЯ КНОПОК ВЫБОРА ПУТИ */

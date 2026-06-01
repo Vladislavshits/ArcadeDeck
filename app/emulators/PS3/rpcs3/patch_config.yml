@@ -1,0 +1,47 @@
+PPU-4d5c51503a81a327c2a99427390a395b8dcb3767:
+  Skip any videos with X button:
+    God of War 3 (God of War III):
+      BCES00510:
+        01.00:
+          Enabled: true
+  Disable MLAA:
+    God of War 3 (God of War III):
+      BCES00510:
+        01.00:
+          Enabled: true
+  Disable Camera sway:
+    God of War 3 (God of War III):
+      BCES00510:
+        01.00:
+          Enabled: true
+  Disable Depth of Field:
+    God of War 3 (God of War III):
+      BCES00510:
+        01.00:
+          Enabled: true
+  Disable Layered Fog:
+    God of War 3 (God of War III):
+      BCES00510:
+        01.00:
+          Enabled: true
+  Disable Motion Blur:
+    God of War 3 (God of War III):
+      BCES00510:
+        01.00:
+          Enabled: true
+  Disable Color Grading:
+    God of War 3 (God of War III):
+      BCES00510:
+        01.00:
+          Enabled: true
+  Disable Bloom:
+    God of War 3 (God of War III):
+      BCES00510:
+        01.00:
+          Enabled: true
+SPU-530c255936b07b25467a58e24ceff5fd4e2960b7:
+  Disable SPU MLAA:
+    God of War 3 (God of War III):
+      BCES00510:
+        01.00:
+          Enabled: true

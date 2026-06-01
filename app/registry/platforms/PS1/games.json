@@ -15,5 +15,22 @@
     "developer": "Argonaut Games",
     "genre": "Шутер от 1 лица",
     "rating": "6.6/10"
+  },
+  {
+    "id": "looney tunes racing",
+    "title": "Looney Tunes Racing",
+    "platform": "PS1",
+    "platform_module": "PS1",
+    "preferred_emulator": "duckstation",
+    "image_path": "images/crash_bandicoot_1.png",
+    "description": "Игроки участвуют в гонках за персонажей Looney Tunes, используя систему цветных жетонов для применения усилений. Гонки усложняются опасностями на трассе: проезд через ворота вызывает случайные события, мешающие соперникам. Доступны как одиночные, так и многопользовательские режимы.",
+    "torrent_url": "magnet:?xt=urn:btih:15bd6b8fbaebcf78eb1215c440a2a8a5e49ae9dd&dn=Looney_Tunes_3_in_1%5bRUS%5d%5bTorrents.ru%5d.rar&tr=http%3a%2f%2fbt.t-ru.org%2fann&tr=http%3a%2f%2fretracker.local%2fannounce",
+    "preset": "looney tunes racing.json",
+    "size_bytes": 492830720,
+    "year": "2000",
+    "language": "Русский",
+    "developer": "Infogrames",
+    "genre": "Гонки",
+    "rating": "6.6/10"
   }
 ]

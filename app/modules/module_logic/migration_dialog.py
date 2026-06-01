@@ -10,7 +10,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QTextCursor
 import logging
 
-logger = logging.getLogger('ArcadeDeck.MigrationDialog')
+logger = logging.getLogger('Модуль миграции данных')
 
 class MigrationWorker(QThread):
     """Поток для выполнения перемещения файлов"""
@@ -104,7 +104,7 @@ class MigrationDialog(QDialog):
 
         # Заголовок
         title = QLabel("Перемещение данных")
-        title.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        title.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
@@ -124,7 +124,7 @@ class MigrationDialog(QDialog):
         # Текстовое поле для логов
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
-        self.log_text.setFont(QFont("Courier", 9))
+        self.log_text.setFont(QFont("Courier", 12))
         layout.addWidget(self.log_text)
 
         # Кнопка отмены

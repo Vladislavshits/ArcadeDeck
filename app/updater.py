@@ -1,13 +1,10 @@
-#!/usr/bin/env python3
-# app/updater.py
-
 # Импорты стандартных библиотек Python
 import sys
 import os
 import hashlib
 import json
 import logging
-logger = logging.getLogger('Updater')
+logger = logging.getLogger('Модуль обновления ПО')
 import re
 import shutil
 import subprocess
@@ -42,15 +39,16 @@ enforce_virtualenv()
 from core import APP_VERSION, STYLES_DIR, THEME_FILE
 from settings import app_settings
 from app.ui_assets.theme_manager import theme_manager
+from navigation import NavigationController, NavigationLayer
 
 # Настройки пользователя
-CONFIG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app", "config")
+CONFIG_DIR = os.path.join(os.path.expanduser("~"), "ArcadeDeck", "app", "config")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "updater.json")
 
 
 class Updater(QObject):
+    UPDATE_CACHE_FILE = os.path.join(CONFIG_DIR, "update_check_cache.json")
     update_available = pyqtSignal(dict)
-    update_check_complete = pyqtSignal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -62,6 +60,43 @@ class Updater(QObject):
 
         self.update_channel = "stable"  # По умолчанию стабильный канал
         self.latest_info = None
+
+    def should_check_for_updates(self):
+        """Проверяет, нужно ли делать запрос на GitHub"""
+        if not os.path.exists(self.UPDATE_CACHE_FILE):
+            return True
+
+        try:
+            with open(self.UPDATE_CACHE_FILE, 'r', encoding='utf-8') as f:
+                cache = json.load(f)
+
+            last_check_str = cache.get("last_check")
+            if not last_check_str:
+                return True
+
+            last_check = datetime.fromisoformat(last_check_str.replace('Z', '+00:00'))
+            hours_since_check = (datetime.now().astimezone() - last_check).total_seconds() / 3600
+
+            # Проверяем не чаще, чем раз в 6 часов
+            return hours_since_check >= 6
+
+        except Exception as e:
+            logger.debug(f"Ошибка чтения кеша обновлений: {e}")
+            return True
+
+    def save_update_check_cache(self, latest_version=None):
+        """Сохраняет время последней проверки"""
+        data = {
+            "last_check": datetime.now().astimezone().isoformat(),
+            "latest_version": latest_version or APP_VERSION.lstrip('v'),
+            "channel": self.update_channel
+        }
+        try:
+            os.makedirs(CONFIG_DIR, exist_ok=True)
+            with open(self.UPDATE_CACHE_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f)
+        except Exception as e:
+            logger.debug(f"Не удалось сохранить кеш обновлений: {e}")
 
     def set_update_channel(self, channel):
         """Устанавливает канал обновлений (stable/beta)"""
@@ -92,11 +127,16 @@ class Updater(QObject):
 
     def check_for_updates(self):
         """Проверяет наличие обновлений с учетом выбранного канала"""
+        # ← НОВАЯ ПРОВЕРКА
+        if not self.should_check_for_updates():
+            logger.debug("Проверка обновлений пропущена (недавно уже проверяли)")
+            return None
+
         try:
             skipped_versions = self.get_skip_config()
             update_info = None
             latest_version = None
-            app_version = version.parse(APP_VERSION.lstrip('v'))  # Инициализируем здесь!
+            app_version = version.parse(APP_VERSION.lstrip('v'))
 
             # Для стабильной версии
             if not self.is_beta:
@@ -105,7 +145,8 @@ class Updater(QObject):
                     f"{self.github_repo}/releases/latest"
                 )
 
-                response = requests.get(latest_url, timeout=15)
+                # ← Таймаут снижен до 5 секунд!
+                response = requests.get(latest_url, timeout=5)
                 response.raise_for_status()
                 latest_release = response.json()
 
@@ -113,6 +154,7 @@ class Updater(QObject):
 
                 if latest_version in skipped_versions:
                     logger.debug(f"Версия {latest_version} пропущена пользователем")
+                    self.save_update_check_cache()  # ← сохраняем кеш
                     return None
 
                 latest_version_parsed = version.parse(latest_version)
@@ -156,7 +198,8 @@ class Updater(QObject):
                 releases_url = (
                     f"https://api.github.com/repos/{self.github_repo}/releases"
                 )
-                response = requests.get(releases_url, timeout=15)
+
+                response = requests.get(releases_url, timeout=3)
                 response.raise_for_status()
                 releases = response.json()
 
@@ -167,6 +210,7 @@ class Updater(QObject):
 
                 if not beta_releases:
                     logger.debug("Нет доступных бета-релизов")
+                    self.save_update_check_cache()  # ← сохраняем кеш
                     return None
 
                 sorted_releases = sorted(
@@ -182,6 +226,7 @@ class Updater(QObject):
                     logger.debug(
                         f"Бета-версия {latest_version} пропущена пользователем"
                         )
+                    self.save_update_check_cache()  # ← сохраняем кеш
                     return None
 
                 latest_version_parsed = version.parse(latest_version)
@@ -215,60 +260,31 @@ class Updater(QObject):
                                 ),
                             }
 
+            # Если найдено обновление - отправляем сигнал
             if update_info:
                 logger.info(f"Найдено обновление: {update_info['version']}")
                 self.latest_info = update_info
+                self.save_update_check_cache(latest_version)  # ← сохраняем с новой версией
                 self.update_available.emit(update_info)
-                self.update_check_complete.emit(True)  # Отправляем сигнал
                 return update_info
             else:
                 self.latest_info = None
                 logger.debug("Подходящих обновлений не найдено")
-                self.update_check_complete.emit(False)  # Отправляем сигнал
+                self.save_update_check_cache()  # ← сохраняем кеш
                 return None
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Ошибка сети при проверке обновлений: {e}")
-            self.update_check_complete.emit(False)  # Отправляем сигнал
+        except requests.exceptions.Timeout:
+            logger.info("Таймаут при проверке обновлений — пропускаем")
+            self.save_update_check_cache()  # ← всё равно обновляем кеш!
+            return None
+        except requests.exceptions.ConnectionError:
+            logger.info("Нет интернета — проверка обновлений пропущена")
+            self.save_update_check_cache()
             return None
         except Exception as e:
             logger.error(f"Неизвестная ошибка при проверке обновлений: {e}")
-            self.update_check_complete.emit(False)  # Отправляем сигнал
+            self.save_update_check_cache()  # ← важно!
             return None
-
-    def format_changelog_text(self, text):
-        """Форматирует текст changelog из Markdown в читаемый вид"""
-        if not text:
-            return "Нет информации об изменениях"
-
-        formatted_text = text
-
-        # Обрабатываем эмодзи и заголовки
-        lines = []
-        for line in formatted_text.split('\n'):
-            # Пропускаем пустые строки
-            if not line.strip():
-                continue
-
-            # Обрабатываем строки с эмодзи (делаем их заголовками)
-            if any(emoji in line for emoji in ['🚀', '⚡', '📊', '🔧', '🐛']):
-                # Это заголовок с эмодзи - делаем жирным и добавляем отступы
-                lines.append('')  # Пустая строка перед заголовком
-                lines.append(line.strip())
-                lines.append('')  # Пустая строка после заголовка
-            elif line.strip().startswith(('•', '-', '*')):
-                # Элемент списка
-                lines.append(f"  {line.strip()}")
-            else:
-                # Обычный текст
-                lines.append(line.strip())
-
-        formatted_text = '\n'.join(lines)
-
-        # Убираем лишние пустые строки (оставляем максимум 2 подряд)
-        formatted_text = re.sub(r'\n{3,}', '\n\n', formatted_text)
-
-        return formatted_text.strip()
 
     def get_skip_config(self):
         """Возвращает список пропущенных версий из конфига"""
@@ -387,69 +403,42 @@ class UpdateDownloaderThread(QThread):
 
 class UpdateDialog(QDialog):
     def __init__(self, current_version, new_version, changelog,
-                 download_url, install_dir, asset_name, parent=None):
+                 download_url, install_dir, asset_name, parent=None, nav_controller=None):
         super().__init__(parent)
+        self.nav_controller = nav_controller  # ← Сохраняем
         self.setWindowTitle("Доступно обновление!")
-        self.setMinimumSize(600, 500)  # Увеличим минимальный размер
+        self.setMinimumSize(500, 400)
         self.download_url = download_url
         self.new_version = new_version
         self.install_dir = install_dir
         self.asset_name = asset_name
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(15)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setContentsMargins(20, 20, 20, 20)  # ← Отступы
 
-        # Заголовок
         title = QLabel(f"Доступна новая версия: {new_version}")
-        title_font = QFont("Arial", 20, QFont.Weight.Bold)
-        title.setFont(title_font)
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setFont(QFont("Arial", 18, QFont.Weight.Bold))
         layout.addWidget(title)
 
-        # Текущая версия
         current_label = QLabel(f"Текущая версия: {current_version}")
-        current_font = QFont("Arial", 14)
-        current_label.setFont(current_font)
-        current_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        current_label.setFont(QFont("Arial", 14))
         layout.addWidget(current_label)
 
         layout.addSpacing(20)
 
-        # Заголовок changelog
         changelog_label = QLabel("Изменения в новой версии:")
-        changelog_label_font = QFont("Arial", 16, QFont.Weight.Bold)
-        changelog_label.setFont(changelog_label_font)
+        changelog_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         layout.addWidget(changelog_label)
 
-        # Область текста changelog
         self.changelog_area = QTextEdit()
         self.changelog_area.setReadOnly(True)
         self.changelog_area.setPlainText(changelog)
-
-        # Устанавливаем стили для текстового поле
-        self.changelog_area.setStyleSheet("""
-            QTextEdit {
-                background-color: transparent;
-                border: 1px solid palette(mid);
-                border-radius: 8px;
-                padding: 10px;
-                font-size: 14px;
-            }
-        """)
-
         layout.addWidget(self.changelog_area, 1)
 
-        # Кнопки
         button_layout = QHBoxLayout()
         self.later_button = QPushButton("Напомнить позже")
         self.skip_button = QPushButton("Пропустить эту версию")
         self.install_button = QPushButton("Установить обновление")
-
-        # Устанавливаем минимальные размеры кнопок
-        for button in [self.later_button, self.skip_button, self.install_button]:
-            button.setMinimumSize(150, 40)
-
         button_layout.addWidget(self.later_button)
         button_layout.addWidget(self.skip_button)
         button_layout.addWidget(self.install_button)
@@ -463,30 +452,37 @@ class UpdateDialog(QDialog):
         # Применяем текущую тему
         self.apply_theme(theme_manager.current_theme)
 
+        if self.nav_controller:
+            self.integrate_with_navigation()
+
+    def integrate_with_navigation(self):
+            """Подключает кнопки к NavigationController"""
+            if not self.nav_controller:
+                return
+
+            buttons = [self.later_button, self.skip_button, self.install_button]
+            self.nav_controller.switch_layer(NavigationLayer.DIALOG)
+            self.nav_controller.register_widgets(NavigationLayer.DIALOG, buttons)
+            self.nav_controller.set_focus(NavigationLayer.DIALOG, 0)
+            self.nav_controller.update_hints()
+
+            # При закрытии — возврат на MAIN
+            def on_finished():
+                if self.nav_controller.current_layer == NavigationLayer.DIALOG:
+                    self.nav_controller.return_to_previous_layer()
+            self.finished.connect(on_finished)
+
     def apply_theme(self, theme_name):
-        """Применяет указанную тему к диалогу и всем дочерним виджетам"""
+        """Применяет указанную тему к диалогу"""
         try:
             # Устанавливаем свойство класса для самого диалога
             self.setProperty("class", f"{theme_name}-theme")
 
-            # Рекурсивно применяем свойство ко всем дочерним виджетам
-            def apply_to_children(widget):
-                for child in widget.findChildren(QWidget):
-                    child.setProperty("class", f"{theme_name}-theme")
-                    apply_to_children(child)
-
-            apply_to_children(self)
-
-            # Принудительно обновляем стили
-            self.style().unpolish(self)
-            self.style().polish(self)
-            self.update()
-
+            # Применяем стили ко всем виджетам в диалоге
             for widget in self.findChildren(QWidget):
                 widget.style().unpolish(widget)
                 widget.style().polish(widget)
                 widget.update()
-
         except Exception as e:
             print(f"Ошибка применения темы в диалоге обновления: {e}")
 
@@ -517,6 +513,9 @@ class UpdateDialog(QDialog):
             json.dump({'skipped_versions': skipped_versions}, f)
 
         self.reject()
+
+        if self.nav_controller:
+            self.nav_controller.return_to_previous_layer()
 
     def start_download(self):
         """Начинает процесс скачивания и установки"""
@@ -564,6 +563,9 @@ class UpdateDialog(QDialog):
         """Вызывается при успешной установке"""
         self.progress_dialog.close()
         self.accept()
+
+        if self.nav_controller:
+            self.nav_controller.return_to_previous_layer()
 
         # Показываем сообщение об успехе
         QMessageBox.information(
@@ -615,97 +617,87 @@ class UpdateDialog(QDialog):
                 "вручную для применения обновлений."
             )
 
+    def run_updater(dark_theme=None, current_version=None):
+        try:
+            app = QApplication(sys.argv)
 
-def run_updater(dark_theme=None, current_version=None):
-    """Функция для запуска обновления (вынесена из класса)"""
-    try:
-        app = QApplication(sys.argv)
+            # Инициализация темы до загрузки стилей
+            app_settings._ensure_settings()
+            current_theme = app_settings.get_theme()
 
-        # Инициализация темы до загрузки стилей
-        app_settings._ensure_settings()
-        current_theme = app_settings.get_theme()
+            # Применяем тему к приложению
+            app.setProperty("class", f"{current_theme}-theme")
 
-        # Применяем тему к приложению
-        app.setProperty("class", f"{current_theme}-theme")
+            # Загрузка и применение стилей
+            with open(THEME_FILE, 'r', encoding='utf-8') as f:
+                stylesheet = f.read()
+                app.setStyleSheet(stylesheet)
 
-        # Загрузка и применение стилей
-        with open(THEME_FILE, 'r', encoding='utf-8') as f:
-            stylesheet = f.read()
-            app.setStyleSheet(stylesheet)
+            # Инициализируем менеджер тем
+            theme_manager.set_theme(current_theme)
 
-        # Инициализируем менеджер тем
-        theme_manager.set_theme(current_theme)
+            # Если версия не передана, используем из common
+            if current_version is None:
+                current_version = APP_VERSION
 
-        # Если версия не передана, используем из common
-        if current_version is None:
-            current_version = APP_VERSION
-
-        # Диагностический вывод
-        print(f"Запуск обновления с параметрами:")
-        print(f"Тема: {'Тёмная' if dark_theme else 'Светлая'}")
-        print(f"Текущая версия: {current_version}")
-        mode = (
-            'BETA' if 'beta' in current_version.lower() else 'Стабильный'
-        )
-        print(f"Режим: {mode}")
-
-        # Определяем директорию установки
-        install_dir = (
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
-
-        updater = Updater()
-        update_info = updater.check_for_updates()
-
-        if update_info:
-            latest_version = update_info['version']
-            # Используем метод format_changelog_text
-            changelog = updater.format_changelog_text(update_info['release'].get("body", ""))
-            download_url = update_info['download_url']
-            asset_name = update_info['asset_name']
-
-            print(f"[DEBUG] Найдено обновление: {latest_version}")
-            dialog = UpdateDialog(
-                current_version,
-                latest_version,
-                changelog,
-                download_url,
-                install_dir,
-                asset_name
+            # Диагностический вывод
+            print(f"Запуск обновления с параметрами:")
+            print(f"Тема: {'Тёмная' if dark_theme else 'Светлая'}")
+            print(f"Текущая версия: {current_version}")
+            mode = (
+                'BETA' if 'beta' in current_version.lower() else 'Стабильный'
             )
-            dialog.exec()
-        else:
-            # Если обновлений нет, сразу закрываем приложение
-            print("Обновлений не найдено")
-            QMessageBox.information(
-                None,
-                "Обновлений нет",
-                "У вас уже установлена самая последняя версия ArcadeDeck."
+            print(f"Режим: {mode}")
+
+            # Определяем директорию установки
+            install_dir = (
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             )
 
-    except Exception as e:
-        print(f"Критическая ошибка в updater: {e}")
+            updater = Updater()
+            update_info = updater.check_for_updates()
 
+            if update_info:
+                latest_version = update_info['version']
+                changelog = (
+                            update_info['release'].get(
+                                "body", "Нет информации об изменениях")
+                                )
+                download_url = update_info['download_url']
+                asset_name = update_info['asset_name']
 
-if __name__ == "__main__":
-    # Парсинг аргументов по умолчанию
-    dark_theme = False
-    current_version = None
+                print(f"[DEBUG] Найдено обновление: {latest_version}")
+                dialog = UpdateDialog(
+                    current_version,
+                    latest_version,
+                    changelog,
+                    download_url,
+                    install_dir,
+                    asset_name
+                )
+                dialog.exec()
+        except Exception as e:
+            print(f"Критическая ошибка в updater: {e}")
 
-    # Обработка аргументов командной строки
-    args = sys.argv[1:]  # Пропускаем первый аргумент (имя скрипта)
-
-    # Определение темы интерфейса
-    if "--dark" in args:
-        dark_theme = True
-    if "--light" in args:
+    if __name__ == "__main__":
+        # Парсинг аргументов по умолчанию
         dark_theme = False
+        current_version = None
 
-    # Поиск версии в аргументах
-    for arg in args:
-        if arg.startswith("--current-version="):
-            # Разделяем аргумент по знаку '=' и берем вторую часть
-            current_version = arg.split('=', 1)[1]
+        # Обработка аргументов командной строки
+        args = sys.argv[1:]  # Пропускаем первый аргумент (имя скрипта)
 
-    # Запуск основного процесса обновления
-    run_updater(dark_theme, current_version)
+        # Определение темы интерфейса
+        if "--dark" in args:
+            dark_theme = True
+        if "--light" in args:
+            dark_theme = False
+
+        # Поиск версии в аргументах
+        for arg in args:
+            if arg.startswith("--current-version="):
+                # Разделяем аргумент по знаку '=' и берем вторую часть
+                current_version = arg.split('=', 1)[1]
+
+        # Запуск основного процесса обновления
+        run_updater(dark_theme, current_version)

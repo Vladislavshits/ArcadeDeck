@@ -8,26 +8,18 @@ from PyQt6.QtWidgets import QApplication
 
 logger = logging.getLogger('Модуль путей')
 
-APP_VERSION = "0.1.95-beta"
+APP_VERSION = "0.2.00-beta"
 USER_HOME = os.path.expanduser("~")
 
-# Определяем базовые пути
-if getattr(sys, 'frozen', False):
-    # Для собранного приложения (PyInstaller)
-    BASE_DIR = os.path.dirname(sys.executable)
-else:
-    # Для запуска из исходников
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
 # Пути к корню проекта
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = Path(__file__).resolve().parent
 
 # Определяем путь к виртуальному окружению
 VENV_PATH = os.path.join(BASE_DIR, "app", "venv")
 
 # Пути к модулям программы
-STYLES_DIR = os.path.join(BASE_DIR, "app", "ui_assets")
-THEME_FILE = os.path.join(STYLES_DIR, "theme.qs5")
+STYLES_DIR = os.path.join(BASE_DIR, "ui_assets")
+THEME_FILE = os.path.join(STYLES_DIR, "theme.qss")
 
 # Путь к конфигурации настроек
 CONFIG_DIR = os.path.join(BASE_DIR, "app", "config")

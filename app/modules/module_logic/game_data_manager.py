@@ -7,6 +7,7 @@ from typing import Dict, List, Any, Optional
 # Импорт путей к игровым данным
 from core import get_users_path
 from core import get_users_subpath
+from .game_art_manager import GameArtManager
 
 logger = logging.getLogger('GameData')
 
@@ -16,6 +17,7 @@ class GameDataManager:
     def __init__(self, project_root: Path):
         self.project_root = project_root
         self.registry_games_file = project_root / 'app' / 'registry' / 'registry_games.json'
+        self.art_manager = GameArtManager(project_root)
 
         # Каталог к реестру установленных игр
         users_path = Path(get_users_path())
@@ -56,6 +58,15 @@ class GameDataManager:
         except Exception as e:
             logger.error(f"[GameData] ❌ Ошибка загрузки установленных игр: {e}")
         return {}
+
+    def _enrich_game_data(self, game_data: Dict) -> Dict:
+        platform = game_data.get('platform')
+        title = game_data.get('title')
+        if platform and title:
+            cover_path = self.art_manager.get_cover_path(platform, title)
+            if cover_path:
+                game_data['cover_path'] = cover_path
+        return game_data
 
     def get_platform_formats(self, platform: str) -> List[str]:
         """Возвращает поддерживаемые форматы для платформы"""
@@ -249,6 +260,13 @@ class GameDataManager:
 
         logger.info(f"[GameData] 📚 Всего доступных игр в реестре: {len(result)}")
         return result
+
+    def add_installed_game(self, game_id: str, installed_info: Dict[str, Any]):
+        self.installed_games[game_id] = installed_info
+        self.installed_games_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.installed_games_file, 'w', encoding='utf-8') as f:
+            json.dump(self.installed_games, f, ensure_ascii=False, indent=2)
+        logger.info(f"[GameData] Добавлена установленная игра: {game_id}")
 
 # Глобальный экземпляр
 _game_data_manager = None
